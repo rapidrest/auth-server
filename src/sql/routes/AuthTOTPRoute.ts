@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthTOTPRouteSQL } from "@rapidrest/auth/sql";
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/sql/auth/totp")
+@ApiRoute("/auth/totp")
 export class AuthTOTPRoute extends BaseAuthTOTPRouteSQL {}

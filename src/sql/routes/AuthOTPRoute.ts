@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthOTPRouteSQL } from "@rapidrest/auth/sql";
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/sql/auth/otp")
+@ApiRoute("/auth/otp")
 export class AuthOTPRoute extends BaseAuthOTPRouteSQL {}

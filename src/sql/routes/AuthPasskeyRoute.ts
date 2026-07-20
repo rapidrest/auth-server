@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthPasskeyRouteSQL } from "@rapidrest/auth/sql";
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/sql/auth/passkey")
+@ApiRoute("/auth/passkey")
 export class AuthPasskeyRoute extends BaseAuthPasskeyRouteSQL {}

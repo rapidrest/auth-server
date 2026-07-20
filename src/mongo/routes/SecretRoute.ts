@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseSecretRouteMongo } from "@rapidrest/auth/mongo";
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/mongo/secrets")
+@ApiRoute("/secrets")
 export class SecretRoute extends BaseSecretRouteMongo {}

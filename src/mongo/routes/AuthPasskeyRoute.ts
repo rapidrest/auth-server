@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthPasskeyRouteMongo } from "@rapidrest/auth/mongo";
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/mongo/auth/passkey")
+@ApiRoute("/auth/passkey")
 export class AuthPasskeyRoute extends BaseAuthPasskeyRouteMongo {}

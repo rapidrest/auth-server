@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseAliasRouteMongo } from "@rapidrest/auth/mongo";
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/mongo/aliases")
+@ApiRoute("/aliases")
 export class AliasRoute extends BaseAliasRouteMongo {}

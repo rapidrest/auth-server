@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthMFARouteMongo } from "@rapidrest/auth/mongo";
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/mongo/auth/mfa")
+@ApiRoute("/auth/mfa")
 export class AuthMFARoute extends BaseAuthMFARouteMongo {}

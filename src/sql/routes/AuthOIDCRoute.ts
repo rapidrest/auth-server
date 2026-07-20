@@ -6,9 +6,9 @@ import { BaseAuthOIDCRouteSQL } from "@rapidrest/auth/sql";
 import { OIDCProvider } from "@rapidrest/auth";
 import { ObjectDecorators } from "@rapidrest/core";
 const { Config } = ObjectDecorators;
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/sql/auth/oidc")
+@ApiRoute("/auth/oidc")
 export class AuthOIDCRoute extends BaseAuthOIDCRouteSQL {
     @Config("auth:oidc")
     protected providerConfig: OIDCProvider = {

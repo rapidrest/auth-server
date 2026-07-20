@@ -3,8 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseProfileRouteSQL, ProfileSQL } from "@rapidrest/auth/sql";
-const { Model, Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Model(ProfileSQL)
-@Route("/sql/profiles")
+@ApiRoute("/profiles")
 export class ProfileRoute extends BaseProfileRouteSQL {}

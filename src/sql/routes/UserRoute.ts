@@ -3,8 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { UserSQL, BaseUserRouteSQL } from "@rapidrest/auth/sql";
 import { RouteDecorators } from "@rapidrest/service-core";
-const { Model, Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Model(UserSQL)
-@Route("/sql/users")
+@ApiRoute("/users")
 export class UserRoute extends BaseUserRouteSQL {}

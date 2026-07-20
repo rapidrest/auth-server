@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthFIDO2RouteMongo } from "@rapidrest/auth/mongo";
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/mongo/auth/fido2")
+@ApiRoute("/auth/fido2")
 export class AuthFIDO2Route extends BaseAuthFIDO2RouteMongo {}

@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthFIDO2RouteSQL } from "@rapidrest/auth/sql";
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/sql/auth/fido2")
+@ApiRoute("/auth/fido2")
 export class AuthFIDO2Route extends BaseAuthFIDO2RouteSQL {}

@@ -6,9 +6,9 @@ import { BaseAuthOIDCRouteMongo } from "@rapidrest/auth/mongo";
 import { OIDCProvider } from "@rapidrest/auth";
 import { ObjectDecorators } from "@rapidrest/core";
 const { Config } = ObjectDecorators;
-const { Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Route("/mongo/auth/oidc")
+@ApiRoute("/auth/oidc")
 export class AuthOIDCRoute extends BaseAuthOIDCRouteMongo {
     @Config("auth:oidc")
     protected providerConfig: OIDCProvider = {

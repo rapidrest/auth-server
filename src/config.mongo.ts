@@ -15,6 +15,8 @@ const conf = nconf
         parseValues: true,
     });
 
+conf.use("memory");
+
 conf.defaults({
     service_name: packageInfo.name,
     version: packageInfo.version,

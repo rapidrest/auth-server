@@ -3,8 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { BaseSecretRouteSQL, SecretSQL } from "@rapidrest/auth/sql";
 import { RouteDecorators } from "@rapidrest/service-core";
-const { Model, Route } = RouteDecorators;
+const { ApiRoute } = RouteDecorators;
 
-@Model(SecretSQL)
-@Route("/sql/secrets")
+@ApiRoute("/secrets")
 export class SecretRoute extends BaseSecretRouteSQL {}
