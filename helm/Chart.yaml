@@ -1,0 +1,25 @@
+apiVersion: v2
+description: Installs  into a Kubernetes cluster
+name: 
+version: 1.0.0
+dependencies:
+
+- name: mongodb
+  repository: "@bitnami"
+  version: ~18.4.4
+  condition: mongodb.create
+  tags:
+    - dbs
+    - mongodb
+  alias: mongodb
+
+
+- name: redis
+  version: ~24.1.3
+  repository: "@bitnami"
+  condition: redis.create
+  tags:
+    - cache
+    - redis
+  alias: redis
+

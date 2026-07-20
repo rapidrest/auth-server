@@ -1,0 +1,12 @@
+{
+  "extends": "@rapidrest/service-core/tsconfig",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "sourceMap": false,
+    "declaration": false
+  },
+  "include": [
+    "src"
+  ]
+}

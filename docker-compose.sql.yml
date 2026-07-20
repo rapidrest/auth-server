@@ -1,0 +1,24 @@
+services:
+    server:
+        build:
+            context: .
+        ports:
+            - "3000:3000"
+            - "9229:9229"
+        environment:
+            - datastores__acl__url=postgres://postgres
+            - datastores__cache__type=redis
+            - datastores__cache__url=redis://redis
+            - datastores__events__type=redis
+            - datastores__events__url=redis://redis
+            - datastores__logs__type=redis
+            - datastores__logs__url=redis://redis
+            - datastores__sql__url=postgres://postgres
+            - NODE_ENV=dev
+        links:
+            - redis
+            - postgres
+    redis:
+        image: redis
+    postgres:
+        image: postgres

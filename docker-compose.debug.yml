@@ -1,0 +1,9 @@
+services:
+    server:
+        command: ["npx", "rapidreact", "dev"]
+        ports:
+            - "3000:3000"
+            - "9229:9229"
+        volumes:
+            - ./app:/app/app
+            - ./src:/app/src
