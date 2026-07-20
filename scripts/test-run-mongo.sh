@@ -1,5 +1,5 @@
 #!/bin/bash
-docker compose up .. -d --build
+docker compose up .. -f ../docker-compose.mongo.yml -d --build
 startTime=`date +%s`
 
 status=`docker compose ps | grep server-1 | grep 'Up' | grep '(healthy)' | wc -l`
