@@ -15,7 +15,7 @@ import * as path from "path";
 const _filename = fileURLToPath(import.meta.url);
 const _dirname = dirname(_filename);
 
-const isMongo: boolean = !!!process.env.datastores__mongo__url;
+const isMongo: boolean = !!process.env.datastores__mongo__url;
 const config:any = (isMongo ? await import("./config.mongo.js") : await import("./config.sql.js")).default;
 
 const logLevel: string = config.get("logger:level") || (process.env.environment === "production" ? "info" : "debug");
