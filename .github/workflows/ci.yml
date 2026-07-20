@@ -107,7 +107,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run test-run-mongo.sh
-        run: bash ./test-run-mongo.sh
+        run: bash ./scripts/test-run-mongo.sh
 
   test-run-sql:
     runs-on: ubuntu-latest
@@ -115,7 +115,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run test-run-sql.sh
-        run: bash ./test-run-sql.sh
+        run: bash ./scripts/test-run-sql.sh
   validate:
     runs-on: ubuntu-latest
     needs: build
