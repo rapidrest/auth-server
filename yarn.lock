@@ -1405,9 +1405,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/cli@npm:^0.4.0":
-  version: 0.4.0
-  resolution: "@rapidrest/cli@npm:0.4.0"
+"@rapidrest/cli@npm:^0.18.0":
+  version: 0.18.0
+  resolution: "@rapidrest/cli@npm:0.18.0"
   dependencies:
     "@inquirer/prompts": "npm:^8.5.2"
     "@oclif/core": "npm:^4"
@@ -1421,10 +1421,11 @@ __metadata:
     redis-memory-server: "npm:^0.17.0"
     semver: "npm:^7.8.5"
     tmp: "npm:^0.2.7"
+    yauzl: "npm:^3.2.0"
   bin:
     rapidrest: bin/run.js
     rr: bin/run.js
-  checksum: 10c0/31bfb2c177c6d105bad06a1209c2f4df790b719c0b3d88d34a7c3873a3922ae43c59a57bde14834e5b4b23ae3bba1e4b6ed731024ed0edc80c3fe3c6104ee0e8
+  checksum: 10c0/81e0f33105d0fa15e11db0bb97733d23af2eb1f409a5ce5f3975733a63f9935d8808335cff7f4b93d9ef730fb80a26ad3406e185ad2689cec67a896cc13c1f00
   languageName: node
   linkType: hard
 
@@ -2739,7 +2740,7 @@ __metadata:
   resolution: "auth-server@workspace:."
   dependencies:
     "@rapidrest/auth": "npm:^1.0.0-beta.1"
-    "@rapidrest/cli": "npm:^0.4.0"
+    "@rapidrest/cli": "npm:^0.18.0"
     "@rapidrest/core": "npm:^1.9.0"
     "@rapidrest/react": "npm:^0.8.0"
     "@rapidrest/service-core": "npm:^1.0.0-rc.25"
@@ -9688,7 +9689,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yauzl@npm:^3.3.1":
+"yauzl@npm:^3.2.0, yauzl@npm:^3.3.1":
   version: 3.4.0
   resolution: "yauzl@npm:3.4.0"
   dependencies:
