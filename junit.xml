@@ -1,1149 +1,1165 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="vitest tests" tests="6" failures="0" errors="0" time="7.7403387">
-    <testsuite name="test/Server.mongo.test.ts" timestamp="2026-07-20T05:09:22.018Z" hostname="Jane" tests="3" failures="0" errors="0" skipped="0" time="3.9708492">
-        <testcase classname="test/Server.mongo.test.ts" name="Server Tests &gt; Can start server." time="1.4100602">
+<testsuites name="vitest tests" tests="6" failures="0" errors="0" time="8.1623052">
+    <testsuite name="test/Server.mongo.test.ts" timestamp="2026-07-22T06:36:35.230Z" hostname="Jane" tests="3" failures="0" errors="0" skipped="0" time="4.1330863">
+        <testcase classname="test/Server.mongo.test.ts" name="Server Tests &gt; Can start server." time="1.4528276">
             <system-out>
-2026-07-20T05:09:13.366Z [32minfo[39m: Starting server...
+2026-07-22T06:36:26.344Z [32minfo[39m: Starting server...
 
-2026-07-20T05:09:13.367Z [32minfo[39m: Registering class OpenApiSpec
-2026-07-20T05:09:13.367Z [34mdebug[39m: Creating new instance of class [OpenApiSpec] with name [OpenApiSpec:default]
+2026-07-22T06:36:26.345Z [32minfo[39m: Registering class OpenApiSpec
+2026-07-22T06:36:26.345Z [34mdebug[39m: Creating new instance of class [OpenApiSpec] with name [OpenApiSpec:default]
 
-2026-07-20T05:09:13.368Z [32minfo[39m: Registering class ConnectionManager
-2026-07-20T05:09:13.368Z [34mdebug[39m: Creating new instance of class [ConnectionManager] with name [ConnectionManager:default]
+2026-07-22T06:36:26.346Z [32minfo[39m: Registering class ConnectionManager
+2026-07-22T06:36:26.346Z [34mdebug[39m: Creating new instance of class [ConnectionManager] with name [ConnectionManager:default]
 
-2026-07-20T05:09:13.368Z [32minfo[39m: Loading all service classes...
+2026-07-22T06:36:26.346Z [32minfo[39m: Loading all service classes...
 
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.AdminRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.AliasRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.AuthBasicRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.AuthFIDO2Route
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.AuthMFARoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.AuthOIDCRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.AuthOTPRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.AuthPasskeyRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.AuthTOTPRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.MetricsRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.OpenAPIRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.ProfileRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.SecretRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.StatusRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.UserRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Registering class routes.AppRoute
-2026-07-20T05:09:13.640Z [32minfo[39m: Scanning for data models...
-2026-07-20T05:09:13.641Z [32minfo[39m: Initializing database connection(s)...
-2026-07-20T05:09:13.641Z [32minfo[39m: Connecting to database acl [mongodb://localhost:9999/acls]...
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.AdminRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.AliasRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.AuthBasicRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.AuthFIDO2Route
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.AuthMFARoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.AuthOIDCRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.AuthOTPRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.AuthPasskeyRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.AuthTOTPRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.MetricsRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.OpenAPIRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.ProfileRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.SecretRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.StatusRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.UserRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Registering class routes.AppRoute
+2026-07-22T06:36:26.658Z [32minfo[39m: Scanning for data models...
+2026-07-22T06:36:26.659Z [32minfo[39m: Initializing database connection(s)...
+2026-07-22T06:36:26.659Z [32minfo[39m: Connecting to database acl [mongodb://localhost:9999/acls]...
 
-2026-07-20T05:09:13.674Z [34mdebug[39m: Created collection: access_control_list_mongo
+2026-07-22T06:36:26.690Z [34mdebug[39m: Created collection: access_control_list_mongo
 
-2026-07-20T05:09:13.676Z [34mdebug[39m: Creating index parentUid on collection access_control_list_mongo.
+2026-07-22T06:36:26.691Z [34mdebug[39m: Creating index parentUid on collection access_control_list_mongo.
 
-2026-07-20T05:09:13.679Z [34mdebug[39m: Creating index uid on collection access_control_list_mongo.
+2026-07-22T06:36:26.695Z [34mdebug[39m: Creating index uid on collection access_control_list_mongo.
 
-2026-07-20T05:09:13.682Z [32minfo[39m: Connecting to database cache [redis://localhost]...
-2026-07-20T05:09:13.685Z [32minfo[39m: Connecting to database events [redis://localhost]...
-2026-07-20T05:09:13.685Z [32minfo[39m: Connecting to database logs [redis://localhost]...
-2026-07-20T05:09:13.686Z [32minfo[39m: Connecting to database mongo [mongodb://localhost:9999/rrst_auth]...
+2026-07-22T06:36:26.698Z [34mdebug[39m: Creating index uid_version on collection access_control_list_mongo.
 
-2026-07-20T05:09:13.691Z [32minfo[39m: Successfully connected to all configured databases.
+2026-07-22T06:36:26.701Z [32minfo[39m: Connecting to database cache [redis://localhost]...
+2026-07-22T06:36:26.703Z [32minfo[39m: Connecting to database events [redis://localhost]...
+2026-07-22T06:36:26.704Z [32minfo[39m: Connecting to database logs [redis://localhost]...
+2026-07-22T06:36:26.704Z [32minfo[39m: Connecting to database mongo [mongodb://localhost:9999/rrst_auth]...
 
-2026-07-20T05:09:13.691Z [32minfo[39m: Registering class ACLUtils
-2026-07-20T05:09:13.691Z [34mdebug[39m: Creating new instance of class [ACLUtils] with name [ACLUtils:default]
-2026-07-20T05:09:13.691Z [32minfo[39m: RBAC system is enabled and ready.
+2026-07-22T06:36:26.708Z [32minfo[39m: Successfully connected to all configured databases.
 
-2026-07-20T05:09:13.709Z [32minfo[39m: Registering class SessionManager
-2026-07-20T05:09:13.710Z [34mdebug[39m: Creating new instance of class [SessionManager] with name [SessionManager:default]
-2026-07-20T05:09:13.710Z [32minfo[39m: Session support enabled (store: redis).
+2026-07-22T06:36:26.709Z [32minfo[39m: Registering class ACLUtils
+2026-07-22T06:36:26.709Z [34mdebug[39m: Creating new instance of class [ACLUtils] with name [ACLUtils:default]
+2026-07-22T06:36:26.709Z [32minfo[39m: RBAC system is enabled and ready.
 
-2026-07-20T05:09:13.711Z [32minfo[39m: Registering class RouteUtils
-2026-07-20T05:09:13.711Z [34mdebug[39m: Creating new instance of class [RouteUtils] with name [RouteUtils:default]
-2026-07-20T05:09:13.711Z [32minfo[39m: Registering class AuthMiddleware
-2026-07-20T05:09:13.711Z [34mdebug[39m: Creating new instance of class [AuthMiddleware] with name [AuthMiddleware:default]
-2026-07-20T05:09:13.711Z [32minfo[39m: Registering class ObjectFactory
-2026-07-20T05:09:13.711Z [32minfo[39m: Registering class auth.JWTStrategy
-2026-07-20T05:09:13.711Z [34mdebug[39m: Creating new instance of class [auth.JWTStrategy] with name [auth.JWTStrategy:6cb6d088-6a59-4e1a-89aa-c20bc5f16410]
+2026-07-22T06:36:26.725Z [32minfo[39m: Registering class SessionManager
+2026-07-22T06:36:26.725Z [34mdebug[39m: Creating new instance of class [SessionManager] with name [SessionManager:default]
+2026-07-22T06:36:26.725Z [32minfo[39m: Registering class ObjectFactory
+2026-07-22T06:36:26.726Z [32minfo[39m: Registering class RedisSessionStore
+2026-07-22T06:36:26.726Z [34mdebug[39m: Creating new instance of class [RedisSessionStore] with name [RedisSessionStore:a45bb1de-2099-4e69-a7e3-8453aa1e47ca]
 
-2026-07-20T05:09:13.711Z [32minfo[39m: Starting background services...
-2026-07-20T05:09:13.711Z [32minfo[39m: Registering class BackgroundServiceManager
-2026-07-20T05:09:13.711Z [34mdebug[39m: Creating new instance of class [BackgroundServiceManager] with name [BackgroundServiceManager:default]
+2026-07-22T06:36:26.726Z [32minfo[39m: Session support enabled (store: redis).
 
-2026-07-20T05:09:13.712Z [32minfo[39m: Initializing event manager...
-2026-07-20T05:09:13.712Z [32minfo[39m: Registering class EventListenerManager
-2026-07-20T05:09:13.712Z [34mdebug[39m: Creating new instance of class [EventListenerManager] with name [EventListenerManager:default]
+2026-07-22T06:36:26.726Z [32minfo[39m: Registering class RouteUtils
+2026-07-22T06:36:26.726Z [34mdebug[39m: Creating new instance of class [RouteUtils] with name [RouteUtils:default]
+2026-07-22T06:36:26.726Z [32minfo[39m: Registering class AuthMiddleware
+2026-07-22T06:36:26.726Z [34mdebug[39m: Creating new instance of class [AuthMiddleware] with name [AuthMiddleware:default]
+2026-07-22T06:36:26.726Z [32minfo[39m: Registering class auth.JWTStrategy
+2026-07-22T06:36:26.726Z [34mdebug[39m: Creating new instance of class [auth.JWTStrategy] with name [auth.JWTStrategy:aa8034b4-fba2-4530-8eda-082e89ce9e83]
 
-2026-07-20T05:09:13.713Z [32minfo[39m: Scanning for routes...
-2026-07-20T05:09:13.713Z [34mdebug[39m: Creating new instance of class [routes.AdminRoute] with name [routes.AdminRoute:default]
-2026-07-20T05:09:13.714Z [32minfo[39m: Cache is enabled and ready.
+2026-07-22T06:36:26.727Z [32minfo[39m: Starting background services...
+2026-07-22T06:36:26.727Z [32minfo[39m: Registering class BackgroundServiceManager
+2026-07-22T06:36:26.727Z [34mdebug[39m: Creating new instance of class [BackgroundServiceManager] with name [BackgroundServiceManager:default]
 
-2026-07-20T05:09:13.715Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
-2026-07-20T05:09:13.716Z [32minfo[39m: Registered Route: WS /api/admin/logs
-2026-07-20T05:09:13.716Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
-2026-07-20T05:09:13.716Z [32minfo[39m: Registered Route: GET /api/admin/restart
+2026-07-22T06:36:26.727Z [32minfo[39m: Initializing event manager...
+2026-07-22T06:36:26.727Z [32minfo[39m: Registering class EventListenerManager
+2026-07-22T06:36:26.727Z [34mdebug[39m: Creating new instance of class [EventListenerManager] with name [EventListenerManager:default]
 
-2026-07-20T05:09:13.716Z [34mdebug[39m: Creating new instance of class [routes.AliasRoute] with name [routes.AliasRoute:default]
-2026-07-20T05:09:13.717Z [32minfo[39m: Registering class NotificationUtils
-2026-07-20T05:09:13.717Z [34mdebug[39m: Creating new instance of class [NotificationUtils] with name [NotificationUtils:default]
-2026-07-20T05:09:13.717Z [32minfo[39m: Registering class RepoUtils
-2026-07-20T05:09:13.717Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:AliasMongo]
-2026-07-20T05:09:13.718Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
+2026-07-22T06:36:26.728Z [32minfo[39m: Scanning for routes...
+2026-07-22T06:36:26.728Z [34mdebug[39m: Creating new instance of class [routes.AdminRoute] with name [routes.AdminRoute:default]
+2026-07-22T06:36:26.729Z [32minfo[39m: Cache is enabled and ready.
 
-2026-07-20T05:09:13.724Z [32minfo[39m: Registered Route: HEAD /api/aliases
-2026-07-20T05:09:13.724Z [32minfo[39m: Registered Route: POST /api/aliases
-2026-07-20T05:09:13.725Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
-2026-07-20T05:09:13.725Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
-2026-07-20T05:09:13.725Z [32minfo[39m: Registered Route: GET /api/aliases
-2026-07-20T05:09:13.725Z [32minfo[39m: Registered Route: GET /api/aliases/:id
-2026-07-20T05:09:13.725Z [32minfo[39m: Registered Route: DELETE /api/aliases
-2026-07-20T05:09:13.725Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
-2026-07-20T05:09:13.725Z [32minfo[39m: Registered Route: PUT /api/aliases
-2026-07-20T05:09:13.725Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
+2026-07-22T06:36:26.731Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
+2026-07-22T06:36:26.732Z [32minfo[39m: Registered Route: WS /api/admin/logs
+2026-07-22T06:36:26.732Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
+2026-07-22T06:36:26.732Z [32minfo[39m: Registered Route: GET /api/admin/restart
 
-2026-07-20T05:09:13.726Z [34mdebug[39m: Creating new instance of class [routes.AuthBasicRoute] with name [routes.AuthBasicRoute:default]
-2026-07-20T05:09:13.726Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:SecretMongo]
-2026-07-20T05:09:13.727Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
+2026-07-22T06:36:26.732Z [34mdebug[39m: Creating new instance of class [routes.AliasRoute] with name [routes.AliasRoute:default]
+2026-07-22T06:36:26.733Z [32minfo[39m: Registering class NotificationUtils
+2026-07-22T06:36:26.733Z [34mdebug[39m: Creating new instance of class [NotificationUtils] with name [NotificationUtils:default]
+2026-07-22T06:36:26.733Z [32minfo[39m: Registering class RepoUtils
+2026-07-22T06:36:26.733Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:AliasMongo]
+2026-07-22T06:36:26.734Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
 
-2026-07-20T05:09:13.728Z [32minfo[39m: Registering class UserUtils
-2026-07-20T05:09:13.728Z [34mdebug[39m: Creating new instance of class [UserUtils] with name [UserUtils:default]
+2026-07-22T06:36:26.742Z [32minfo[39m: Registered Route: HEAD /api/aliases
+2026-07-22T06:36:26.742Z [32minfo[39m: Registered Route: POST /api/aliases
+2026-07-22T06:36:26.742Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
+2026-07-22T06:36:26.742Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
+2026-07-22T06:36:26.742Z [32minfo[39m: Registered Route: GET /api/aliases
+2026-07-22T06:36:26.743Z [32minfo[39m: Registered Route: GET /api/aliases/:id
+2026-07-22T06:36:26.743Z [32minfo[39m: Registered Route: DELETE /api/aliases
+2026-07-22T06:36:26.743Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
+2026-07-22T06:36:26.743Z [32minfo[39m: Registered Route: PUT /api/aliases
+2026-07-22T06:36:26.743Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
 
-2026-07-20T05:09:13.729Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:UserMongo]
-2026-07-20T05:09:13.729Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
+2026-07-22T06:36:26.743Z [34mdebug[39m: Creating new instance of class [routes.AuthBasicRoute] with name [routes.AuthBasicRoute:default]
+2026-07-22T06:36:26.744Z [32minfo[39m: Registering class RateLimiter
+2026-07-22T06:36:26.744Z [34mdebug[39m: Creating new instance of class [RateLimiter] with name [RateLimiter:default]
+2026-07-22T06:36:26.744Z [32minfo[39m: Registering class MemoryStore
+2026-07-22T06:36:26.744Z [34mdebug[39m: Creating new instance of class [MemoryStore] with name [MemoryStore:default]
+2026-07-22T06:36:26.744Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:SecretMongo]
+2026-07-22T06:36:26.745Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
 
-2026-07-20T05:09:13.730Z [32minfo[39m: Registering class BasicStrategy
-2026-07-20T05:09:13.730Z [34mdebug[39m: Creating new instance of class [BasicStrategy] with name [BasicStrategy:default]
+2026-07-22T06:36:26.751Z [32minfo[39m: Registering class UserUtils
+2026-07-22T06:36:26.751Z [34mdebug[39m: Creating new instance of class [UserUtils] with name [UserUtils:default]
 
-2026-07-20T05:09:13.730Z [32minfo[39m: Registered Route: GET /api/auth/password
+2026-07-22T06:36:26.752Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:UserMongo]
+2026-07-22T06:36:26.752Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
 
-2026-07-20T05:09:13.731Z [34mdebug[39m: Creating new instance of class [routes.AuthFIDO2Route] with name [routes.AuthFIDO2Route:default]
-2026-07-20T05:09:13.731Z [32minfo[39m: Registering class MessagingUtils
-2026-07-20T05:09:13.731Z [34mdebug[39m: Creating new instance of class [MessagingUtils] with name [MessagingUtils:default]
+2026-07-22T06:36:26.754Z [32minfo[39m: Registering class BasicStrategy
+2026-07-22T06:36:26.754Z [34mdebug[39m: Creating new instance of class [BasicStrategy] with name [BasicStrategy:default]
 
-2026-07-20T05:09:13.731Z [32minfo[39m: Registering class FIDO2Strategy
-2026-07-20T05:09:13.731Z [34mdebug[39m: Creating new instance of class [FIDO2Strategy] with name [FIDO2Strategy:default]
+2026-07-22T06:36:26.754Z [32minfo[39m: Registered Route: GET /api/auth/password
 
-2026-07-20T05:09:13.732Z [32minfo[39m: Registered Route: POST /api/auth/fido2
-2026-07-20T05:09:13.732Z [32minfo[39m: Registered Route: GET /api/auth/fido2
+2026-07-22T06:36:26.755Z [34mdebug[39m: Creating new instance of class [routes.AuthFIDO2Route] with name [routes.AuthFIDO2Route:default]
+2026-07-22T06:36:26.755Z [32minfo[39m: Registering class MessagingUtils
+2026-07-22T06:36:26.755Z [34mdebug[39m: Creating new instance of class [MessagingUtils] with name [MessagingUtils:default]
 
-2026-07-20T05:09:13.732Z [34mdebug[39m: Creating new instance of class [routes.AuthMFARoute] with name [routes.AuthMFARoute:default]
+2026-07-22T06:36:26.755Z [32minfo[39m: Registering class FIDO2Strategy
+2026-07-22T06:36:26.755Z [34mdebug[39m: Creating new instance of class [FIDO2Strategy] with name [FIDO2Strategy:default]
 
-2026-07-20T05:09:13.732Z [32minfo[39m: Registering class MFAStrategy
-2026-07-20T05:09:13.732Z [34mdebug[39m: Creating new instance of class [MFAStrategy] with name [MFAStrategy:default]
+2026-07-22T06:36:26.755Z [32minfo[39m: Registered Route: POST /api/auth/fido2
+2026-07-22T06:36:26.756Z [32minfo[39m: Registered Route: GET /api/auth/fido2
 
-2026-07-20T05:09:13.733Z [32minfo[39m: Registered Route: POST /api/auth/mfa
-2026-07-20T05:09:13.733Z [32minfo[39m: Registered Route: GET /api/auth/mfa
+2026-07-22T06:36:26.756Z [34mdebug[39m: Creating new instance of class [routes.AuthMFARoute] with name [routes.AuthMFARoute:default]
 
-2026-07-20T05:09:13.733Z [34mdebug[39m: Creating new instance of class [routes.AuthOIDCRoute] with name [routes.AuthOIDCRoute:default]
+2026-07-22T06:36:26.756Z [32minfo[39m: Registering class MFAStrategy
+2026-07-22T06:36:26.756Z [34mdebug[39m: Creating new instance of class [MFAStrategy] with name [MFAStrategy:default]
 
-2026-07-20T05:09:13.733Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:ProfileMongo]
-2026-07-20T05:09:13.734Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
+2026-07-22T06:36:26.756Z [32minfo[39m: Registered Route: POST /api/auth/mfa
+2026-07-22T06:36:26.756Z [32minfo[39m: Registered Route: GET /api/auth/mfa
 
-2026-07-20T05:09:13.735Z [32minfo[39m: Registering class OIDCStrategy
-2026-07-20T05:09:13.735Z [34mdebug[39m: Creating new instance of class [OIDCStrategy] with name [OIDCStrategy:default]
+2026-07-22T06:36:26.757Z [34mdebug[39m: Creating new instance of class [routes.AuthOIDCRoute] with name [routes.AuthOIDCRoute:default]
 
-2026-07-20T05:09:13.735Z [32minfo[39m: Registered Route: POST /api/auth/oidc
-2026-07-20T05:09:13.735Z [32minfo[39m: Registered Route: GET /api/auth/oidc
+2026-07-22T06:36:26.757Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:ProfileMongo]
+2026-07-22T06:36:26.757Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
 
-2026-07-20T05:09:13.735Z [34mdebug[39m: Creating new instance of class [routes.AuthOTPRoute] with name [routes.AuthOTPRoute:default]
+2026-07-22T06:36:26.759Z [32minfo[39m: Registering class OIDCStrategy
+2026-07-22T06:36:26.759Z [34mdebug[39m: Creating new instance of class [OIDCStrategy] with name [OIDCStrategy:default]
 
-2026-07-20T05:09:13.736Z [32minfo[39m: Registering class OTPStrategy
-2026-07-20T05:09:13.736Z [34mdebug[39m: Creating new instance of class [OTPStrategy] with name [OTPStrategy:default]
+2026-07-22T06:36:26.760Z [32minfo[39m: Registered Route: POST /api/auth/oidc
+2026-07-22T06:36:26.760Z [32minfo[39m: Registered Route: GET /api/auth/oidc
 
-2026-07-20T05:09:13.736Z [32minfo[39m: Registered Route: POST /api/auth/otp
-2026-07-20T05:09:13.736Z [32minfo[39m: Registered Route: GET /api/auth/otp
+2026-07-22T06:36:26.760Z [34mdebug[39m: Creating new instance of class [routes.AuthOTPRoute] with name [routes.AuthOTPRoute:default]
 
-2026-07-20T05:09:13.736Z [34mdebug[39m: Creating new instance of class [routes.AuthPasskeyRoute] with name [routes.AuthPasskeyRoute:default]
+2026-07-22T06:36:26.760Z [32minfo[39m: Registering class OTPStrategy
+2026-07-22T06:36:26.760Z [34mdebug[39m: Creating new instance of class [OTPStrategy] with name [OTPStrategy:default]
 
-2026-07-20T05:09:13.737Z [32minfo[39m: Registering class PasskeyStrategy
-2026-07-20T05:09:13.737Z [34mdebug[39m: Creating new instance of class [PasskeyStrategy] with name [PasskeyStrategy:default]
+2026-07-22T06:36:26.760Z [32minfo[39m: Registered Route: POST /api/auth/otp
+2026-07-22T06:36:26.761Z [32minfo[39m: Registered Route: GET /api/auth/otp
 
-2026-07-20T05:09:13.737Z [32minfo[39m: Registered Route: POST /api/auth/passkey
-2026-07-20T05:09:13.737Z [32minfo[39m: Registered Route: GET /api/auth/passkey
+2026-07-22T06:36:26.761Z [34mdebug[39m: Creating new instance of class [routes.AuthPasskeyRoute] with name [routes.AuthPasskeyRoute:default]
 
-2026-07-20T05:09:13.737Z [34mdebug[39m: Creating new instance of class [routes.AuthTOTPRoute] with name [routes.AuthTOTPRoute:default]
+2026-07-22T06:36:26.761Z [32minfo[39m: Registering class PasskeyStrategy
+2026-07-22T06:36:26.761Z [34mdebug[39m: Creating new instance of class [PasskeyStrategy] with name [PasskeyStrategy:default]
 
-2026-07-20T05:09:13.738Z [32minfo[39m: Registering class TOTPStrategy
-2026-07-20T05:09:13.738Z [34mdebug[39m: Creating new instance of class [TOTPStrategy] with name [TOTPStrategy:default]
+2026-07-22T06:36:26.761Z [32minfo[39m: Registered Route: POST /api/auth/passkey
+2026-07-22T06:36:26.761Z [32minfo[39m: Registered Route: GET /api/auth/passkey
 
-2026-07-20T05:09:13.738Z [32minfo[39m: Registered Route: POST /api/auth/totp
-2026-07-20T05:09:13.738Z [32minfo[39m: Registered Route: GET /api/auth/totp
+2026-07-22T06:36:26.761Z [34mdebug[39m: Creating new instance of class [routes.AuthTOTPRoute] with name [routes.AuthTOTPRoute:default]
 
-2026-07-20T05:09:13.738Z [34mdebug[39m: Creating new instance of class [routes.MetricsRoute] with name [routes.MetricsRoute:default]
+2026-07-22T06:36:26.762Z [32minfo[39m: Registering class TOTPStrategy
+2026-07-22T06:36:26.762Z [34mdebug[39m: Creating new instance of class [TOTPStrategy] with name [TOTPStrategy:default]
 
-2026-07-20T05:09:13.738Z [32minfo[39m: Registered Route: GET /api/metrics
-2026-07-20T05:09:13.738Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
+2026-07-22T06:36:26.762Z [32minfo[39m: Registered Route: POST /api/auth/totp
+2026-07-22T06:36:26.762Z [32minfo[39m: Registered Route: GET /api/auth/totp
 
-2026-07-20T05:09:13.738Z [34mdebug[39m: Creating new instance of class [routes.OpenAPIRoute] with name [routes.OpenAPIRoute:default]
+2026-07-22T06:36:26.762Z [34mdebug[39m: Creating new instance of class [routes.MetricsRoute] with name [routes.MetricsRoute:default]
 
-2026-07-20T05:09:13.739Z [32minfo[39m: Registered Route: GET /api/openapi
-2026-07-20T05:09:13.739Z [32minfo[39m: Registered Route: GET /api/openapi/json
-2026-07-20T05:09:13.739Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
+2026-07-22T06:36:26.762Z [32minfo[39m: Registered Route: GET /api/metrics
+2026-07-22T06:36:26.763Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
 
-2026-07-20T05:09:13.739Z [34mdebug[39m: Creating new instance of class [routes.ProfileRoute] with name [routes.ProfileRoute:default]
+2026-07-22T06:36:26.763Z [34mdebug[39m: Creating new instance of class [routes.OpenAPIRoute] with name [routes.OpenAPIRoute:default]
 
-2026-07-20T05:09:13.740Z [32minfo[39m: Registered Route: HEAD /api/profiles
-2026-07-20T05:09:13.740Z [32minfo[39m: Registered Route: POST /api/profiles
-2026-07-20T05:09:13.740Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
-2026-07-20T05:09:13.740Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
-2026-07-20T05:09:13.741Z [32minfo[39m: Registered Route: GET /api/profiles
-2026-07-20T05:09:13.741Z [32minfo[39m: Registered Route: GET /api/profiles/:id
-2026-07-20T05:09:13.741Z [32minfo[39m: Registered Route: DELETE /api/profiles
-2026-07-20T05:09:13.741Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
-2026-07-20T05:09:13.741Z [32minfo[39m: Registered Route: PUT /api/profiles
-2026-07-20T05:09:13.741Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
+2026-07-22T06:36:26.763Z [32minfo[39m: Registered Route: GET /api/openapi
+2026-07-22T06:36:26.763Z [32minfo[39m: Registered Route: GET /api/openapi/json
+2026-07-22T06:36:26.763Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
 
-2026-07-20T05:09:13.741Z [34mdebug[39m: Creating new instance of class [routes.SecretRoute] with name [routes.SecretRoute:default]
+2026-07-22T06:36:26.763Z [34mdebug[39m: Creating new instance of class [routes.ProfileRoute] with name [routes.ProfileRoute:default]
 
-2026-07-20T05:09:13.742Z [32minfo[39m: Registered Route: HEAD /api/secrets
-2026-07-20T05:09:13.742Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
-2026-07-20T05:09:13.743Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
-2026-07-20T05:09:13.743Z [32minfo[39m: Registered Route: POST /api/secrets
-2026-07-20T05:09:13.743Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
-2026-07-20T05:09:13.743Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
-2026-07-20T05:09:13.743Z [32minfo[39m: Registered Route: GET /api/secrets
-2026-07-20T05:09:13.743Z [32minfo[39m: Registered Route: GET /api/secrets/:id
-2026-07-20T05:09:13.743Z [32minfo[39m: Registered Route: DELETE /api/secrets
+2026-07-22T06:36:26.764Z [32minfo[39m: Registered Route: HEAD /api/profiles
+2026-07-22T06:36:26.764Z [32minfo[39m: Registered Route: POST /api/profiles
+2026-07-22T06:36:26.764Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
+2026-07-22T06:36:26.764Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
+2026-07-22T06:36:26.765Z [32minfo[39m: Registered Route: GET /api/profiles
+2026-07-22T06:36:26.765Z [32minfo[39m: Registered Route: GET /api/profiles/:id
+2026-07-22T06:36:26.765Z [32minfo[39m: Registered Route: DELETE /api/profiles
+2026-07-22T06:36:26.765Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
+2026-07-22T06:36:26.765Z [32minfo[39m: Registered Route: PUT /api/profiles
+2026-07-22T06:36:26.765Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
 
-2026-07-20T05:09:13.743Z [34mdebug[39m: Creating new instance of class [routes.StatusRoute] with name [routes.StatusRoute:default]
-2026-07-20T05:09:13.743Z [32minfo[39m: Registering class StatusExtraData
-2026-07-20T05:09:13.743Z [34mdebug[39m: Creating new instance of class [StatusExtraData] with name [StatusExtraData:default]
+2026-07-22T06:36:26.765Z [34mdebug[39m: Creating new instance of class [routes.SecretRoute] with name [routes.SecretRoute:default]
 
-2026-07-20T05:09:13.744Z [32minfo[39m: Registered Route: GET /api/status
+2026-07-22T06:36:26.766Z [32minfo[39m: Registered Route: HEAD /api/secrets
+2026-07-22T06:36:26.766Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
+2026-07-22T06:36:26.766Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
+2026-07-22T06:36:26.766Z [32minfo[39m: Registered Route: POST /api/secrets
+2026-07-22T06:36:26.766Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
+2026-07-22T06:36:26.767Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
+2026-07-22T06:36:26.767Z [32minfo[39m: Registered Route: GET /api/secrets
+2026-07-22T06:36:26.767Z [32minfo[39m: Registered Route: GET /api/secrets/:id
+2026-07-22T06:36:26.767Z [32minfo[39m: Registered Route: DELETE /api/secrets
 
-2026-07-20T05:09:13.744Z [34mdebug[39m: Creating new instance of class [routes.UserRoute] with name [routes.UserRoute:default]
+2026-07-22T06:36:26.767Z [34mdebug[39m: Creating new instance of class [routes.StatusRoute] with name [routes.StatusRoute:default]
+2026-07-22T06:36:26.767Z [32minfo[39m: Registering class StatusExtraData
+2026-07-22T06:36:26.767Z [34mdebug[39m: Creating new instance of class [StatusExtraData] with name [StatusExtraData:default]
 
-2026-07-20T05:09:13.745Z [32minfo[39m: Registered Route: HEAD /api/users
-2026-07-20T05:09:13.745Z [32minfo[39m: Registered Route: POST /api/users
-2026-07-20T05:09:13.745Z [32minfo[39m: Registered Route: DELETE /api/users/:id
-2026-07-20T05:09:13.745Z [32minfo[39m: Registered Route: HEAD /api/users/:id
-2026-07-20T05:09:13.745Z [32minfo[39m: Registered Route: GET /api/users
-2026-07-20T05:09:13.746Z [32minfo[39m: Registered Route: GET /api/users/:id
-2026-07-20T05:09:13.746Z [32minfo[39m: Registered Route: DELETE /api/users
-2026-07-20T05:09:13.746Z [32minfo[39m: Registered Route: PUT /api/users/:id
-2026-07-20T05:09:13.746Z [32minfo[39m: Registered Route: PUT /api/users
-2026-07-20T05:09:13.746Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
+2026-07-22T06:36:26.767Z [32minfo[39m: Registered Route: GET /api/status
 
-2026-07-20T05:09:13.746Z [34mdebug[39m: Creating new instance of class [routes.AppRoute] with name [routes.AppRoute:default]
+2026-07-22T06:36:26.767Z [34mdebug[39m: Creating new instance of class [routes.UserRoute] with name [routes.UserRoute:default]
 
-2026-07-20T05:09:13.747Z [32minfo[39m: Registered Route: GET /api/*
+2026-07-22T06:36:26.768Z [32minfo[39m: Registered Route: HEAD /api/users
+2026-07-22T06:36:26.768Z [32minfo[39m: Registered Route: POST /api/users
+2026-07-22T06:36:26.768Z [32minfo[39m: Registered Route: DELETE /api/users/:id
+2026-07-22T06:36:26.769Z [32minfo[39m: Registered Route: HEAD /api/users/:id
+2026-07-22T06:36:26.769Z [32minfo[39m: Registered Route: GET /api/users
+2026-07-22T06:36:26.769Z [32minfo[39m: Registered Route: GET /api/users/:id
+2026-07-22T06:36:26.769Z [32minfo[39m: Registered Route: DELETE /api/users
+2026-07-22T06:36:26.769Z [32minfo[39m: Registered Route: PUT /api/users/:id
+2026-07-22T06:36:26.769Z [32minfo[39m: Registered Route: PUT /api/users
+2026-07-22T06:36:26.769Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
 
-2026-07-20T05:09:13.748Z [32minfo[39m: Listening on 0.0.0.0:3000...
+2026-07-22T06:36:26.769Z [34mdebug[39m: Creating new instance of class [routes.AppRoute] with name [routes.AppRoute:default]
 
-2026-07-20T05:09:14.770Z [32minfo[39m: Stopping background services...
+2026-07-22T06:36:26.770Z [32minfo[39m: Registered Route: GET /api/*
 
-2026-07-20T05:09:14.770Z [32minfo[39m: Stopping server...
-2026-07-20T05:09:14.770Z [32minfo[39m: Closing database connections...
+2026-07-22T06:36:26.771Z [32minfo[39m: Listening on 0.0.0.0:3000...
 
-2026-07-20T05:09:14.773Z [32minfo[39m: Successfully disconnected from all configured databases.
+2026-07-22T06:36:27.790Z [32minfo[39m: Stopping background services...
+
+2026-07-22T06:36:27.791Z [32minfo[39m: Stopping server...
+2026-07-22T06:36:27.791Z [32minfo[39m: Closing database connections...
+
+2026-07-22T06:36:27.794Z [32minfo[39m: Successfully disconnected from all configured databases.
 
             </system-out>
         </testcase>
-        <testcase classname="test/Server.mongo.test.ts" name="Server Tests &gt; Can stop server." time="1.0411945">
+        <testcase classname="test/Server.mongo.test.ts" name="Server Tests &gt; Can stop server." time="1.0441358">
             <system-out>
-2026-07-20T05:09:14.774Z [32minfo[39m: Starting server...
+2026-07-22T06:36:27.795Z [32minfo[39m: Starting server...
 
-2026-07-20T05:09:14.774Z [32minfo[39m: Loading all service classes...
+2026-07-22T06:36:27.795Z [32minfo[39m: Loading all service classes...
 
-2026-07-20T05:09:14.784Z [32minfo[39m: Scanning for data models...
-2026-07-20T05:09:14.784Z [32minfo[39m: Initializing database connection(s)...
-2026-07-20T05:09:14.784Z [32minfo[39m: Connecting to database acl [mongodb://localhost:9999/acls]...
+2026-07-22T06:36:27.804Z [32minfo[39m: Scanning for data models...
+2026-07-22T06:36:27.804Z [32minfo[39m: Initializing database connection(s)...
+2026-07-22T06:36:27.804Z [32minfo[39m: Connecting to database acl [mongodb://localhost:9999/acls]...
 
-2026-07-20T05:09:14.790Z [32minfo[39m: Connecting to database cache [redis://localhost]...
-2026-07-20T05:09:14.790Z [32minfo[39m: Connecting to database events [redis://localhost]...
-2026-07-20T05:09:14.791Z [32minfo[39m: Connecting to database logs [redis://localhost]...
-2026-07-20T05:09:14.791Z [32minfo[39m: Connecting to database mongo [mongodb://localhost:9999/rrst_auth]...
+2026-07-22T06:36:27.810Z [32minfo[39m: Connecting to database cache [redis://localhost]...
+2026-07-22T06:36:27.811Z [32minfo[39m: Connecting to database events [redis://localhost]...
+2026-07-22T06:36:27.811Z [32minfo[39m: Connecting to database logs [redis://localhost]...
+2026-07-22T06:36:27.811Z [32minfo[39m: Connecting to database mongo [mongodb://localhost:9999/rrst_auth]...
 
-2026-07-20T05:09:14.795Z [32minfo[39m: Successfully connected to all configured databases.
+2026-07-22T06:36:27.815Z [32minfo[39m: Successfully connected to all configured databases.
 
-2026-07-20T05:09:14.795Z [32minfo[39m: Starting background services...
+2026-07-22T06:36:27.815Z [32minfo[39m: Starting background services...
 
-2026-07-20T05:09:14.796Z [32minfo[39m: Initializing event manager...
+2026-07-22T06:36:27.815Z [32minfo[39m: Initializing event manager...
 
-2026-07-20T05:09:14.797Z [32minfo[39m: Scanning for routes...
+2026-07-22T06:36:27.817Z [32minfo[39m: Scanning for routes...
 
-2026-07-20T05:09:14.797Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
-2026-07-20T05:09:14.797Z [32minfo[39m: Registered Route: WS /api/admin/logs
-2026-07-20T05:09:14.797Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
-2026-07-20T05:09:14.797Z [32minfo[39m: Registered Route: GET /api/admin/restart
+2026-07-22T06:36:27.817Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
+2026-07-22T06:36:27.817Z [32minfo[39m: Registered Route: WS /api/admin/logs
+2026-07-22T06:36:27.817Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
+2026-07-22T06:36:27.817Z [32minfo[39m: Registered Route: GET /api/admin/restart
 
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: HEAD /api/aliases
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: POST /api/aliases
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: GET /api/aliases
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: GET /api/aliases/:id
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: DELETE /api/aliases
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: PUT /api/aliases
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
+2026-07-22T06:36:27.817Z [32minfo[39m: Registered Route: HEAD /api/aliases
+2026-07-22T06:36:27.817Z [32minfo[39m: Registered Route: POST /api/aliases
+2026-07-22T06:36:27.817Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
+2026-07-22T06:36:27.817Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
+2026-07-22T06:36:27.817Z [32minfo[39m: Registered Route: GET /api/aliases
+2026-07-22T06:36:27.818Z [32minfo[39m: Registered Route: GET /api/aliases/:id
+2026-07-22T06:36:27.818Z [32minfo[39m: Registered Route: DELETE /api/aliases
+2026-07-22T06:36:27.818Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
+2026-07-22T06:36:27.818Z [32minfo[39m: Registered Route: PUT /api/aliases
+2026-07-22T06:36:27.818Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
 
-2026-07-20T05:09:14.798Z [32minfo[39m: Registered Route: GET /api/auth/password
+2026-07-22T06:36:27.818Z [32minfo[39m: Registered Route: GET /api/auth/password
 
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: POST /api/auth/fido2
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: GET /api/auth/fido2
+2026-07-22T06:36:27.818Z [32minfo[39m: Registered Route: POST /api/auth/fido2
+2026-07-22T06:36:27.818Z [32minfo[39m: Registered Route: GET /api/auth/fido2
 
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: POST /api/auth/mfa
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: GET /api/auth/mfa
+2026-07-22T06:36:27.818Z [32minfo[39m: Registered Route: POST /api/auth/mfa
+2026-07-22T06:36:27.818Z [32minfo[39m: Registered Route: GET /api/auth/mfa
 
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: POST /api/auth/oidc
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: GET /api/auth/oidc
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: POST /api/auth/oidc
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: GET /api/auth/oidc
 
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: POST /api/auth/otp
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: GET /api/auth/otp
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: POST /api/auth/otp
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: GET /api/auth/otp
 
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: POST /api/auth/passkey
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: GET /api/auth/passkey
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: POST /api/auth/passkey
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: GET /api/auth/passkey
 
-2026-07-20T05:09:14.799Z [32minfo[39m: Registered Route: POST /api/auth/totp
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: GET /api/auth/totp
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: POST /api/auth/totp
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: GET /api/auth/totp
 
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: GET /api/metrics
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: GET /api/metrics
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
 
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: GET /api/openapi
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: GET /api/openapi/json
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: GET /api/openapi
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: GET /api/openapi/json
+2026-07-22T06:36:27.819Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
 
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: HEAD /api/profiles
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: POST /api/profiles
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: GET /api/profiles
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: GET /api/profiles/:id
-2026-07-20T05:09:14.800Z [32minfo[39m: Registered Route: DELETE /api/profiles
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: PUT /api/profiles
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: HEAD /api/profiles
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: POST /api/profiles
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: GET /api/profiles
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: GET /api/profiles/:id
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: DELETE /api/profiles
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: PUT /api/profiles
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
 
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: HEAD /api/secrets
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: POST /api/secrets
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: GET /api/secrets
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: GET /api/secrets/:id
-2026-07-20T05:09:14.801Z [32minfo[39m: Registered Route: DELETE /api/secrets
+2026-07-22T06:36:27.820Z [32minfo[39m: Registered Route: HEAD /api/secrets
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: POST /api/secrets
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: GET /api/secrets
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: GET /api/secrets/:id
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: DELETE /api/secrets
 
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: GET /api/status
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: GET /api/status
 
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: HEAD /api/users
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: POST /api/users
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: DELETE /api/users/:id
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: HEAD /api/users/:id
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: GET /api/users
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: GET /api/users/:id
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: DELETE /api/users
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: PUT /api/users/:id
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: PUT /api/users
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: HEAD /api/users
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: POST /api/users
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: DELETE /api/users/:id
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: HEAD /api/users/:id
+2026-07-22T06:36:27.821Z [32minfo[39m: Registered Route: GET /api/users
+2026-07-22T06:36:27.822Z [32minfo[39m: Registered Route: GET /api/users/:id
+2026-07-22T06:36:27.822Z [32minfo[39m: Registered Route: DELETE /api/users
+2026-07-22T06:36:27.822Z [32minfo[39m: Registered Route: PUT /api/users/:id
+2026-07-22T06:36:27.822Z [32minfo[39m: Registered Route: PUT /api/users
+2026-07-22T06:36:27.822Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
 
-2026-07-20T05:09:14.802Z [32minfo[39m: Registered Route: GET /api/*
+2026-07-22T06:36:27.822Z [32minfo[39m: Registered Route: GET /api/*
 
-2026-07-20T05:09:14.803Z [32minfo[39m: Listening on 0.0.0.0:3000...
+2026-07-22T06:36:27.822Z [32minfo[39m: Listening on 0.0.0.0:3000...
 
-2026-07-20T05:09:15.813Z [32minfo[39m: Stopping background services...
+2026-07-22T06:36:28.837Z [32minfo[39m: Stopping background services...
 
-2026-07-20T05:09:15.813Z [32minfo[39m: Stopping server...
-2026-07-20T05:09:15.813Z [32minfo[39m: Closing database connections...
+2026-07-22T06:36:28.837Z [32minfo[39m: Stopping server...
+2026-07-22T06:36:28.837Z [32minfo[39m: Closing database connections...
 
-2026-07-20T05:09:15.814Z [32minfo[39m: Successfully disconnected from all configured databases.
+2026-07-22T06:36:28.838Z [32minfo[39m: Successfully disconnected from all configured databases.
 
-2026-07-20T05:09:15.815Z [32minfo[39m: Stopping background services...
+2026-07-22T06:36:28.839Z [32minfo[39m: Stopping background services...
 
-2026-07-20T05:09:15.815Z [32minfo[39m: Stopping server...
-2026-07-20T05:09:15.815Z [32minfo[39m: Closing database connections...
-2026-07-20T05:09:15.815Z [32minfo[39m: Successfully disconnected from all configured databases.
+2026-07-22T06:36:28.839Z [32minfo[39m: Stopping server...
+2026-07-22T06:36:28.839Z [32minfo[39m: Closing database connections...
+2026-07-22T06:36:28.839Z [32minfo[39m: Successfully disconnected from all configured databases.
 
             </system-out>
         </testcase>
-        <testcase classname="test/Server.mongo.test.ts" name="Server Tests &gt; Can restart server." time="1.0781015">
+        <testcase classname="test/Server.mongo.test.ts" name="Server Tests &gt; Can restart server." time="1.058289">
             <system-out>
-2026-07-20T05:09:15.815Z [32minfo[39m: Starting server...
+2026-07-22T06:36:28.839Z [32minfo[39m: Starting server...
 
-2026-07-20T05:09:15.815Z [32minfo[39m: Loading all service classes...
+2026-07-22T06:36:28.839Z [32minfo[39m: Loading all service classes...
 
-2026-07-20T05:09:15.824Z [32minfo[39m: Scanning for data models...
-2026-07-20T05:09:15.824Z [32minfo[39m: Initializing database connection(s)...
-2026-07-20T05:09:15.824Z [32minfo[39m: Connecting to database acl [mongodb://localhost:9999/acls]...
+2026-07-22T06:36:28.848Z [32minfo[39m: Scanning for data models...
+2026-07-22T06:36:28.848Z [32minfo[39m: Initializing database connection(s)...
+2026-07-22T06:36:28.848Z [32minfo[39m: Connecting to database acl [mongodb://localhost:9999/acls]...
 
-2026-07-20T05:09:15.829Z [32minfo[39m: Connecting to database cache [redis://localhost]...
-2026-07-20T05:09:15.830Z [32minfo[39m: Connecting to database events [redis://localhost]...
-2026-07-20T05:09:15.830Z [32minfo[39m: Connecting to database logs [redis://localhost]...
-2026-07-20T05:09:15.830Z [32minfo[39m: Connecting to database mongo [mongodb://localhost:9999/rrst_auth]...
+2026-07-22T06:36:28.854Z [32minfo[39m: Connecting to database cache [redis://localhost]...
+2026-07-22T06:36:28.854Z [32minfo[39m: Connecting to database events [redis://localhost]...
+2026-07-22T06:36:28.854Z [32minfo[39m: Connecting to database logs [redis://localhost]...
+2026-07-22T06:36:28.855Z [32minfo[39m: Connecting to database mongo [mongodb://localhost:9999/rrst_auth]...
 
-2026-07-20T05:09:15.834Z [32minfo[39m: Successfully connected to all configured databases.
+2026-07-22T06:36:28.858Z [32minfo[39m: Successfully connected to all configured databases.
 
-2026-07-20T05:09:15.834Z [32minfo[39m: Starting background services...
+2026-07-22T06:36:28.858Z [32minfo[39m: Starting background services...
 
-2026-07-20T05:09:15.834Z [32minfo[39m: Initializing event manager...
+2026-07-22T06:36:28.858Z [32minfo[39m: Initializing event manager...
 
-2026-07-20T05:09:15.836Z [32minfo[39m: Scanning for routes...
+2026-07-22T06:36:28.860Z [32minfo[39m: Scanning for routes...
 
-2026-07-20T05:09:15.836Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
-2026-07-20T05:09:15.836Z [32minfo[39m: Registered Route: WS /api/admin/logs
-2026-07-20T05:09:15.836Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
-2026-07-20T05:09:15.836Z [32minfo[39m: Registered Route: GET /api/admin/restart
+2026-07-22T06:36:28.860Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
+2026-07-22T06:36:28.860Z [32minfo[39m: Registered Route: WS /api/admin/logs
+2026-07-22T06:36:28.860Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
+2026-07-22T06:36:28.860Z [32minfo[39m: Registered Route: GET /api/admin/restart
 
-2026-07-20T05:09:15.836Z [32minfo[39m: Registered Route: HEAD /api/aliases
-2026-07-20T05:09:15.836Z [32minfo[39m: Registered Route: POST /api/aliases
-2026-07-20T05:09:15.836Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
-2026-07-20T05:09:15.836Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
-2026-07-20T05:09:15.837Z [32minfo[39m: Registered Route: GET /api/aliases
-2026-07-20T05:09:15.837Z [32minfo[39m: Registered Route: GET /api/aliases/:id
-2026-07-20T05:09:15.837Z [32minfo[39m: Registered Route: DELETE /api/aliases
-2026-07-20T05:09:15.837Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
-2026-07-20T05:09:15.837Z [32minfo[39m: Registered Route: PUT /api/aliases
-2026-07-20T05:09:15.837Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
+2026-07-22T06:36:28.860Z [32minfo[39m: Registered Route: HEAD /api/aliases
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: POST /api/aliases
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: GET /api/aliases
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: GET /api/aliases/:id
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: DELETE /api/aliases
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: PUT /api/aliases
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
 
-2026-07-20T05:09:15.837Z [32minfo[39m: Registered Route: GET /api/auth/password
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: GET /api/auth/password
 
-2026-07-20T05:09:15.837Z [32minfo[39m: Registered Route: POST /api/auth/fido2
-2026-07-20T05:09:15.837Z [32minfo[39m: Registered Route: GET /api/auth/fido2
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: POST /api/auth/fido2
+2026-07-22T06:36:28.861Z [32minfo[39m: Registered Route: GET /api/auth/fido2
 
-2026-07-20T05:09:15.837Z [32minfo[39m: Registered Route: POST /api/auth/mfa
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: GET /api/auth/mfa
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: POST /api/auth/mfa
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: GET /api/auth/mfa
 
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: POST /api/auth/oidc
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: GET /api/auth/oidc
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: POST /api/auth/oidc
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: GET /api/auth/oidc
 
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: POST /api/auth/otp
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: GET /api/auth/otp
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: POST /api/auth/otp
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: GET /api/auth/otp
 
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: POST /api/auth/passkey
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: GET /api/auth/passkey
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: POST /api/auth/passkey
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: GET /api/auth/passkey
 
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: POST /api/auth/totp
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: GET /api/auth/totp
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: POST /api/auth/totp
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: GET /api/auth/totp
 
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: GET /api/metrics
-2026-07-20T05:09:15.838Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
+2026-07-22T06:36:28.862Z [32minfo[39m: Registered Route: GET /api/metrics
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
 
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: GET /api/openapi
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: GET /api/openapi/json
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: GET /api/openapi
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: GET /api/openapi/json
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
 
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: HEAD /api/profiles
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: POST /api/profiles
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: GET /api/profiles
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: GET /api/profiles/:id
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: DELETE /api/profiles
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
-2026-07-20T05:09:15.839Z [32minfo[39m: Registered Route: PUT /api/profiles
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: HEAD /api/profiles
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: POST /api/profiles
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: GET /api/profiles
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: GET /api/profiles/:id
+2026-07-22T06:36:28.863Z [32minfo[39m: Registered Route: DELETE /api/profiles
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: PUT /api/profiles
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
 
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: HEAD /api/secrets
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: POST /api/secrets
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: GET /api/secrets
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: GET /api/secrets/:id
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: DELETE /api/secrets
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: HEAD /api/secrets
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: POST /api/secrets
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: GET /api/secrets
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: GET /api/secrets/:id
+2026-07-22T06:36:28.864Z [32minfo[39m: Registered Route: DELETE /api/secrets
 
-2026-07-20T05:09:15.840Z [32minfo[39m: Registered Route: GET /api/status
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: GET /api/status
 
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: HEAD /api/users
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: POST /api/users
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: DELETE /api/users/:id
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: HEAD /api/users/:id
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: GET /api/users
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: GET /api/users/:id
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: DELETE /api/users
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: PUT /api/users/:id
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: PUT /api/users
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: HEAD /api/users
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: POST /api/users
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: DELETE /api/users/:id
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: HEAD /api/users/:id
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: GET /api/users
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: GET /api/users/:id
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: DELETE /api/users
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: PUT /api/users/:id
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: PUT /api/users
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
 
-2026-07-20T05:09:15.841Z [32minfo[39m: Registered Route: GET /api/*
+2026-07-22T06:36:28.865Z [32minfo[39m: Registered Route: GET /api/*
 
-2026-07-20T05:09:15.841Z [32minfo[39m: Listening on 0.0.0.0:3000...
+2026-07-22T06:36:28.866Z [32minfo[39m: Listening on 0.0.0.0:3000...
 
-2026-07-20T05:09:16.855Z [32minfo[39m: Stopping background services...
+2026-07-22T06:36:29.868Z [32minfo[39m: Stopping background services...
 
-2026-07-20T05:09:16.855Z [32minfo[39m: Stopping server...
-2026-07-20T05:09:16.855Z [32minfo[39m: Closing database connections...
+2026-07-22T06:36:29.868Z [32minfo[39m: Stopping server...
+2026-07-22T06:36:29.869Z [32minfo[39m: Closing database connections...
 
-2026-07-20T05:09:16.856Z [32minfo[39m: Successfully disconnected from all configured databases.
+2026-07-22T06:36:29.870Z [32minfo[39m: Successfully disconnected from all configured databases.
 
-2026-07-20T05:09:16.856Z [32minfo[39m: Starting server...
+2026-07-22T06:36:29.870Z [32minfo[39m: Starting server...
 
-2026-07-20T05:09:16.856Z [32minfo[39m: Loading all service classes...
+2026-07-22T06:36:29.870Z [32minfo[39m: Loading all service classes...
 
-2026-07-20T05:09:16.869Z [32minfo[39m: Scanning for data models...
-2026-07-20T05:09:16.869Z [32minfo[39m: Initializing database connection(s)...
-2026-07-20T05:09:16.869Z [32minfo[39m: Connecting to database acl [mongodb://localhost:9999/acls]...
+2026-07-22T06:36:29.878Z [32minfo[39m: Scanning for data models...
+2026-07-22T06:36:29.879Z [32minfo[39m: Initializing database connection(s)...
+2026-07-22T06:36:29.879Z [32minfo[39m: Connecting to database acl [mongodb://localhost:9999/acls]...
 
-2026-07-20T05:09:16.874Z [32minfo[39m: Connecting to database cache [redis://localhost]...
-2026-07-20T05:09:16.874Z [32minfo[39m: Connecting to database events [redis://localhost]...
-2026-07-20T05:09:16.874Z [32minfo[39m: Connecting to database logs [redis://localhost]...
-2026-07-20T05:09:16.875Z [32minfo[39m: Connecting to database mongo [mongodb://localhost:9999/rrst_auth]...
+2026-07-22T06:36:29.884Z [32minfo[39m: Connecting to database cache [redis://localhost]...
+2026-07-22T06:36:29.884Z [32minfo[39m: Connecting to database events [redis://localhost]...
+2026-07-22T06:36:29.884Z [32minfo[39m: Connecting to database logs [redis://localhost]...
+2026-07-22T06:36:29.885Z [32minfo[39m: Connecting to database mongo [mongodb://localhost:9999/rrst_auth]...
 
-2026-07-20T05:09:16.881Z [32minfo[39m: Successfully connected to all configured databases.
+2026-07-22T06:36:29.888Z [32minfo[39m: Successfully connected to all configured databases.
 
-2026-07-20T05:09:16.881Z [32minfo[39m: Starting background services...
+2026-07-22T06:36:29.888Z [32minfo[39m: Starting background services...
 
-2026-07-20T05:09:16.881Z [32minfo[39m: Initializing event manager...
+2026-07-22T06:36:29.888Z [32minfo[39m: Initializing event manager...
 
-2026-07-20T05:09:16.882Z [32minfo[39m: Scanning for routes...
+2026-07-22T06:36:29.890Z [32minfo[39m: Scanning for routes...
 
-2026-07-20T05:09:16.882Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: WS /api/admin/logs
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: GET /api/admin/restart
+2026-07-22T06:36:29.890Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
+2026-07-22T06:36:29.890Z [32minfo[39m: Registered Route: WS /api/admin/logs
+2026-07-22T06:36:29.890Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
+2026-07-22T06:36:29.890Z [32minfo[39m: Registered Route: GET /api/admin/restart
 
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: HEAD /api/aliases
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: POST /api/aliases
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: GET /api/aliases
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: GET /api/aliases/:id
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: DELETE /api/aliases
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
-2026-07-20T05:09:16.883Z [32minfo[39m: Registered Route: PUT /api/aliases
-2026-07-20T05:09:16.884Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
+2026-07-22T06:36:29.890Z [32minfo[39m: Registered Route: HEAD /api/aliases
+2026-07-22T06:36:29.890Z [32minfo[39m: Registered Route: POST /api/aliases
+2026-07-22T06:36:29.890Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
+2026-07-22T06:36:29.890Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: GET /api/aliases
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: GET /api/aliases/:id
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: DELETE /api/aliases
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: PUT /api/aliases
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
 
-2026-07-20T05:09:16.884Z [32minfo[39m: Registered Route: GET /api/auth/password
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: GET /api/auth/password
 
-2026-07-20T05:09:16.884Z [32minfo[39m: Registered Route: POST /api/auth/fido2
-2026-07-20T05:09:16.884Z [32minfo[39m: Registered Route: GET /api/auth/fido2
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: POST /api/auth/fido2
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: GET /api/auth/fido2
 
-2026-07-20T05:09:16.884Z [32minfo[39m: Registered Route: POST /api/auth/mfa
-2026-07-20T05:09:16.884Z [32minfo[39m: Registered Route: GET /api/auth/mfa
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: POST /api/auth/mfa
+2026-07-22T06:36:29.891Z [32minfo[39m: Registered Route: GET /api/auth/mfa
 
-2026-07-20T05:09:16.884Z [32minfo[39m: Registered Route: POST /api/auth/oidc
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: GET /api/auth/oidc
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: POST /api/auth/oidc
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: GET /api/auth/oidc
 
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: POST /api/auth/otp
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: GET /api/auth/otp
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: POST /api/auth/otp
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: GET /api/auth/otp
 
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: POST /api/auth/passkey
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: GET /api/auth/passkey
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: POST /api/auth/passkey
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: GET /api/auth/passkey
 
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: POST /api/auth/totp
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: GET /api/auth/totp
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: POST /api/auth/totp
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: GET /api/auth/totp
 
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: GET /api/metrics
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: GET /api/metrics
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
 
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: GET /api/openapi
-2026-07-20T05:09:16.885Z [32minfo[39m: Registered Route: GET /api/openapi/json
-2026-07-20T05:09:16.886Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: GET /api/openapi
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: GET /api/openapi/json
+2026-07-22T06:36:29.892Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
 
-2026-07-20T05:09:16.886Z [32minfo[39m: Registered Route: HEAD /api/profiles
-2026-07-20T05:09:16.889Z [32minfo[39m: Registered Route: POST /api/profiles
-2026-07-20T05:09:16.889Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
-2026-07-20T05:09:16.889Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
-2026-07-20T05:09:16.889Z [32minfo[39m: Registered Route: GET /api/profiles
-2026-07-20T05:09:16.889Z [32minfo[39m: Registered Route: GET /api/profiles/:id
-2026-07-20T05:09:16.889Z [32minfo[39m: Registered Route: DELETE /api/profiles
-2026-07-20T05:09:16.889Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
-2026-07-20T05:09:16.889Z [32minfo[39m: Registered Route: PUT /api/profiles
-2026-07-20T05:09:16.889Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: HEAD /api/profiles
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: POST /api/profiles
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: GET /api/profiles
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: GET /api/profiles/:id
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: DELETE /api/profiles
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: PUT /api/profiles
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
 
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: HEAD /api/secrets
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: POST /api/secrets
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: GET /api/secrets
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: GET /api/secrets/:id
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: DELETE /api/secrets
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: HEAD /api/secrets
+2026-07-22T06:36:29.893Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: POST /api/secrets
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: GET /api/secrets
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: GET /api/secrets/:id
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: DELETE /api/secrets
 
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: GET /api/status
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: GET /api/status
 
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: HEAD /api/users
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: POST /api/users
-2026-07-20T05:09:16.890Z [32minfo[39m: Registered Route: DELETE /api/users/:id
-2026-07-20T05:09:16.891Z [32minfo[39m: Registered Route: HEAD /api/users/:id
-2026-07-20T05:09:16.891Z [32minfo[39m: Registered Route: GET /api/users
-2026-07-20T05:09:16.891Z [32minfo[39m: Registered Route: GET /api/users/:id
-2026-07-20T05:09:16.891Z [32minfo[39m: Registered Route: DELETE /api/users
-2026-07-20T05:09:16.891Z [32minfo[39m: Registered Route: PUT /api/users/:id
-2026-07-20T05:09:16.891Z [32minfo[39m: Registered Route: PUT /api/users
-2026-07-20T05:09:16.891Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: HEAD /api/users
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: POST /api/users
+2026-07-22T06:36:29.894Z [32minfo[39m: Registered Route: DELETE /api/users/:id
+2026-07-22T06:36:29.895Z [32minfo[39m: Registered Route: HEAD /api/users/:id
+2026-07-22T06:36:29.895Z [32minfo[39m: Registered Route: GET /api/users
+2026-07-22T06:36:29.895Z [32minfo[39m: Registered Route: GET /api/users/:id
+2026-07-22T06:36:29.895Z [32minfo[39m: Registered Route: DELETE /api/users
+2026-07-22T06:36:29.895Z [32minfo[39m: Registered Route: PUT /api/users/:id
+2026-07-22T06:36:29.895Z [32minfo[39m: Registered Route: PUT /api/users
+2026-07-22T06:36:29.895Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
 
-2026-07-20T05:09:16.891Z [32minfo[39m: Registered Route: GET /api/*
+2026-07-22T06:36:29.896Z [32minfo[39m: Registered Route: GET /api/*
 
-2026-07-20T05:09:16.892Z [32minfo[39m: Listening on 0.0.0.0:3000...
+2026-07-22T06:36:29.896Z [32minfo[39m: Listening on 0.0.0.0:3000...
 
-2026-07-20T05:09:16.892Z [32minfo[39m: Stopping background services...
+2026-07-22T06:36:29.896Z [32minfo[39m: Stopping background services...
 
-2026-07-20T05:09:16.892Z [32minfo[39m: Stopping server...
-2026-07-20T05:09:16.892Z [32minfo[39m: Closing database connections...
+2026-07-22T06:36:29.896Z [32minfo[39m: Stopping server...
+2026-07-22T06:36:29.896Z [32minfo[39m: Closing database connections...
 
-2026-07-20T05:09:16.893Z [32minfo[39m: Successfully disconnected from all configured databases.
+2026-07-22T06:36:29.897Z [32minfo[39m: Successfully disconnected from all configured databases.
 
             </system-out>
         </testcase>
     </testsuite>
-    <testsuite name="test/Server.sql.test.ts" timestamp="2026-07-20T05:09:22.025Z" hostname="Jane" tests="3" failures="0" errors="0" skipped="0" time="3.7694895">
-        <testcase classname="test/Server.sql.test.ts" name="Server Tests &gt; Can start server." time="1.6813728">
+    <testsuite name="test/Server.sql.test.ts" timestamp="2026-07-22T06:36:35.239Z" hostname="Jane" tests="3" failures="0" errors="0" skipped="0" time="4.0292189">
+        <testcase classname="test/Server.sql.test.ts" name="Server Tests &gt; Can start server." time="1.9418709">
             <system-out>
-2026-07-20T05:09:18.128Z [32minfo[39m: Starting server...
+2026-07-22T06:36:31.081Z [32minfo[39m: Starting server...
 
-2026-07-20T05:09:18.129Z [32minfo[39m: Registering class OpenApiSpec
-2026-07-20T05:09:18.129Z [34mdebug[39m: Creating new instance of class [OpenApiSpec] with name [OpenApiSpec:default]
+2026-07-22T06:36:31.082Z [32minfo[39m: Registering class OpenApiSpec
+2026-07-22T06:36:31.082Z [34mdebug[39m: Creating new instance of class [OpenApiSpec] with name [OpenApiSpec:default]
 
-2026-07-20T05:09:18.130Z [32minfo[39m: Registering class ConnectionManager
-2026-07-20T05:09:18.130Z [34mdebug[39m: Creating new instance of class [ConnectionManager] with name [ConnectionManager:default]
+2026-07-22T06:36:31.083Z [32minfo[39m: Registering class ConnectionManager
+2026-07-22T06:36:31.083Z [34mdebug[39m: Creating new instance of class [ConnectionManager] with name [ConnectionManager:default]
 
-2026-07-20T05:09:18.130Z [32minfo[39m: Loading all service classes...
+2026-07-22T06:36:31.084Z [32minfo[39m: Loading all service classes...
 
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.AdminRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.AliasRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.AuthBasicRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.AuthFIDO2Route
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.AuthMFARoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.AuthOIDCRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.AuthOTPRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.AuthPasskeyRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.AuthTOTPRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.MetricsRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.OpenAPIRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.ProfileRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.SecretRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.StatusRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.UserRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Registering class routes.AppRoute
-2026-07-20T05:09:18.398Z [32minfo[39m: Scanning for data models...
-2026-07-20T05:09:18.399Z [32minfo[39m: Initializing database connection(s)...
-2026-07-20T05:09:18.399Z [32minfo[39m: Connecting to database acl [sqlite://localhost/rrst-test]...
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.AdminRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.AliasRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.AuthBasicRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.AuthFIDO2Route
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.AuthMFARoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.AuthOIDCRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.AuthOTPRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.AuthPasskeyRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.AuthTOTPRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.MetricsRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.OpenAPIRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.ProfileRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.SecretRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.StatusRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.UserRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Registering class routes.AppRoute
+2026-07-22T06:36:31.330Z [32minfo[39m: Scanning for data models...
+2026-07-22T06:36:31.331Z [32minfo[39m: Initializing database connection(s)...
+2026-07-22T06:36:31.331Z [32minfo[39m: Connecting to database acl [sqlite://localhost/rrst-test]...
 
-2026-07-20T05:09:18.735Z [32minfo[39m: Connecting to database cache [redis://localhost]...
-2026-07-20T05:09:18.737Z [32minfo[39m: Connecting to database events [redis://localhost]...
-2026-07-20T05:09:18.737Z [32minfo[39m: Connecting to database logs [redis://localhost]...
-2026-07-20T05:09:18.738Z [32minfo[39m: Connecting to database sql [sqlite://localhost/rrst-test]...
+2026-07-22T06:36:31.863Z [32minfo[39m: Connecting to database cache [redis://localhost]...
+2026-07-22T06:36:31.865Z [32minfo[39m: Connecting to database events [redis://localhost]...
+2026-07-22T06:36:31.865Z [32minfo[39m: Connecting to database logs [redis://localhost]...
+2026-07-22T06:36:31.866Z [32minfo[39m: Connecting to database sql [sqlite://localhost/rrst-test]...
 
-2026-07-20T05:09:18.739Z [32minfo[39m: Successfully connected to all configured databases.
+2026-07-22T06:36:31.867Z [32minfo[39m: Successfully connected to all configured databases.
 
-2026-07-20T05:09:18.739Z [32minfo[39m: Registering class ACLUtils
-2026-07-20T05:09:18.739Z [34mdebug[39m: Creating new instance of class [ACLUtils] with name [ACLUtils:default]
-2026-07-20T05:09:18.739Z [32minfo[39m: RBAC system is enabled and ready.
+2026-07-22T06:36:31.867Z [32minfo[39m: Registering class ACLUtils
+2026-07-22T06:36:31.867Z [34mdebug[39m: Creating new instance of class [ACLUtils] with name [ACLUtils:default]
+2026-07-22T06:36:31.868Z [32minfo[39m: RBAC system is enabled and ready.
 
-2026-07-20T05:09:18.743Z [32minfo[39m: Registering class SessionManager
-2026-07-20T05:09:18.743Z [34mdebug[39m: Creating new instance of class [SessionManager] with name [SessionManager:default]
-2026-07-20T05:09:18.743Z [32minfo[39m: Session support enabled (store: redis).
+2026-07-22T06:36:31.871Z [32minfo[39m: Registering class SessionManager
+2026-07-22T06:36:31.871Z [34mdebug[39m: Creating new instance of class [SessionManager] with name [SessionManager:default]
+2026-07-22T06:36:31.872Z [32minfo[39m: Registering class ObjectFactory
+2026-07-22T06:36:31.872Z [32minfo[39m: Registering class RedisSessionStore
+2026-07-22T06:36:31.872Z [34mdebug[39m: Creating new instance of class [RedisSessionStore] with name [RedisSessionStore:909ecba4-adb7-40c2-a42e-b1eedc1a8a52]
 
-2026-07-20T05:09:18.744Z [32minfo[39m: Registering class RouteUtils
-2026-07-20T05:09:18.744Z [34mdebug[39m: Creating new instance of class [RouteUtils] with name [RouteUtils:default]
-2026-07-20T05:09:18.744Z [32minfo[39m: Registering class AuthMiddleware
-2026-07-20T05:09:18.744Z [34mdebug[39m: Creating new instance of class [AuthMiddleware] with name [AuthMiddleware:default]
-2026-07-20T05:09:18.744Z [32minfo[39m: Registering class ObjectFactory
-2026-07-20T05:09:18.744Z [32minfo[39m: Registering class auth.JWTStrategy
-2026-07-20T05:09:18.744Z [34mdebug[39m: Creating new instance of class [auth.JWTStrategy] with name [auth.JWTStrategy:12f6b827-3874-434a-90e2-379e0d324c3f]
+2026-07-22T06:36:31.872Z [32minfo[39m: Session support enabled (store: redis).
 
-2026-07-20T05:09:18.744Z [32minfo[39m: Starting background services...
-2026-07-20T05:09:18.745Z [32minfo[39m: Registering class BackgroundServiceManager
-2026-07-20T05:09:18.745Z [34mdebug[39m: Creating new instance of class [BackgroundServiceManager] with name [BackgroundServiceManager:default]
+2026-07-22T06:36:31.873Z [32minfo[39m: Registering class RouteUtils
+2026-07-22T06:36:31.873Z [34mdebug[39m: Creating new instance of class [RouteUtils] with name [RouteUtils:default]
+2026-07-22T06:36:31.873Z [32minfo[39m: Registering class AuthMiddleware
+2026-07-22T06:36:31.873Z [34mdebug[39m: Creating new instance of class [AuthMiddleware] with name [AuthMiddleware:default]
+2026-07-22T06:36:31.873Z [32minfo[39m: Registering class auth.JWTStrategy
+2026-07-22T06:36:31.873Z [34mdebug[39m: Creating new instance of class [auth.JWTStrategy] with name [auth.JWTStrategy:96d90f9f-9ad5-42e0-b7dd-1817d55b2d31]
 
-2026-07-20T05:09:18.745Z [32minfo[39m: Initializing event manager...
-2026-07-20T05:09:18.745Z [32minfo[39m: Registering class EventListenerManager
-2026-07-20T05:09:18.745Z [34mdebug[39m: Creating new instance of class [EventListenerManager] with name [EventListenerManager:default]
+2026-07-22T06:36:31.873Z [32minfo[39m: Starting background services...
+2026-07-22T06:36:31.874Z [32minfo[39m: Registering class BackgroundServiceManager
+2026-07-22T06:36:31.874Z [34mdebug[39m: Creating new instance of class [BackgroundServiceManager] with name [BackgroundServiceManager:default]
 
-2026-07-20T05:09:18.746Z [32minfo[39m: Scanning for routes...
-2026-07-20T05:09:18.746Z [34mdebug[39m: Creating new instance of class [routes.AdminRoute] with name [routes.AdminRoute:default]
-2026-07-20T05:09:18.749Z [32minfo[39m: Cache is enabled and ready.
+2026-07-22T06:36:31.874Z [32minfo[39m: Initializing event manager...
+2026-07-22T06:36:31.874Z [32minfo[39m: Registering class EventListenerManager
+2026-07-22T06:36:31.874Z [34mdebug[39m: Creating new instance of class [EventListenerManager] with name [EventListenerManager:default]
 
-2026-07-20T05:09:18.751Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
-2026-07-20T05:09:18.751Z [32minfo[39m: Registered Route: WS /api/admin/logs
-2026-07-20T05:09:18.751Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
-2026-07-20T05:09:18.751Z [32minfo[39m: Registered Route: GET /api/admin/restart
+2026-07-22T06:36:31.875Z [32minfo[39m: Scanning for routes...
+2026-07-22T06:36:31.875Z [34mdebug[39m: Creating new instance of class [routes.AdminRoute] with name [routes.AdminRoute:default]
+2026-07-22T06:36:31.876Z [32minfo[39m: Cache is enabled and ready.
 
-2026-07-20T05:09:18.752Z [34mdebug[39m: Creating new instance of class [routes.AliasRoute] with name [routes.AliasRoute:default]
-2026-07-20T05:09:18.752Z [32minfo[39m: Registering class NotificationUtils
-2026-07-20T05:09:18.752Z [34mdebug[39m: Creating new instance of class [NotificationUtils] with name [NotificationUtils:default]
-2026-07-20T05:09:18.753Z [32minfo[39m: Registering class RepoUtils
-2026-07-20T05:09:18.753Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:AliasSQL]
-2026-07-20T05:09:18.753Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
+2026-07-22T06:36:31.877Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
+2026-07-22T06:36:31.878Z [32minfo[39m: Registered Route: WS /api/admin/logs
+2026-07-22T06:36:31.878Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
+2026-07-22T06:36:31.878Z [32minfo[39m: Registered Route: GET /api/admin/restart
 
-2026-07-20T05:09:18.763Z [32minfo[39m: Registered Route: HEAD /api/aliases
-2026-07-20T05:09:18.763Z [32minfo[39m: Registered Route: POST /api/aliases
-2026-07-20T05:09:18.763Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
-2026-07-20T05:09:18.764Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
-2026-07-20T05:09:18.764Z [32minfo[39m: Registered Route: GET /api/aliases
-2026-07-20T05:09:18.764Z [32minfo[39m: Registered Route: GET /api/aliases/:id
-2026-07-20T05:09:18.764Z [32minfo[39m: Registered Route: DELETE /api/aliases
-2026-07-20T05:09:18.764Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
-2026-07-20T05:09:18.764Z [32minfo[39m: Registered Route: PUT /api/aliases
-2026-07-20T05:09:18.764Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
+2026-07-22T06:36:31.878Z [34mdebug[39m: Creating new instance of class [routes.AliasRoute] with name [routes.AliasRoute:default]
+2026-07-22T06:36:31.879Z [32minfo[39m: Registering class NotificationUtils
+2026-07-22T06:36:31.879Z [34mdebug[39m: Creating new instance of class [NotificationUtils] with name [NotificationUtils:default]
+2026-07-22T06:36:31.880Z [32minfo[39m: Registering class RepoUtils
+2026-07-22T06:36:31.880Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:AliasSQL]
+2026-07-22T06:36:31.880Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
 
-2026-07-20T05:09:18.764Z [34mdebug[39m: Creating new instance of class [routes.AuthBasicRoute] with name [routes.AuthBasicRoute:default]
-2026-07-20T05:09:18.764Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:SecretSQL]
-2026-07-20T05:09:18.765Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
+2026-07-22T06:36:31.913Z [32minfo[39m: Registered Route: HEAD /api/aliases
+2026-07-22T06:36:31.914Z [32minfo[39m: Registered Route: POST /api/aliases
+2026-07-22T06:36:31.914Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
+2026-07-22T06:36:31.914Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
+2026-07-22T06:36:31.914Z [32minfo[39m: Registered Route: GET /api/aliases
+2026-07-22T06:36:31.914Z [32minfo[39m: Registered Route: GET /api/aliases/:id
+2026-07-22T06:36:31.914Z [32minfo[39m: Registered Route: DELETE /api/aliases
+2026-07-22T06:36:31.914Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
+2026-07-22T06:36:31.914Z [32minfo[39m: Registered Route: PUT /api/aliases
+2026-07-22T06:36:31.914Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
 
-2026-07-20T05:09:18.766Z [32minfo[39m: Registering class UserUtils
-2026-07-20T05:09:18.766Z [34mdebug[39m: Creating new instance of class [UserUtils] with name [UserUtils:default]
+2026-07-22T06:36:31.915Z [34mdebug[39m: Creating new instance of class [routes.AuthBasicRoute] with name [routes.AuthBasicRoute:default]
+2026-07-22T06:36:31.915Z [32minfo[39m: Registering class RateLimiter
+2026-07-22T06:36:31.915Z [34mdebug[39m: Creating new instance of class [RateLimiter] with name [RateLimiter:default]
+2026-07-22T06:36:31.915Z [32minfo[39m: Registering class MemoryStore
+2026-07-22T06:36:31.915Z [34mdebug[39m: Creating new instance of class [MemoryStore] with name [MemoryStore:default]
+2026-07-22T06:36:31.916Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:SecretSQL]
+2026-07-22T06:36:31.916Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
 
-2026-07-20T05:09:18.766Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:UserSQL]
-2026-07-20T05:09:18.766Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
+2026-07-22T06:36:31.936Z [32minfo[39m: Registering class UserUtils
+2026-07-22T06:36:31.936Z [34mdebug[39m: Creating new instance of class [UserUtils] with name [UserUtils:default]
 
-2026-07-20T05:09:18.767Z [32minfo[39m: Registering class BasicStrategy
-2026-07-20T05:09:18.767Z [34mdebug[39m: Creating new instance of class [BasicStrategy] with name [BasicStrategy:default]
+2026-07-22T06:36:31.936Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:UserSQL]
+2026-07-22T06:36:31.937Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
 
-2026-07-20T05:09:18.767Z [32minfo[39m: Registered Route: GET /api/auth/password
+2026-07-22T06:36:31.965Z [32minfo[39m: Registering class BasicStrategy
+2026-07-22T06:36:31.965Z [34mdebug[39m: Creating new instance of class [BasicStrategy] with name [BasicStrategy:default]
 
-2026-07-20T05:09:18.767Z [34mdebug[39m: Creating new instance of class [routes.AuthFIDO2Route] with name [routes.AuthFIDO2Route:default]
-2026-07-20T05:09:18.768Z [32minfo[39m: Registering class MessagingUtils
-2026-07-20T05:09:18.768Z [34mdebug[39m: Creating new instance of class [MessagingUtils] with name [MessagingUtils:default]
+2026-07-22T06:36:31.966Z [32minfo[39m: Registered Route: GET /api/auth/password
 
-2026-07-20T05:09:18.768Z [32minfo[39m: Registering class FIDO2Strategy
-2026-07-20T05:09:18.768Z [34mdebug[39m: Creating new instance of class [FIDO2Strategy] with name [FIDO2Strategy:default]
+2026-07-22T06:36:31.966Z [34mdebug[39m: Creating new instance of class [routes.AuthFIDO2Route] with name [routes.AuthFIDO2Route:default]
+2026-07-22T06:36:31.966Z [32minfo[39m: Registering class MessagingUtils
+2026-07-22T06:36:31.966Z [34mdebug[39m: Creating new instance of class [MessagingUtils] with name [MessagingUtils:default]
 
-2026-07-20T05:09:18.771Z [32minfo[39m: Registered Route: POST /api/auth/fido2
-2026-07-20T05:09:18.771Z [32minfo[39m: Registered Route: GET /api/auth/fido2
+2026-07-22T06:36:31.967Z [32minfo[39m: Registering class FIDO2Strategy
+2026-07-22T06:36:31.967Z [34mdebug[39m: Creating new instance of class [FIDO2Strategy] with name [FIDO2Strategy:default]
 
-2026-07-20T05:09:18.771Z [34mdebug[39m: Creating new instance of class [routes.AuthMFARoute] with name [routes.AuthMFARoute:default]
+2026-07-22T06:36:31.967Z [32minfo[39m: Registered Route: POST /api/auth/fido2
+2026-07-22T06:36:31.967Z [32minfo[39m: Registered Route: GET /api/auth/fido2
 
-2026-07-20T05:09:18.771Z [32minfo[39m: Registering class MFAStrategy
-2026-07-20T05:09:18.771Z [34mdebug[39m: Creating new instance of class [MFAStrategy] with name [MFAStrategy:default]
+2026-07-22T06:36:31.967Z [34mdebug[39m: Creating new instance of class [routes.AuthMFARoute] with name [routes.AuthMFARoute:default]
 
-2026-07-20T05:09:18.772Z [32minfo[39m: Registered Route: POST /api/auth/mfa
-2026-07-20T05:09:18.772Z [32minfo[39m: Registered Route: GET /api/auth/mfa
+2026-07-22T06:36:31.968Z [32minfo[39m: Registering class MFAStrategy
+2026-07-22T06:36:31.968Z [34mdebug[39m: Creating new instance of class [MFAStrategy] with name [MFAStrategy:default]
 
-2026-07-20T05:09:18.772Z [34mdebug[39m: Creating new instance of class [routes.AuthOIDCRoute] with name [routes.AuthOIDCRoute:default]
+2026-07-22T06:36:31.968Z [32minfo[39m: Registered Route: POST /api/auth/mfa
+2026-07-22T06:36:31.968Z [32minfo[39m: Registered Route: GET /api/auth/mfa
 
-2026-07-20T05:09:18.772Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:ProfileSQL]
-2026-07-20T05:09:18.773Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
+2026-07-22T06:36:31.968Z [34mdebug[39m: Creating new instance of class [routes.AuthOIDCRoute] with name [routes.AuthOIDCRoute:default]
 
-2026-07-20T05:09:18.773Z [32minfo[39m: Registering class OIDCStrategy
-2026-07-20T05:09:18.773Z [34mdebug[39m: Creating new instance of class [OIDCStrategy] with name [OIDCStrategy:default]
+2026-07-22T06:36:31.968Z [34mdebug[39m: Creating new instance of class [RepoUtils] with name [RepoUtils:ProfileSQL]
+2026-07-22T06:36:31.969Z [32minfo[39m: Unable to register class undefined for ACLUtils/undefined
 
-2026-07-20T05:09:18.774Z [32minfo[39m: Registered Route: POST /api/auth/oidc
-2026-07-20T05:09:18.774Z [32minfo[39m: Registered Route: GET /api/auth/oidc
+2026-07-22T06:36:31.989Z [32minfo[39m: Registering class OIDCStrategy
+2026-07-22T06:36:31.989Z [34mdebug[39m: Creating new instance of class [OIDCStrategy] with name [OIDCStrategy:default]
 
-2026-07-20T05:09:18.774Z [34mdebug[39m: Creating new instance of class [routes.AuthOTPRoute] with name [routes.AuthOTPRoute:default]
+2026-07-22T06:36:31.989Z [32minfo[39m: Registered Route: POST /api/auth/oidc
+2026-07-22T06:36:31.989Z [32minfo[39m: Registered Route: GET /api/auth/oidc
 
-2026-07-20T05:09:18.774Z [32minfo[39m: Registering class OTPStrategy
-2026-07-20T05:09:18.774Z [34mdebug[39m: Creating new instance of class [OTPStrategy] with name [OTPStrategy:default]
+2026-07-22T06:36:31.989Z [34mdebug[39m: Creating new instance of class [routes.AuthOTPRoute] with name [routes.AuthOTPRoute:default]
 
-2026-07-20T05:09:18.774Z [32minfo[39m: Registered Route: POST /api/auth/otp
-2026-07-20T05:09:18.774Z [32minfo[39m: Registered Route: GET /api/auth/otp
+2026-07-22T06:36:31.990Z [32minfo[39m: Registering class OTPStrategy
+2026-07-22T06:36:31.990Z [34mdebug[39m: Creating new instance of class [OTPStrategy] with name [OTPStrategy:default]
 
-2026-07-20T05:09:18.775Z [34mdebug[39m: Creating new instance of class [routes.AuthPasskeyRoute] with name [routes.AuthPasskeyRoute:default]
+2026-07-22T06:36:31.990Z [32minfo[39m: Registered Route: POST /api/auth/otp
+2026-07-22T06:36:31.990Z [32minfo[39m: Registered Route: GET /api/auth/otp
 
-2026-07-20T05:09:18.775Z [32minfo[39m: Registering class PasskeyStrategy
-2026-07-20T05:09:18.775Z [34mdebug[39m: Creating new instance of class [PasskeyStrategy] with name [PasskeyStrategy:default]
+2026-07-22T06:36:31.990Z [34mdebug[39m: Creating new instance of class [routes.AuthPasskeyRoute] with name [routes.AuthPasskeyRoute:default]
 
-2026-07-20T05:09:18.775Z [32minfo[39m: Registered Route: POST /api/auth/passkey
-2026-07-20T05:09:18.775Z [32minfo[39m: Registered Route: GET /api/auth/passkey
+2026-07-22T06:36:31.991Z [32minfo[39m: Registering class PasskeyStrategy
+2026-07-22T06:36:31.991Z [34mdebug[39m: Creating new instance of class [PasskeyStrategy] with name [PasskeyStrategy:default]
 
-2026-07-20T05:09:18.775Z [34mdebug[39m: Creating new instance of class [routes.AuthTOTPRoute] with name [routes.AuthTOTPRoute:default]
+2026-07-22T06:36:31.991Z [32minfo[39m: Registered Route: POST /api/auth/passkey
+2026-07-22T06:36:31.991Z [32minfo[39m: Registered Route: GET /api/auth/passkey
 
-2026-07-20T05:09:18.776Z [32minfo[39m: Registering class TOTPStrategy
-2026-07-20T05:09:18.776Z [34mdebug[39m: Creating new instance of class [TOTPStrategy] with name [TOTPStrategy:default]
+2026-07-22T06:36:31.991Z [34mdebug[39m: Creating new instance of class [routes.AuthTOTPRoute] with name [routes.AuthTOTPRoute:default]
 
-2026-07-20T05:09:18.776Z [32minfo[39m: Registered Route: POST /api/auth/totp
-2026-07-20T05:09:18.776Z [32minfo[39m: Registered Route: GET /api/auth/totp
+2026-07-22T06:36:31.991Z [32minfo[39m: Registering class TOTPStrategy
+2026-07-22T06:36:31.991Z [34mdebug[39m: Creating new instance of class [TOTPStrategy] with name [TOTPStrategy:default]
 
-2026-07-20T05:09:18.776Z [34mdebug[39m: Creating new instance of class [routes.MetricsRoute] with name [routes.MetricsRoute:default]
+2026-07-22T06:36:31.992Z [32minfo[39m: Registered Route: POST /api/auth/totp
+2026-07-22T06:36:31.992Z [32minfo[39m: Registered Route: GET /api/auth/totp
 
-2026-07-20T05:09:18.776Z [32minfo[39m: Registered Route: GET /api/metrics
-2026-07-20T05:09:18.776Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
+2026-07-22T06:36:31.992Z [34mdebug[39m: Creating new instance of class [routes.MetricsRoute] with name [routes.MetricsRoute:default]
 
-2026-07-20T05:09:18.776Z [34mdebug[39m: Creating new instance of class [routes.OpenAPIRoute] with name [routes.OpenAPIRoute:default]
+2026-07-22T06:36:31.992Z [32minfo[39m: Registered Route: GET /api/metrics
+2026-07-22T06:36:31.992Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
 
-2026-07-20T05:09:18.777Z [32minfo[39m: Registered Route: GET /api/openapi
-2026-07-20T05:09:18.777Z [32minfo[39m: Registered Route: GET /api/openapi/json
-2026-07-20T05:09:18.777Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
+2026-07-22T06:36:31.992Z [34mdebug[39m: Creating new instance of class [routes.OpenAPIRoute] with name [routes.OpenAPIRoute:default]
 
-2026-07-20T05:09:18.777Z [34mdebug[39m: Creating new instance of class [routes.ProfileRoute] with name [routes.ProfileRoute:default]
+2026-07-22T06:36:31.992Z [32minfo[39m: Registered Route: GET /api/openapi
+2026-07-22T06:36:31.992Z [32minfo[39m: Registered Route: GET /api/openapi/json
+2026-07-22T06:36:31.993Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
 
-2026-07-20T05:09:18.782Z [32minfo[39m: Registered Route: HEAD /api/profiles
-2026-07-20T05:09:18.782Z [32minfo[39m: Registered Route: POST /api/profiles
-2026-07-20T05:09:18.782Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
-2026-07-20T05:09:18.782Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
-2026-07-20T05:09:18.782Z [32minfo[39m: Registered Route: GET /api/profiles
-2026-07-20T05:09:18.782Z [32minfo[39m: Registered Route: GET /api/profiles/:id
-2026-07-20T05:09:18.782Z [32minfo[39m: Registered Route: DELETE /api/profiles
-2026-07-20T05:09:18.782Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
-2026-07-20T05:09:18.782Z [32minfo[39m: Registered Route: PUT /api/profiles
-2026-07-20T05:09:18.782Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
+2026-07-22T06:36:31.993Z [34mdebug[39m: Creating new instance of class [routes.ProfileRoute] with name [routes.ProfileRoute:default]
 
-2026-07-20T05:09:18.783Z [34mdebug[39m: Creating new instance of class [routes.SecretRoute] with name [routes.SecretRoute:default]
+2026-07-22T06:36:31.994Z [32minfo[39m: Registered Route: HEAD /api/profiles
+2026-07-22T06:36:31.994Z [32minfo[39m: Registered Route: POST /api/profiles
+2026-07-22T06:36:31.994Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
+2026-07-22T06:36:31.994Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
+2026-07-22T06:36:31.994Z [32minfo[39m: Registered Route: GET /api/profiles
+2026-07-22T06:36:31.994Z [32minfo[39m: Registered Route: GET /api/profiles/:id
+2026-07-22T06:36:31.994Z [32minfo[39m: Registered Route: DELETE /api/profiles
+2026-07-22T06:36:31.994Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
+2026-07-22T06:36:31.994Z [32minfo[39m: Registered Route: PUT /api/profiles
+2026-07-22T06:36:31.994Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
 
-2026-07-20T05:09:18.783Z [32minfo[39m: Registered Route: HEAD /api/secrets
-2026-07-20T05:09:18.784Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
-2026-07-20T05:09:18.784Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
-2026-07-20T05:09:18.784Z [32minfo[39m: Registered Route: POST /api/secrets
-2026-07-20T05:09:18.784Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
-2026-07-20T05:09:18.784Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
-2026-07-20T05:09:18.784Z [32minfo[39m: Registered Route: GET /api/secrets
-2026-07-20T05:09:18.784Z [32minfo[39m: Registered Route: GET /api/secrets/:id
-2026-07-20T05:09:18.784Z [32minfo[39m: Registered Route: DELETE /api/secrets
+2026-07-22T06:36:31.995Z [34mdebug[39m: Creating new instance of class [routes.SecretRoute] with name [routes.SecretRoute:default]
 
-2026-07-20T05:09:18.784Z [34mdebug[39m: Creating new instance of class [routes.StatusRoute] with name [routes.StatusRoute:default]
-2026-07-20T05:09:18.784Z [32minfo[39m: Registering class StatusExtraData
-2026-07-20T05:09:18.784Z [34mdebug[39m: Creating new instance of class [StatusExtraData] with name [StatusExtraData:default]
+2026-07-22T06:36:31.996Z [32minfo[39m: Registered Route: HEAD /api/secrets
+2026-07-22T06:36:31.996Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
+2026-07-22T06:36:31.996Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
+2026-07-22T06:36:31.996Z [32minfo[39m: Registered Route: POST /api/secrets
+2026-07-22T06:36:31.996Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
+2026-07-22T06:36:31.996Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
+2026-07-22T06:36:31.996Z [32minfo[39m: Registered Route: GET /api/secrets
+2026-07-22T06:36:31.996Z [32minfo[39m: Registered Route: GET /api/secrets/:id
+2026-07-22T06:36:31.996Z [32minfo[39m: Registered Route: DELETE /api/secrets
 
-2026-07-20T05:09:18.785Z [32minfo[39m: Registered Route: GET /api/status
+2026-07-22T06:36:31.996Z [34mdebug[39m: Creating new instance of class [routes.StatusRoute] with name [routes.StatusRoute:default]
+2026-07-22T06:36:31.997Z [32minfo[39m: Registering class StatusExtraData
+2026-07-22T06:36:31.997Z [34mdebug[39m: Creating new instance of class [StatusExtraData] with name [StatusExtraData:default]
 
-2026-07-20T05:09:18.785Z [34mdebug[39m: Creating new instance of class [routes.UserRoute] with name [routes.UserRoute:default]
+2026-07-22T06:36:31.997Z [32minfo[39m: Registered Route: GET /api/status
 
-2026-07-20T05:09:18.785Z [32minfo[39m: Registered Route: HEAD /api/users
-2026-07-20T05:09:18.786Z [32minfo[39m: Registered Route: POST /api/users
-2026-07-20T05:09:18.786Z [32minfo[39m: Registered Route: DELETE /api/users/:id
-2026-07-20T05:09:18.786Z [32minfo[39m: Registered Route: HEAD /api/users/:id
-2026-07-20T05:09:18.786Z [32minfo[39m: Registered Route: GET /api/users
-2026-07-20T05:09:18.786Z [32minfo[39m: Registered Route: GET /api/users/:id
-2026-07-20T05:09:18.786Z [32minfo[39m: Registered Route: DELETE /api/users
-2026-07-20T05:09:18.786Z [32minfo[39m: Registered Route: PUT /api/users/:id
-2026-07-20T05:09:18.786Z [32minfo[39m: Registered Route: PUT /api/users
-2026-07-20T05:09:18.787Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
+2026-07-22T06:36:31.997Z [34mdebug[39m: Creating new instance of class [routes.UserRoute] with name [routes.UserRoute:default]
 
-2026-07-20T05:09:18.787Z [34mdebug[39m: Creating new instance of class [routes.AppRoute] with name [routes.AppRoute:default]
+2026-07-22T06:36:31.998Z [32minfo[39m: Registered Route: HEAD /api/users
+2026-07-22T06:36:31.998Z [32minfo[39m: Registered Route: POST /api/users
+2026-07-22T06:36:31.998Z [32minfo[39m: Registered Route: DELETE /api/users/:id
+2026-07-22T06:36:31.998Z [32minfo[39m: Registered Route: HEAD /api/users/:id
+2026-07-22T06:36:31.998Z [32minfo[39m: Registered Route: GET /api/users
+2026-07-22T06:36:31.998Z [32minfo[39m: Registered Route: GET /api/users/:id
+2026-07-22T06:36:31.999Z [32minfo[39m: Registered Route: DELETE /api/users
+2026-07-22T06:36:31.999Z [32minfo[39m: Registered Route: PUT /api/users/:id
+2026-07-22T06:36:31.999Z [32minfo[39m: Registered Route: PUT /api/users
+2026-07-22T06:36:31.999Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
 
-2026-07-20T05:09:18.788Z [32minfo[39m: Registered Route: GET /api/*
+2026-07-22T06:36:31.999Z [34mdebug[39m: Creating new instance of class [routes.AppRoute] with name [routes.AppRoute:default]
 
-2026-07-20T05:09:18.788Z [32minfo[39m: Listening on 0.0.0.0:3000...
+2026-07-22T06:36:32.000Z [32minfo[39m: Registered Route: GET /api/*
 
-2026-07-20T05:09:19.806Z [32minfo[39m: Stopping background services...
+2026-07-22T06:36:32.001Z [32minfo[39m: Listening on 0.0.0.0:3000...
 
-2026-07-20T05:09:19.806Z [32minfo[39m: Stopping server...
-2026-07-20T05:09:19.807Z [32minfo[39m: Closing database connections...
+2026-07-22T06:36:33.020Z [32minfo[39m: Stopping background services...
 
-2026-07-20T05:09:19.807Z [32minfo[39m: Successfully disconnected from all configured databases.
+2026-07-22T06:36:33.020Z [32minfo[39m: Stopping server...
+2026-07-22T06:36:33.020Z [32minfo[39m: Closing database connections...
+
+2026-07-22T06:36:33.021Z [32minfo[39m: Successfully disconnected from all configured databases.
 
             </system-out>
         </testcase>
-        <testcase classname="test/Server.sql.test.ts" name="Server Tests &gt; Can stop server." time="1.0265744">
+        <testcase classname="test/Server.sql.test.ts" name="Server Tests &gt; Can stop server." time="1.0280509">
             <system-out>
-2026-07-20T05:09:19.807Z [32minfo[39m: Starting server...
+2026-07-22T06:36:33.022Z [32minfo[39m: Starting server...
 
-2026-07-20T05:09:19.808Z [32minfo[39m: Loading all service classes...
+2026-07-22T06:36:33.022Z [32minfo[39m: Loading all service classes...
 
-2026-07-20T05:09:19.816Z [32minfo[39m: Scanning for data models...
-2026-07-20T05:09:19.816Z [32minfo[39m: Initializing database connection(s)...
-2026-07-20T05:09:19.816Z [32minfo[39m: Connecting to database acl [sqlite://localhost/rrst-test]...
+2026-07-22T06:36:33.031Z [32minfo[39m: Scanning for data models...
+2026-07-22T06:36:33.032Z [32minfo[39m: Initializing database connection(s)...
+2026-07-22T06:36:33.032Z [32minfo[39m: Connecting to database acl [sqlite://localhost/rrst-test]...
 
-2026-07-20T05:09:19.818Z [32minfo[39m: Connecting to database cache [redis://localhost]...
-2026-07-20T05:09:19.819Z [32minfo[39m: Connecting to database events [redis://localhost]...
-2026-07-20T05:09:19.819Z [32minfo[39m: Connecting to database logs [redis://localhost]...
-2026-07-20T05:09:19.820Z [32minfo[39m: Connecting to database sql [sqlite://localhost/rrst-test]...
+2026-07-22T06:36:33.034Z [32minfo[39m: Connecting to database cache [redis://localhost]...
+2026-07-22T06:36:33.034Z [32minfo[39m: Connecting to database events [redis://localhost]...
+2026-07-22T06:36:33.035Z [32minfo[39m: Connecting to database logs [redis://localhost]...
+2026-07-22T06:36:33.035Z [32minfo[39m: Connecting to database sql [sqlite://localhost/rrst-test]...
 
-2026-07-20T05:09:19.821Z [32minfo[39m: Successfully connected to all configured databases.
+2026-07-22T06:36:33.036Z [32minfo[39m: Successfully connected to all configured databases.
 
-2026-07-20T05:09:19.821Z [32minfo[39m: Starting background services...
+2026-07-22T06:36:33.036Z [32minfo[39m: Starting background services...
 
-2026-07-20T05:09:19.821Z [32minfo[39m: Initializing event manager...
+2026-07-22T06:36:33.036Z [32minfo[39m: Initializing event manager...
 
-2026-07-20T05:09:19.822Z [32minfo[39m: Scanning for routes...
+2026-07-22T06:36:33.038Z [32minfo[39m: Scanning for routes...
 
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: WS /api/admin/logs
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: GET /api/admin/restart
+2026-07-22T06:36:33.038Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
+2026-07-22T06:36:33.038Z [32minfo[39m: Registered Route: WS /api/admin/logs
+2026-07-22T06:36:33.038Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: GET /api/admin/restart
 
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: HEAD /api/aliases
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: POST /api/aliases
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: GET /api/aliases
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: GET /api/aliases/:id
-2026-07-20T05:09:19.823Z [32minfo[39m: Registered Route: DELETE /api/aliases
-2026-07-20T05:09:19.824Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
-2026-07-20T05:09:19.824Z [32minfo[39m: Registered Route: PUT /api/aliases
-2026-07-20T05:09:19.824Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: HEAD /api/aliases
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: POST /api/aliases
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: GET /api/aliases
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: GET /api/aliases/:id
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: DELETE /api/aliases
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: PUT /api/aliases
+2026-07-22T06:36:33.039Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
 
-2026-07-20T05:09:19.824Z [32minfo[39m: Registered Route: GET /api/auth/password
+2026-07-22T06:36:33.040Z [32minfo[39m: Registered Route: GET /api/auth/password
 
-2026-07-20T05:09:19.824Z [32minfo[39m: Registered Route: POST /api/auth/fido2
-2026-07-20T05:09:19.824Z [32minfo[39m: Registered Route: GET /api/auth/fido2
+2026-07-22T06:36:33.040Z [32minfo[39m: Registered Route: POST /api/auth/fido2
+2026-07-22T06:36:33.040Z [32minfo[39m: Registered Route: GET /api/auth/fido2
 
-2026-07-20T05:09:19.824Z [32minfo[39m: Registered Route: POST /api/auth/mfa
-2026-07-20T05:09:19.824Z [32minfo[39m: Registered Route: GET /api/auth/mfa
+2026-07-22T06:36:33.040Z [32minfo[39m: Registered Route: POST /api/auth/mfa
+2026-07-22T06:36:33.040Z [32minfo[39m: Registered Route: GET /api/auth/mfa
 
-2026-07-20T05:09:19.824Z [32minfo[39m: Registered Route: POST /api/auth/oidc
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: GET /api/auth/oidc
+2026-07-22T06:36:33.040Z [32minfo[39m: Registered Route: POST /api/auth/oidc
+2026-07-22T06:36:33.040Z [32minfo[39m: Registered Route: GET /api/auth/oidc
 
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: POST /api/auth/otp
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: GET /api/auth/otp
+2026-07-22T06:36:33.040Z [32minfo[39m: Registered Route: POST /api/auth/otp
+2026-07-22T06:36:33.040Z [32minfo[39m: Registered Route: GET /api/auth/otp
 
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: POST /api/auth/passkey
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: GET /api/auth/passkey
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: POST /api/auth/passkey
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: GET /api/auth/passkey
 
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: POST /api/auth/totp
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: GET /api/auth/totp
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: POST /api/auth/totp
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: GET /api/auth/totp
 
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: GET /api/metrics
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: GET /api/metrics
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
 
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: GET /api/openapi
-2026-07-20T05:09:19.825Z [32minfo[39m: Registered Route: GET /api/openapi/json
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: GET /api/openapi
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: GET /api/openapi/json
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
 
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: HEAD /api/profiles
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: POST /api/profiles
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: GET /api/profiles
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: GET /api/profiles/:id
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: DELETE /api/profiles
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: PUT /api/profiles
-2026-07-20T05:09:19.826Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: HEAD /api/profiles
+2026-07-22T06:36:33.041Z [32minfo[39m: Registered Route: POST /api/profiles
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: GET /api/profiles
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: GET /api/profiles/:id
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: DELETE /api/profiles
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: PUT /api/profiles
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
 
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: HEAD /api/secrets
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: POST /api/secrets
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: GET /api/secrets
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: GET /api/secrets/:id
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: DELETE /api/secrets
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: HEAD /api/secrets
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
+2026-07-22T06:36:33.042Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: POST /api/secrets
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: GET /api/secrets
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: GET /api/secrets/:id
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: DELETE /api/secrets
 
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: GET /api/status
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: GET /api/status
 
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: HEAD /api/users
-2026-07-20T05:09:19.827Z [32minfo[39m: Registered Route: POST /api/users
-2026-07-20T05:09:19.828Z [32minfo[39m: Registered Route: DELETE /api/users/:id
-2026-07-20T05:09:19.828Z [32minfo[39m: Registered Route: HEAD /api/users/:id
-2026-07-20T05:09:19.828Z [32minfo[39m: Registered Route: GET /api/users
-2026-07-20T05:09:19.828Z [32minfo[39m: Registered Route: GET /api/users/:id
-2026-07-20T05:09:19.828Z [32minfo[39m: Registered Route: DELETE /api/users
-2026-07-20T05:09:19.828Z [32minfo[39m: Registered Route: PUT /api/users/:id
-2026-07-20T05:09:19.828Z [32minfo[39m: Registered Route: PUT /api/users
-2026-07-20T05:09:19.828Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: HEAD /api/users
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: POST /api/users
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: DELETE /api/users/:id
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: HEAD /api/users/:id
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: GET /api/users
+2026-07-22T06:36:33.043Z [32minfo[39m: Registered Route: GET /api/users/:id
+2026-07-22T06:36:33.044Z [32minfo[39m: Registered Route: DELETE /api/users
+2026-07-22T06:36:33.044Z [32minfo[39m: Registered Route: PUT /api/users/:id
+2026-07-22T06:36:33.044Z [32minfo[39m: Registered Route: PUT /api/users
+2026-07-22T06:36:33.044Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
 
-2026-07-20T05:09:19.828Z [32minfo[39m: Registered Route: GET /api/*
+2026-07-22T06:36:33.044Z [32minfo[39m: Registered Route: GET /api/*
 
-2026-07-20T05:09:19.828Z [32minfo[39m: Listening on 0.0.0.0:3000...
+2026-07-22T06:36:33.044Z [32minfo[39m: Listening on 0.0.0.0:3000...
 
-2026-07-20T05:09:20.833Z [32minfo[39m: Stopping background services...
+2026-07-22T06:36:34.048Z [32minfo[39m: Stopping background services...
 
-2026-07-20T05:09:20.833Z [32minfo[39m: Stopping server...
-2026-07-20T05:09:20.833Z [32minfo[39m: Closing database connections...
+2026-07-22T06:36:34.049Z [32minfo[39m: Stopping server...
+2026-07-22T06:36:34.049Z [32minfo[39m: Closing database connections...
 
-2026-07-20T05:09:20.834Z [32minfo[39m: Successfully disconnected from all configured databases.
+2026-07-22T06:36:34.049Z [32minfo[39m: Successfully disconnected from all configured databases.
 
-2026-07-20T05:09:20.834Z [32minfo[39m: Stopping background services...
+2026-07-22T06:36:34.049Z [32minfo[39m: Stopping background services...
 
-2026-07-20T05:09:20.834Z [32minfo[39m: Stopping server...
-2026-07-20T05:09:20.834Z [32minfo[39m: Closing database connections...
-2026-07-20T05:09:20.834Z [32minfo[39m: Successfully disconnected from all configured databases.
+2026-07-22T06:36:34.049Z [32minfo[39m: Stopping server...
+2026-07-22T06:36:34.049Z [32minfo[39m: Closing database connections...
+2026-07-22T06:36:34.049Z [32minfo[39m: Successfully disconnected from all configured databases.
 
             </system-out>
         </testcase>
-        <testcase classname="test/Server.sql.test.ts" name="Server Tests &gt; Can restart server." time="1.0588554">
+        <testcase classname="test/Server.sql.test.ts" name="Server Tests &gt; Can restart server." time="1.0572221">
             <system-out>
-2026-07-20T05:09:20.834Z [32minfo[39m: Starting server...
+2026-07-22T06:36:34.050Z [32minfo[39m: Starting server...
 
-2026-07-20T05:09:20.834Z [32minfo[39m: Loading all service classes...
+2026-07-22T06:36:34.050Z [32minfo[39m: Loading all service classes...
 
-2026-07-20T05:09:20.842Z [32minfo[39m: Scanning for data models...
-2026-07-20T05:09:20.842Z [32minfo[39m: Initializing database connection(s)...
-2026-07-20T05:09:20.842Z [32minfo[39m: Connecting to database acl [sqlite://localhost/rrst-test]...
+2026-07-22T06:36:34.058Z [32minfo[39m: Scanning for data models...
+2026-07-22T06:36:34.058Z [32minfo[39m: Initializing database connection(s)...
+2026-07-22T06:36:34.058Z [32minfo[39m: Connecting to database acl [sqlite://localhost/rrst-test]...
 
-2026-07-20T05:09:20.844Z [32minfo[39m: Connecting to database cache [redis://localhost]...
-2026-07-20T05:09:20.845Z [32minfo[39m: Connecting to database events [redis://localhost]...
-2026-07-20T05:09:20.845Z [32minfo[39m: Connecting to database logs [redis://localhost]...
-2026-07-20T05:09:20.845Z [32minfo[39m: Connecting to database sql [sqlite://localhost/rrst-test]...
+2026-07-22T06:36:34.060Z [32minfo[39m: Connecting to database cache [redis://localhost]...
+2026-07-22T06:36:34.060Z [32minfo[39m: Connecting to database events [redis://localhost]...
+2026-07-22T06:36:34.061Z [32minfo[39m: Connecting to database logs [redis://localhost]...
+2026-07-22T06:36:34.061Z [32minfo[39m: Connecting to database sql [sqlite://localhost/rrst-test]...
 
-2026-07-20T05:09:20.846Z [32minfo[39m: Successfully connected to all configured databases.
+2026-07-22T06:36:34.062Z [32minfo[39m: Successfully connected to all configured databases.
 
-2026-07-20T05:09:20.847Z [32minfo[39m: Starting background services...
+2026-07-22T06:36:34.062Z [32minfo[39m: Starting background services...
 
-2026-07-20T05:09:20.847Z [32minfo[39m: Initializing event manager...
+2026-07-22T06:36:34.062Z [32minfo[39m: Initializing event manager...
 
-2026-07-20T05:09:20.848Z [32minfo[39m: Scanning for routes...
+2026-07-22T06:36:34.064Z [32minfo[39m: Scanning for routes...
 
-2026-07-20T05:09:20.848Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
-2026-07-20T05:09:20.848Z [32minfo[39m: Registered Route: WS /api/admin/logs
-2026-07-20T05:09:20.848Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
-2026-07-20T05:09:20.848Z [32minfo[39m: Registered Route: GET /api/admin/restart
+2026-07-22T06:36:34.064Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
+2026-07-22T06:36:34.064Z [32minfo[39m: Registered Route: WS /api/admin/logs
+2026-07-22T06:36:34.064Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
+2026-07-22T06:36:34.064Z [32minfo[39m: Registered Route: GET /api/admin/restart
 
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: HEAD /api/aliases
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: POST /api/aliases
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: GET /api/aliases
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: GET /api/aliases/:id
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: DELETE /api/aliases
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: PUT /api/aliases
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
+2026-07-22T06:36:34.064Z [32minfo[39m: Registered Route: HEAD /api/aliases
+2026-07-22T06:36:34.064Z [32minfo[39m: Registered Route: POST /api/aliases
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: GET /api/aliases
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: GET /api/aliases/:id
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: DELETE /api/aliases
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: PUT /api/aliases
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
 
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: GET /api/auth/password
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: GET /api/auth/password
 
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: POST /api/auth/fido2
-2026-07-20T05:09:20.849Z [32minfo[39m: Registered Route: GET /api/auth/fido2
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: POST /api/auth/fido2
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: GET /api/auth/fido2
 
-2026-07-20T05:09:20.850Z [32minfo[39m: Registered Route: POST /api/auth/mfa
-2026-07-20T05:09:20.850Z [32minfo[39m: Registered Route: GET /api/auth/mfa
+2026-07-22T06:36:34.065Z [32minfo[39m: Registered Route: POST /api/auth/mfa
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: GET /api/auth/mfa
 
-2026-07-20T05:09:20.850Z [32minfo[39m: Registered Route: POST /api/auth/oidc
-2026-07-20T05:09:20.850Z [32minfo[39m: Registered Route: GET /api/auth/oidc
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: POST /api/auth/oidc
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: GET /api/auth/oidc
 
-2026-07-20T05:09:20.850Z [32minfo[39m: Registered Route: POST /api/auth/otp
-2026-07-20T05:09:20.850Z [32minfo[39m: Registered Route: GET /api/auth/otp
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: POST /api/auth/otp
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: GET /api/auth/otp
 
-2026-07-20T05:09:20.850Z [32minfo[39m: Registered Route: POST /api/auth/passkey
-2026-07-20T05:09:20.850Z [32minfo[39m: Registered Route: GET /api/auth/passkey
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: POST /api/auth/passkey
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: GET /api/auth/passkey
 
-2026-07-20T05:09:20.850Z [32minfo[39m: Registered Route: POST /api/auth/totp
-2026-07-20T05:09:20.850Z [32minfo[39m: Registered Route: GET /api/auth/totp
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: POST /api/auth/totp
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: GET /api/auth/totp
 
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: GET /api/metrics
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: GET /api/metrics
+2026-07-22T06:36:34.066Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
 
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: GET /api/openapi
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: GET /api/openapi/json
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: GET /api/openapi
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: GET /api/openapi/json
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
 
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: HEAD /api/profiles
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: POST /api/profiles
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: GET /api/profiles
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: GET /api/profiles/:id
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: DELETE /api/profiles
-2026-07-20T05:09:20.851Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: PUT /api/profiles
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: HEAD /api/profiles
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: POST /api/profiles
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: GET /api/profiles
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: GET /api/profiles/:id
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: DELETE /api/profiles
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: PUT /api/profiles
+2026-07-22T06:36:34.067Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
 
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: HEAD /api/secrets
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: POST /api/secrets
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: GET /api/secrets
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: GET /api/secrets/:id
-2026-07-20T05:09:20.852Z [32minfo[39m: Registered Route: DELETE /api/secrets
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: HEAD /api/secrets
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: POST /api/secrets
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: GET /api/secrets
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: GET /api/secrets/:id
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: DELETE /api/secrets
 
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: GET /api/status
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: GET /api/status
 
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: HEAD /api/users
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: POST /api/users
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: DELETE /api/users/:id
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: HEAD /api/users/:id
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: GET /api/users
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: GET /api/users/:id
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: DELETE /api/users
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: PUT /api/users/:id
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: PUT /api/users
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
+2026-07-22T06:36:34.068Z [32minfo[39m: Registered Route: HEAD /api/users
+2026-07-22T06:36:34.069Z [32minfo[39m: Registered Route: POST /api/users
+2026-07-22T06:36:34.069Z [32minfo[39m: Registered Route: DELETE /api/users/:id
+2026-07-22T06:36:34.069Z [32minfo[39m: Registered Route: HEAD /api/users/:id
+2026-07-22T06:36:34.069Z [32minfo[39m: Registered Route: GET /api/users
+2026-07-22T06:36:34.069Z [32minfo[39m: Registered Route: GET /api/users/:id
+2026-07-22T06:36:34.069Z [32minfo[39m: Registered Route: DELETE /api/users
+2026-07-22T06:36:34.069Z [32minfo[39m: Registered Route: PUT /api/users/:id
+2026-07-22T06:36:34.069Z [32minfo[39m: Registered Route: PUT /api/users
+2026-07-22T06:36:34.069Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
 
-2026-07-20T05:09:20.853Z [32minfo[39m: Registered Route: GET /api/*
+2026-07-22T06:36:34.069Z [32minfo[39m: Registered Route: GET /api/*
 
-2026-07-20T05:09:20.854Z [32minfo[39m: Listening on 0.0.0.0:3000...
+2026-07-22T06:36:34.069Z [32minfo[39m: Listening on 0.0.0.0:3000...
 
-2026-07-20T05:09:21.865Z [32minfo[39m: Stopping background services...
+2026-07-22T06:36:35.082Z [32minfo[39m: Stopping background services...
 
-2026-07-20T05:09:21.866Z [32minfo[39m: Stopping server...
-2026-07-20T05:09:21.866Z [32minfo[39m: Closing database connections...
+2026-07-22T06:36:35.082Z [32minfo[39m: Stopping server...
+2026-07-22T06:36:35.082Z [32minfo[39m: Closing database connections...
 
-2026-07-20T05:09:21.866Z [32minfo[39m: Successfully disconnected from all configured databases.
+2026-07-22T06:36:35.083Z [32minfo[39m: Successfully disconnected from all configured databases.
 
-2026-07-20T05:09:21.866Z [32minfo[39m: Starting server...
+2026-07-22T06:36:35.083Z [32minfo[39m: Starting server...
 
-2026-07-20T05:09:21.866Z [32minfo[39m: Loading all service classes...
+2026-07-22T06:36:35.083Z [32minfo[39m: Loading all service classes...
 
-2026-07-20T05:09:21.875Z [32minfo[39m: Scanning for data models...
-2026-07-20T05:09:21.876Z [32minfo[39m: Initializing database connection(s)...
-2026-07-20T05:09:21.876Z [32minfo[39m: Connecting to database acl [sqlite://localhost/rrst-test]...
+2026-07-22T06:36:35.094Z [32minfo[39m: Scanning for data models...
+2026-07-22T06:36:35.094Z [32minfo[39m: Initializing database connection(s)...
+2026-07-22T06:36:35.094Z [32minfo[39m: Connecting to database acl [sqlite://localhost/rrst-test]...
 
-2026-07-20T05:09:21.877Z [32minfo[39m: Connecting to database cache [redis://localhost]...
-2026-07-20T05:09:21.878Z [32minfo[39m: Connecting to database events [redis://localhost]...
-2026-07-20T05:09:21.878Z [32minfo[39m: Connecting to database logs [redis://localhost]...
-2026-07-20T05:09:21.879Z [32minfo[39m: Connecting to database sql [sqlite://localhost/rrst-test]...
+2026-07-22T06:36:35.096Z [32minfo[39m: Connecting to database cache [redis://localhost]...
+2026-07-22T06:36:35.097Z [32minfo[39m: Connecting to database events [redis://localhost]...
+2026-07-22T06:36:35.097Z [32minfo[39m: Connecting to database logs [redis://localhost]...
+2026-07-22T06:36:35.097Z [32minfo[39m: Connecting to database sql [sqlite://localhost/rrst-test]...
 
-2026-07-20T05:09:21.880Z [32minfo[39m: Successfully connected to all configured databases.
+2026-07-22T06:36:35.098Z [32minfo[39m: Successfully connected to all configured databases.
 
-2026-07-20T05:09:21.880Z [32minfo[39m: Starting background services...
+2026-07-22T06:36:35.098Z [32minfo[39m: Starting background services...
 
-2026-07-20T05:09:21.880Z [32minfo[39m: Initializing event manager...
+2026-07-22T06:36:35.098Z [32minfo[39m: Initializing event manager...
 
-2026-07-20T05:09:21.881Z [32minfo[39m: Scanning for routes...
+2026-07-22T06:36:35.100Z [32minfo[39m: Scanning for routes...
 
-2026-07-20T05:09:21.881Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: WS /api/admin/logs
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: GET /api/admin/restart
+2026-07-22T06:36:35.100Z [32minfo[39m: Registered Route: GET /api/admin/clear-cache
+2026-07-22T06:36:35.100Z [32minfo[39m: Registered Route: WS /api/admin/logs
+2026-07-22T06:36:35.100Z [32minfo[39m: Registered Route: GET /api/admin/release-notes
+2026-07-22T06:36:35.100Z [32minfo[39m: Registered Route: GET /api/admin/restart
 
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: HEAD /api/aliases
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: POST /api/aliases
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: GET /api/aliases
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: GET /api/aliases/:id
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: DELETE /api/aliases
-2026-07-20T05:09:21.882Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
-2026-07-20T05:09:21.883Z [32minfo[39m: Registered Route: PUT /api/aliases
-2026-07-20T05:09:21.883Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
+2026-07-22T06:36:35.100Z [32minfo[39m: Registered Route: HEAD /api/aliases
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: POST /api/aliases
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: DELETE /api/aliases/:id
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: HEAD /api/aliases/:id
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: GET /api/aliases
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: GET /api/aliases/:id
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: DELETE /api/aliases
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: PUT /api/aliases/:id
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: PUT /api/aliases
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: PUT /api/aliases/:id/:property
 
-2026-07-20T05:09:21.883Z [32minfo[39m: Registered Route: GET /api/auth/password
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: GET /api/auth/password
 
-2026-07-20T05:09:21.883Z [32minfo[39m: Registered Route: POST /api/auth/fido2
-2026-07-20T05:09:21.883Z [32minfo[39m: Registered Route: GET /api/auth/fido2
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: POST /api/auth/fido2
+2026-07-22T06:36:35.101Z [32minfo[39m: Registered Route: GET /api/auth/fido2
 
-2026-07-20T05:09:21.883Z [32minfo[39m: Registered Route: POST /api/auth/mfa
-2026-07-20T05:09:21.883Z [32minfo[39m: Registered Route: GET /api/auth/mfa
+2026-07-22T06:36:35.102Z [32minfo[39m: Registered Route: POST /api/auth/mfa
+2026-07-22T06:36:35.102Z [32minfo[39m: Registered Route: GET /api/auth/mfa
 
-2026-07-20T05:09:21.883Z [32minfo[39m: Registered Route: POST /api/auth/oidc
-2026-07-20T05:09:21.883Z [32minfo[39m: Registered Route: GET /api/auth/oidc
+2026-07-22T06:36:35.102Z [32minfo[39m: Registered Route: POST /api/auth/oidc
+2026-07-22T06:36:35.102Z [32minfo[39m: Registered Route: GET /api/auth/oidc
 
-2026-07-20T05:09:21.884Z [32minfo[39m: Registered Route: POST /api/auth/otp
-2026-07-20T05:09:21.884Z [32minfo[39m: Registered Route: GET /api/auth/otp
+2026-07-22T06:36:35.102Z [32minfo[39m: Registered Route: POST /api/auth/otp
+2026-07-22T06:36:35.102Z [32minfo[39m: Registered Route: GET /api/auth/otp
 
-2026-07-20T05:09:21.884Z [32minfo[39m: Registered Route: POST /api/auth/passkey
-2026-07-20T05:09:21.884Z [32minfo[39m: Registered Route: GET /api/auth/passkey
+2026-07-22T06:36:35.102Z [32minfo[39m: Registered Route: POST /api/auth/passkey
+2026-07-22T06:36:35.102Z [32minfo[39m: Registered Route: GET /api/auth/passkey
 
-2026-07-20T05:09:21.884Z [32minfo[39m: Registered Route: POST /api/auth/totp
-2026-07-20T05:09:21.884Z [32minfo[39m: Registered Route: GET /api/auth/totp
+2026-07-22T06:36:35.102Z [32minfo[39m: Registered Route: POST /api/auth/totp
+2026-07-22T06:36:35.102Z [32minfo[39m: Registered Route: GET /api/auth/totp
 
-2026-07-20T05:09:21.884Z [32minfo[39m: Registered Route: GET /api/metrics
-2026-07-20T05:09:21.884Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: GET /api/metrics
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: GET /api/metrics/:metric
 
-2026-07-20T05:09:21.884Z [32minfo[39m: Registered Route: GET /api/openapi
-2026-07-20T05:09:21.884Z [32minfo[39m: Registered Route: GET /api/openapi/json
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: GET /api/openapi
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: GET /api/openapi/json
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: GET /api/openapi/yaml
 
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: HEAD /api/profiles
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: POST /api/profiles
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: GET /api/profiles
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: GET /api/profiles/:id
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: DELETE /api/profiles
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: PUT /api/profiles
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: HEAD /api/profiles
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: POST /api/profiles
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: DELETE /api/profiles/:id
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: HEAD /api/profiles/:id
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: GET /api/profiles
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: GET /api/profiles/:id
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: DELETE /api/profiles
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: PUT /api/profiles/:id
+2026-07-22T06:36:35.103Z [32minfo[39m: Registered Route: PUT /api/profiles
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: PUT /api/profiles/:id/:property
 
-2026-07-20T05:09:21.885Z [32minfo[39m: Registered Route: HEAD /api/secrets
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: POST /api/secrets
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: GET /api/secrets
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: GET /api/secrets/:id
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: DELETE /api/secrets
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: HEAD /api/secrets
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: GET /api/secrets/passkey/register
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: GET /api/secrets/fido2/register
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: POST /api/secrets
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: DELETE /api/secrets/:id
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: HEAD /api/secrets/:id
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: GET /api/secrets
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: GET /api/secrets/:id
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: DELETE /api/secrets
 
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: GET /api/status
+2026-07-22T06:36:35.104Z [32minfo[39m: Registered Route: GET /api/status
 
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: HEAD /api/users
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: POST /api/users
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: DELETE /api/users/:id
-2026-07-20T05:09:21.886Z [32minfo[39m: Registered Route: HEAD /api/users/:id
-2026-07-20T05:09:21.887Z [32minfo[39m: Registered Route: GET /api/users
-2026-07-20T05:09:21.887Z [32minfo[39m: Registered Route: GET /api/users/:id
-2026-07-20T05:09:21.887Z [32minfo[39m: Registered Route: DELETE /api/users
-2026-07-20T05:09:21.887Z [32minfo[39m: Registered Route: PUT /api/users/:id
-2026-07-20T05:09:21.887Z [32minfo[39m: Registered Route: PUT /api/users
-2026-07-20T05:09:21.887Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
+2026-07-22T06:36:35.105Z [32minfo[39m: Registered Route: HEAD /api/users
+2026-07-22T06:36:35.105Z [32minfo[39m: Registered Route: POST /api/users
+2026-07-22T06:36:35.105Z [32minfo[39m: Registered Route: DELETE /api/users/:id
+2026-07-22T06:36:35.105Z [32minfo[39m: Registered Route: HEAD /api/users/:id
+2026-07-22T06:36:35.105Z [32minfo[39m: Registered Route: GET /api/users
+2026-07-22T06:36:35.105Z [32minfo[39m: Registered Route: GET /api/users/:id
+2026-07-22T06:36:35.105Z [32minfo[39m: Registered Route: DELETE /api/users
+2026-07-22T06:36:35.105Z [32minfo[39m: Registered Route: PUT /api/users/:id
+2026-07-22T06:36:35.105Z [32minfo[39m: Registered Route: PUT /api/users
+2026-07-22T06:36:35.105Z [32minfo[39m: Registered Route: PUT /api/users/:id/:property
 
-2026-07-20T05:09:21.887Z [32minfo[39m: Registered Route: GET /api/*
+2026-07-22T06:36:35.106Z [32minfo[39m: Registered Route: GET /api/*
 
-2026-07-20T05:09:21.887Z [32minfo[39m: Listening on 0.0.0.0:3000...
+2026-07-22T06:36:35.106Z [32minfo[39m: Listening on 0.0.0.0:3000...
 
-2026-07-20T05:09:21.888Z [32minfo[39m: Stopping background services...
+2026-07-22T06:36:35.106Z [32minfo[39m: Stopping background services...
 
-2026-07-20T05:09:21.888Z [32minfo[39m: Stopping server...
-2026-07-20T05:09:21.888Z [32minfo[39m: Closing database connections...
+2026-07-22T06:36:35.106Z [32minfo[39m: Stopping server...
+2026-07-22T06:36:35.106Z [32minfo[39m: Closing database connections...
 
-2026-07-20T05:09:21.893Z [32minfo[39m: Successfully disconnected from all configured databases.
+2026-07-22T06:36:35.107Z [32minfo[39m: Successfully disconnected from all configured databases.
 
             </system-out>
         </testcase>

@@ -1367,9 +1367,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/auth@npm:^1.0.0-beta.1":
-  version: 1.0.0-beta.1
-  resolution: "@rapidrest/auth@npm:1.0.0-beta.1"
+"@rapidrest/auth@npm:^1.0.0-rc.0":
+  version: 1.0.0-rc.0
+  resolution: "@rapidrest/auth@npm:1.0.0-rc.0"
   dependencies:
     cross-spawn: "npm:^7.0.5"
   peerDependencies:
@@ -1401,7 +1401,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/a7721c840860d8a8bfb9a9344c7907fe2d4d75a1d05353b8b5cca97ef6075ef9aabbb139027ce22dcd718c57798e231ae23905b435a4369058109c8a52cf93a0
+  checksum: 10c0/82420e708c5db99608ed0844b443ba2019098ad505afccfc1982d678ada9a7ae949e2c9dc33886193813ed0e86e64ddbd5d7f57a4a041ecd9e3eee2b9ed850fa
   languageName: node
   linkType: hard
 
@@ -1429,9 +1429,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/core@npm:^1.9.0":
-  version: 1.9.0
-  resolution: "@rapidrest/core@npm:1.9.0"
+"@rapidrest/core@npm:^1.11.0":
+  version: 1.11.0
+  resolution: "@rapidrest/core@npm:1.11.0"
   dependencies:
     form-data: "npm:^4.0.5"
     handlebars: "npm:^4.7.9"
@@ -1447,7 +1447,7 @@ __metadata:
     reflect-metadata: 0.2.x
     winston: 3.x
     winston-transport: 4.x
-  checksum: 10c0/3f79d9c27dd3c4db635f0b243065876459734ae2939c7932dff1048a412b594f1d273ded87b71570c9a0ce238dd16cf79b584cc92bf431b08b67a944401b09fa
+  checksum: 10c0/211d488ace6b21f38701874975b3e5a94459e0d636d0e97170d0493efcb494369817f7cc29dcb67d052ddcf3a94ace82bef2457c66dd6238573348f2d430c228
   languageName: node
   linkType: hard
 
@@ -1480,9 +1480,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/service-core@npm:^1.0.0-rc.25":
-  version: 1.0.0-rc.25
-  resolution: "@rapidrest/service-core@npm:1.0.0-rc.25"
+"@rapidrest/service-core@npm:^1.0.0-rc.29":
+  version: 1.0.0-rc.29
+  resolution: "@rapidrest/service-core@npm:1.0.0-rc.29"
   dependencies:
     axios: "npm:^1.17.0"
     dayjs: "npm:^1.11.21"
@@ -1514,7 +1514,7 @@ __metadata:
       optional: true
     uWebSockets.js:
       optional: true
-  checksum: 10c0/02b8c47cde582e742dc5f880bfa287ff055fd24f26e9c83e9e5526334d4d2ebd69a0354187953b0fca367ee407607d37f0b1fdca6c631a70d717c92f56e31466
+  checksum: 10c0/671eb14adfe8d36c60392c2dbdc47a74f36f231cde7f7bb51e7c0dc826a89f77be5c1a328c1f396c7dd511078d7f0a7fb9b55382e11f7330afa8a61b0258d599
   languageName: node
   linkType: hard
 
@@ -2739,11 +2739,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "auth-server@workspace:."
   dependencies:
-    "@rapidrest/auth": "npm:^1.0.0-beta.1"
+    "@rapidrest/auth": "npm:^1.0.0-rc.0"
     "@rapidrest/cli": "npm:^0.18.0"
-    "@rapidrest/core": "npm:^1.9.0"
+    "@rapidrest/core": "npm:^1.11.0"
     "@rapidrest/react": "npm:^0.8.0"
-    "@rapidrest/service-core": "npm:^1.0.0-rc.25"
+    "@rapidrest/service-core": "npm:^1.0.0-rc.29"
     "@simplewebauthn/server": "npm:^13.3.2"
     "@swc/core": "npm:^1.15.41"
     "@types/ioredis-mock": "npm:^8"
