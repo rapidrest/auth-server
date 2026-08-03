@@ -1,6 +1,6 @@
 services:
     server:
-        command: ["npx", "rapidreact", "dev"]
+        command: ["yarn", "debug"]
         ports:
             - "3000:3000"
             - "9229:9229"

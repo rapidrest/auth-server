@@ -4,9 +4,9 @@
 import { ReactRoute } from "@rapidrest/react";
 import { RouteDecorators } from "@rapidrest/service-core";
 
-const { ApiRoute } = RouteDecorators;
+const { Route } = RouteDecorators;
 
-@ApiRoute("/")
+@Route("/")
 export class AppRoute extends ReactRoute {
     protected readonly appDir: string = "apps/www";
     protected readonly hydrate: boolean = true;
