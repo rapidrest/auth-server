@@ -14,6 +14,7 @@ services:
             - datastores__logs__type=redis
             - datastores__logs__url=redis://redis
             - datastores__mongo__url=mongodb://mongo
+            - react__manifestPath=dist/public/.vite/manifest.json
             - NODE_ENV=dev
         links:
             - redis
