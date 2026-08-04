@@ -1451,9 +1451,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/react@npm:^0.9.0":
-  version: 0.9.0
-  resolution: "@rapidrest/react@npm:0.9.0"
+"@rapidrest/react@npm:^0.10.0":
+  version: 0.10.0
+  resolution: "@rapidrest/react@npm:0.10.0"
   dependencies:
     cross-spawn: "npm:^7.0.5"
   peerDependencies:
@@ -1476,7 +1476,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/304df67c11171c08df5fb7168bf2723aac4c77bb5906ed6185fbde56313cf669279d41dfbaea1a399f2358e4a3484bacc851672cb09dec409c57c44c47d99ef9
+  checksum: 10c0/3958530a1410724fa1c299c89190fd11b93b5a8698c23a18e430ff0485685e9cf4f6fd323dca8ab265796532f1fd99174a3171761e790e3ca40c03cfbe883d08
   languageName: node
   linkType: hard
 
@@ -2742,7 +2742,7 @@ __metadata:
     "@rapidrest/auth": "npm:^1.0.0-rc.0"
     "@rapidrest/cli": "npm:^0.18.0"
     "@rapidrest/core": "npm:^1.11.0"
-    "@rapidrest/react": "npm:^0.9.0"
+    "@rapidrest/react": "npm:^0.10.0"
     "@rapidrest/service-core": "npm:^1.0.0-rc.29"
     "@simplewebauthn/server": "npm:^13.3.2"
     "@swc/core": "npm:^1.15.41"
