@@ -63,6 +63,10 @@
   "devDependencies": {
     "@rapidrest/cli": "^0.18.0",
     "@swc/core": "^1.15.41",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
     "@types/ioredis-mock": "^8",
     "@types/nconf": "^0.10.7",
     "@types/qrcode": "^1.5.6",
@@ -77,6 +81,7 @@
     "globals": "^17.6.0",
     "ioredis": "^5.11.1",
     "ioredis-mock": "^8.13.1",
+    "jsdom": "^30.0.1",
     "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.14",
     "rimraf": "^6.1.3",

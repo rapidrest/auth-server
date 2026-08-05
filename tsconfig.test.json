@@ -5,8 +5,9 @@
         "moduleResolution": "Bundler",
         "strict": false,
         "esModuleInterop": true,
+        "jsx": "react-jsx",
         "types": ["vitest/globals"],
         "rootDir": "."
     },
-    "include": ["src", "test"]
+    "include": ["src", "test", "apps"]
 }

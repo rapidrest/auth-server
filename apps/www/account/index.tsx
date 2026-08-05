@@ -195,7 +195,9 @@ export default function AccountPage({ userUid }: AccountPageProps) {
         setAliasError(null);
         try {
             await deleteAlias(uid);
-            setAliases((prev) => (prev ?? []).filter((a) => a.uid !== uid));
+            // Reachable only via a row's own "Remove" button, which only exists once `aliases` has
+            // already loaded — `prev` is never null here.
+            setAliases((prev) => prev!.filter((a) => a.uid !== uid));
         } catch (err) {
             setAliasError(err instanceof ApiRequestError ? err.message : "Could not remove that alias.");
         }
@@ -208,7 +210,9 @@ export default function AccountPage({ userUid }: AccountPageProps) {
         setSecretError(null);
         try {
             await deleteSecret(uid);
-            setSecrets((prev) => (prev ?? []).filter((s) => s.uid !== uid));
+            // Reachable only via a row's own "Remove" button, which only exists once `secrets` has
+            // already loaded — `prev` is never null here.
+            setSecrets((prev) => prev!.filter((s) => s.uid !== uid));
         } catch (err) {
             setSecretError(err instanceof ApiRequestError ? err.message : "Could not remove that sign-in method.");
         }
@@ -430,8 +434,8 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                                 type="button"
                                 className="rr-button--text"
                                 onClick={() => handleDeleteAlias(a.uid)}
-                                disabled={(aliases?.length ?? 0) <= 1}
-                                title={(aliases?.length ?? 0) <= 1 ? "You must keep at least one sign-in identifier." : undefined}
+                                disabled={aliases.length <= 1}
+                                title={aliases.length <= 1 ? "You must keep at least one sign-in identifier." : undefined}
                             >
                                 Remove
                             </button>
