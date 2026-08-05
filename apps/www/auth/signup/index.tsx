@@ -186,7 +186,7 @@ export default function SignUpPage() {
         <div className="rr-page">
             <div className="rr-container">
                 <div className="rr-brand">
-                    <img src="/images/logo.svg" width="36" height="36" alt="" />
+                    <img src="/images/logo.svg" width="128" height="128" alt="logo" /><br/>
                     <span>RapidREST</span>
                 </div>
 

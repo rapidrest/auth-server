@@ -76,7 +76,9 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
     const token = getAuthToken();
     const headers = new Headers(init.headers);
     headers.set("Content-Type", "application/json");
-    if (token) {
+    // Only fall back to the stored Bearer token if the caller didn't already set their own Authorization
+    // header (e.g. password sign-in's `Basic <credentials>`, sent before any token exists anyway).
+    if (token && !headers.has("Authorization")) {
         headers.set("Authorization", `Bearer ${token}`);
     }
 
@@ -160,4 +162,61 @@ export interface PasswordRequirements {
 /** Fetches the server's configured password strength requirements. Anonymous — no account needed yet. */
 export function getPasswordRequirements(): Promise<PasswordRequirements> {
     return apiFetch("/secrets/password");
+}
+
+function toBase64(value: string): string {
+    // btoa() only accepts Latin1 — encode as UTF-8 bytes first so non-ASCII passwords survive.
+    const bytes = new TextEncoder().encode(value);
+    let binary = "";
+    for (const byte of bytes) {
+        binary += String.fromCharCode(byte);
+    }
+    return window.btoa(binary);
+}
+
+/**
+ * Signs in with an account identifier (email, phone, or username) and password. `BasicStrategy` is only
+ * registered as `GET /auth/password`, and `fetch()` refuses a body on a GET request, so credentials go in
+ * an `Authorization: Basic` header instead — the same way `curl -u` or a browser's native basic-auth
+ * prompt would send them.
+ */
+export function signInWithPassword(id: string, password: string): Promise<AuthResult> {
+    return apiFetch("/auth/password", {
+        method: "GET",
+        headers: { Authorization: `Basic ${toBase64(`${id}:${password}`)}` },
+    });
+}
+
+/** Signs in with a 6-digit code from an authenticator app (RFC 6238 TOTP), for a previously registered secret. */
+export function signInWithTotp(id: string, token: string): Promise<AuthResult> {
+    return apiFetch("/auth/totp", { method: "POST", body: JSON.stringify({ id, token }) });
+}
+
+/**
+ * Begins a passkey sign-in ceremony: returns a WebAuthn `PublicKeyCredentialRequestOptionsJSON` to pass
+ * directly to `@simplewebauthn/browser`'s `startAuthentication({ optionsJSON })`. Pass `uid` to scope the
+ * challenge to a known account's registered credentials (username-first flow); omit it for a discoverable,
+ * "usernameless" flow.
+ */
+export function getPasskeyChallenge(uid?: string): Promise<unknown> {
+    return apiFetch(`/auth/passkey${uid ? `?uid=${encodeURIComponent(uid)}` : ""}`);
+}
+
+/** Finishes a passkey sign-in ceremony with the `AuthenticationResponseJSON` from `startAuthentication()`. */
+export function verifyPasskeySignIn(response: unknown): Promise<AuthResult> {
+    return apiFetch("/auth/passkey", { method: "POST", body: JSON.stringify(response) });
+}
+
+/**
+ * Begins a FIDO2 security key sign-in ceremony. Distinct from `getPasskeyChallenge()` only in which
+ * `Secret`s it's scoped against server-side (`fido2` vs `passkey`, registered with `authenticatorAttachment:
+ * "cross-platform"`) — the WebAuthn request/response shapes are identical.
+ */
+export function getFido2Challenge(uid?: string): Promise<unknown> {
+    return apiFetch(`/auth/fido2${uid ? `?uid=${encodeURIComponent(uid)}` : ""}`);
+}
+
+/** Finishes a FIDO2 sign-in ceremony with the `AuthenticationResponseJSON` from `startAuthentication()`. */
+export function verifyFido2SignIn(response: unknown): Promise<AuthResult> {
+    return apiFetch("/auth/fido2", { method: "POST", body: JSON.stringify(response) });
 }

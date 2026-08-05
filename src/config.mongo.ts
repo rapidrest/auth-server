@@ -80,12 +80,12 @@ conf.defaults({
         },
         passkey: {
             rpName: "rapidrest",
-            rpID: "rapidrest",
+            rpID: "localhost",
             origin: "http://localhost:3000",
         },
         fido2: {
             rpName: "rapidrest",
-            rpID: "rapidrest",
+            rpID: "localhost",
             origin: "http://localhost:3000",
             authenticatorAttachment: "cross-platform",
             residentKey: "discouraged",
