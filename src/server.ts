@@ -15,8 +15,8 @@ import * as path from "path";
 const _filename = fileURLToPath(import.meta.url);
 const _dirname = dirname(_filename);
 
-const isMongo: boolean = !!process.env.datastores__mongo__url;
-const config:any = (isMongo ? await import("./config.mongo.js") : await import("./config.sql.js")).default;
+const isSQL: boolean = !!process.env.datastores__sql__url;
+const config:any = (isSQL ? await import("./config.sql.js") : await import("./config.mongo.js")).default;
 
 const logLevel: string = config.get("logger:level") || (process.env.environment === "production" ? "info" : "debug");
 const logger = Logger(logLevel, config.get("logger:file"));
@@ -48,7 +48,7 @@ const start = async function (config: any, logger: any) {
     await EventUtils.init(config, logger, token);
 
     // Create and start the server
-    server = new Server({ config, basePath: path.join(_dirname, isMongo ? "mongo" : "sql"), logger, objectFactory });
+    server = new Server({ config, basePath: path.join(_dirname, isSQL ? "sql" : "mongo"), logger, objectFactory });
     await server.start();
 };
 

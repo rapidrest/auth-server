@@ -63,6 +63,8 @@ conf.defaults({
         // The default authentication strategy to use
         strategy: "auth.JWTStrategy",
         allowQueryParam: true,
+        // The default set of scopes to grant newly authenticated users
+        default_scopes: ["profile:contacts", "profile:preferences"],
         // The password to be used when signing or verifying authentication tokens
         secret: "MyPasswordIsSecure",
         options: {

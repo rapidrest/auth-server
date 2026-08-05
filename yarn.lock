@@ -1367,9 +1367,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/auth@npm:^1.0.0-rc.0":
-  version: 1.0.0-rc.0
-  resolution: "@rapidrest/auth@npm:1.0.0-rc.0"
+"@rapidrest/auth@npm:^1.0.0-rc.7":
+  version: 1.0.0-rc.7
+  resolution: "@rapidrest/auth@npm:1.0.0-rc.7"
   dependencies:
     cross-spawn: "npm:^7.0.5"
   peerDependencies:
@@ -1401,7 +1401,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/82420e708c5db99608ed0844b443ba2019098ad505afccfc1982d678ada9a7ae949e2c9dc33886193813ed0e86e64ddbd5d7f57a4a041ecd9e3eee2b9ed850fa
+  checksum: 10c0/ded742544dd1738419111d01a653dc7db590cbf4aa7e9946b5b81c1a679d489bcc72e41900b7e6e7ed8b9ea3e4f5f61451f32aca28f95dfe91282cd406e5262a
   languageName: node
   linkType: hard
 
@@ -1451,9 +1451,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/react@npm:^0.10.0":
-  version: 0.10.0
-  resolution: "@rapidrest/react@npm:0.10.0"
+"@rapidrest/react@npm:^0.10.1":
+  version: 0.10.1
+  resolution: "@rapidrest/react@npm:0.10.1"
   dependencies:
     cross-spawn: "npm:^7.0.5"
   peerDependencies:
@@ -1476,13 +1476,13 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/3958530a1410724fa1c299c89190fd11b93b5a8698c23a18e430ff0485685e9cf4f6fd323dca8ab265796532f1fd99174a3171761e790e3ca40c03cfbe883d08
+  checksum: 10c0/5b60440a19513ed06c626de63981c06b5b270ca8ceb345e95cf99d57fa626d4207a3afa388b01e7cdf09945617b9c464b5d10da740d3664196c23de2e5eef917
   languageName: node
   linkType: hard
 
-"@rapidrest/service-core@npm:^1.0.0-rc.29":
-  version: 1.0.0-rc.29
-  resolution: "@rapidrest/service-core@npm:1.0.0-rc.29"
+"@rapidrest/service-core@npm:^1.0.0-rc.31":
+  version: 1.0.0-rc.31
+  resolution: "@rapidrest/service-core@npm:1.0.0-rc.31"
   dependencies:
     axios: "npm:^1.17.0"
     dayjs: "npm:^1.11.21"
@@ -1514,7 +1514,7 @@ __metadata:
       optional: true
     uWebSockets.js:
       optional: true
-  checksum: 10c0/671eb14adfe8d36c60392c2dbdc47a74f36f231cde7f7bb51e7c0dc826a89f77be5c1a328c1f396c7dd511078d7f0a7fb9b55382e11f7330afa8a61b0258d599
+  checksum: 10c0/0c797b571d0c90711ab19e68b0cd9e31d6f3d9c538658d04b61a1d1972accb2404f211ffdb39667ac0aa4e33fb3c5a30adeb87e80cc40cc42d7ea020a821acb4
   languageName: node
   linkType: hard
 
@@ -2739,11 +2739,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "auth-server@workspace:."
   dependencies:
-    "@rapidrest/auth": "npm:^1.0.0-rc.0"
+    "@rapidrest/auth": "npm:^1.0.0-rc.7"
     "@rapidrest/cli": "npm:^0.18.0"
     "@rapidrest/core": "npm:^1.11.0"
-    "@rapidrest/react": "npm:^0.10.0"
-    "@rapidrest/service-core": "npm:^1.0.0-rc.29"
+    "@rapidrest/react": "npm:^0.10.1"
+    "@rapidrest/service-core": "npm:^1.0.0-rc.31"
     "@simplewebauthn/server": "npm:^13.3.2"
     "@swc/core": "npm:^1.15.41"
     "@types/ioredis-mock": "npm:^8"
