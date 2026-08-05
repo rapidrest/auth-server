@@ -5,7 +5,6 @@
  */
 
 const TOKEN_STORAGE_KEY = "rrst.jwt";
-const TOKEN_COOKIE_NAME = "jwt";
 
 export interface ApiUser {
     uid: string;
@@ -42,21 +41,25 @@ export function getAuthToken(): string | null {
 }
 
 /**
- * Persists the JWT for subsequent client-side `fetch()` calls (localStorage) and as a cookie so that the
- * next SSR page render (e.g. navigating to `/`) is authenticated server-side too, since `JWTStrategy`
- * checks a `jwt` cookie by default.
+ * Persists the JWT for subsequent client-side `fetch()` calls (localStorage). SSR page renders (e.g.
+ * navigating to `/`) are authenticated separately, via the `jwt` HttpOnly cookie the server itself sets
+ * (`Set-Cookie`, see `auth:cookie` config / `TokenUtils`) on the same response this token came from — the
+ * browser stores that automatically, nothing to do here for it.
  */
 export function setAuthToken(token: string): void {
     if (typeof window === "undefined") return;
     try {
         window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
     } catch {
-        // Ignore storage failures (e.g. private browsing quota) — the cookie below still works for SSR.
+        // Ignore storage failures (e.g. private browsing quota) — the HttpOnly cookie still works for SSR.
     }
-    const maxAge = 60 * 60 * 24 * 7;
-    document.cookie = `${TOKEN_COOKIE_NAME}=${token}; path=/; max-age=${maxAge}; samesite=lax`;
 }
 
+/**
+ * Clears the locally-stored JWT. Does NOT clear the server-set `jwt` cookie — being `HttpOnly`, that
+ * cookie isn't visible to (or clearable by) JavaScript at all. Call `logout()` instead of this directly
+ * when signing a user out, so the cookie is cleared too via `POST /auth/logout`.
+ */
 export function clearAuthToken(): void {
     if (typeof window === "undefined") return;
     try {
@@ -64,7 +67,22 @@ export function clearAuthToken(): void {
     } catch {
         // Ignore.
     }
-    document.cookie = `${TOKEN_COOKIE_NAME}=; path=/; max-age=0; samesite=lax`;
+}
+
+/**
+ * Signs the current user out: clears the server-set `jwt` cookie (an `HttpOnly` cookie can only be
+ * cleared by the server writing a new `Set-Cookie`, never by client JavaScript) and the locally-stored
+ * token. Safe to call even if the caller was never issued a cookie (e.g. cookie issuance is disabled
+ * server-side) — `POST /auth/logout` always succeeds.
+ */
+export async function logout(): Promise<void> {
+    try {
+        await apiFetch("/auth/logout", { method: "POST" });
+    } catch {
+        // Still clear local state even if the network call failed — don't leave the user stuck signed in
+        // on this device just because the logout request didn't reach the server.
+    }
+    clearAuthToken();
 }
 
 /**
@@ -138,6 +156,33 @@ export interface CreateProfileInput {
 /** Creates the authenticated caller's own `Profile` (its `uid` is defaulted server-side to the caller's uid). */
 export function createProfile(input: CreateProfileInput): Promise<unknown> {
     return apiFetch("/profiles", { method: "POST", body: JSON.stringify(input) });
+}
+
+export interface Profile {
+    uid: string;
+    version: number;
+    givenName?: string;
+    familyName?: string;
+    birthdate?: string;
+    contacts?: Contact[];
+}
+
+/** Fetches the authenticated caller's own `Profile`. Rejects with a 404 `ApiRequestError` if none exists yet. */
+export function getProfile(): Promise<Profile> {
+    return apiFetch("/profiles/me");
+}
+
+export interface UpdateProfileInput {
+    uid: string;
+    version: number;
+    givenName?: string;
+    familyName?: string;
+    birthdate?: string;
+}
+
+/** Updates the authenticated caller's own `Profile`. `version` must be the value from the last `getProfile()`. */
+export function updateProfile(input: UpdateProfileInput): Promise<Profile> {
+    return apiFetch("/profiles/me", { method: "PUT", body: JSON.stringify(input) });
 }
 
 /**
@@ -219,4 +264,96 @@ export function getFido2Challenge(uid?: string): Promise<unknown> {
 /** Finishes a FIDO2 sign-in ceremony with the `AuthenticationResponseJSON` from `startAuthentication()`. */
 export function verifyFido2SignIn(response: unknown): Promise<AuthResult> {
     return apiFetch("/auth/fido2", { method: "POST", body: JSON.stringify(response) });
+}
+
+export type AliasType = "email" | "phone" | "name" | "oauth";
+
+export interface Alias {
+    uid: string;
+    version: number;
+    alias: string;
+    type: AliasType;
+    userUid: string;
+    verified: boolean;
+}
+
+/** Lists the authenticated caller's own aliases (login identifiers) — scoped server-side to the caller. */
+export function listAliases(): Promise<Alias[]> {
+    return apiFetch("/aliases");
+}
+
+/**
+ * Registers a new alias (an additional e-mail, phone number, or username the caller can sign in with).
+ * Always created unverified — there is no OTP-verification flow for aliases added after signup.
+ */
+export function createAlias(type: AliasType, alias: string): Promise<Alias> {
+    return apiFetch("/aliases", { method: "POST", body: JSON.stringify({ type, alias, verified: false }) });
+}
+
+/** Removes one of the authenticated caller's own aliases. */
+export function deleteAlias(uid: string): Promise<void> {
+    return apiFetch(`/aliases/${encodeURIComponent(uid)}`, { method: "DELETE" });
+}
+
+export type SecretType = "password" | "totp" | "passkey" | "fido2";
+
+/** The shape returned by `GET /secrets` and `GET /secrets/:id` — `data` is always scrubbed server-side. */
+export interface SecretSummary {
+    uid: string;
+    version: number;
+    type: SecretType;
+    userUid: string;
+    dateCreated: string;
+}
+
+/** Lists the authenticated caller's own registered sign-in methods (secrets) — scoped server-side to the caller. */
+export function listSecrets(): Promise<SecretSummary[]> {
+    return apiFetch("/secrets");
+}
+
+/** Removes one of the authenticated caller's own secrets (password, authenticator app, passkey, or security key). */
+export function deleteSecret(uid: string): Promise<void> {
+    return apiFetch(`/secrets/${encodeURIComponent(uid)}`, { method: "DELETE" });
+}
+
+export interface TotpSecretData {
+    secret: string;
+    digits: number;
+    period: number;
+    algorithm: string;
+    uri: string;
+}
+
+export interface CreatedTotpSecret extends SecretSummary {
+    data: TotpSecretData;
+}
+
+/**
+ * Registers a new authenticator-app (TOTP) secret. The server generates the Base32 secret and an
+ * `otpauth://` provisioning URI for a QR code, but only ever returns them in THIS response — every later
+ * `GET`/list scrubs `data` from all Secret types, so the caller must capture and display the QR
+ * code/manual-entry string immediately, since it can never be re-fetched.
+ */
+export function createTotpSecret(): Promise<CreatedTotpSecret> {
+    return apiFetch("/secrets", { method: "POST", body: JSON.stringify({ type: "totp" }) });
+}
+
+/** Begins a passkey *registration* ceremony (as opposed to `getPasskeyChallenge()`, which is for sign-in). */
+export function getPasskeyRegistrationOptions(): Promise<unknown> {
+    return apiFetch("/secrets/passkey/register");
+}
+
+/** Finishes a passkey registration ceremony with the `RegistrationResponseJSON` from `startRegistration()`. */
+export function registerPasskey(response: unknown): Promise<SecretSummary> {
+    return apiFetch("/secrets", { method: "POST", body: JSON.stringify({ type: "passkey", data: response }) });
+}
+
+/** Begins a FIDO2 security key *registration* ceremony (as opposed to `getFido2Challenge()`, which is for sign-in). */
+export function getFido2RegistrationOptions(): Promise<unknown> {
+    return apiFetch("/secrets/fido2/register");
+}
+
+/** Finishes a FIDO2 registration ceremony with the `RegistrationResponseJSON` from `startRegistration()`. */
+export function registerFido2(response: unknown): Promise<SecretSummary> {
+    return apiFetch("/secrets", { method: "POST", body: JSON.stringify({ type: "fido2", data: response }) });
 }

@@ -67,6 +67,16 @@ conf.defaults({
         default_scopes: ["profile:contacts", "profile:preferences"],
         // The password to be used when signing or verifying authentication tokens
         secret: "MyPasswordIsSecure",
+        // Also set a Set-Cookie header (in addition to returning the token in the response body)
+        // whenever a JWT is issued, so the SSR pages under apps/www can authenticate a request without
+        // the client having to attach an Authorization header itself. HttpOnly (the default) so the
+        // token isn't reachable from JavaScript. maxAge matches options.expiresIn below (7 days, in
+        // seconds). NOTE: secure is left false for local http://localhost development — a production
+        // deployment served over HTTPS should set this to true.
+        cookie: {
+            enabled: true,
+            maxAge: 60 * 60 * 24 * 7,
+        },
         options: {
             // "algorithm": "HS256",
             expiresIn: "7 days",
