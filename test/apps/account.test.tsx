@@ -489,7 +489,7 @@ describe("AccountPage — contacts table", () => {
             profileObj({ version: 2, contacts: [contact(), contact({ contact: "+15551234567", type: "phone", verified: false })] }),
         );
 
-        await user.selectOptions(within(dialog).getByLabelText("Type"), "phone");
+        await user.click(within(dialog).getByRole("button", { name: "Phone" }));
         const input = within(dialog).getByLabelText("Phone number");
         await user.type(input, "+15551234567");
         await user.click(within(dialog).getByRole("button", { name: "Add" }));
@@ -534,7 +534,7 @@ describe("AccountPage — contacts table", () => {
         render(<AccountPage userUid="u1" />);
         let dialog = await openAddContactModal(user);
         mockedCreateProfile.mockRejectedValueOnce(new ApiRequestError("nope", 400));
-        await user.selectOptions(within(dialog).getByLabelText("Type"), "phone");
+        await user.click(within(dialog).getByRole("button", { name: "Phone" }));
         await user.type(within(dialog).getByLabelText("Phone number"), "+15551234567");
         await user.click(within(dialog).getByRole("button", { name: "Add" }));
         await within(dialog).findByText("nope");
@@ -543,7 +543,8 @@ describe("AccountPage — contacts table", () => {
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
         dialog = await openAddContactModal(user);
-        expect(within(dialog).getByLabelText("Type")).toHaveValue("email");
+        expect(within(dialog).getByRole("button", { name: "E-mail" })).toHaveAttribute("aria-pressed", "true");
+        expect(within(dialog).getByRole("button", { name: "Phone" })).toHaveAttribute("aria-pressed", "false");
         expect(within(dialog).queryByText("nope")).toBeNull();
     });
 

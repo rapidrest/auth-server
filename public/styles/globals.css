@@ -328,6 +328,44 @@ a {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--rr-color-primary) 20%, transparent);
 }
 
+.rr-tabs {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.rr-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    flex: 1;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--rr-color-border);
+    border-radius: var(--rr-radius-sm);
+    background: var(--rr-color-surface);
+    color: var(--rr-color-text-muted);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.rr-tab:hover {
+    border-color: var(--rr-color-primary);
+    color: var(--rr-color-text);
+}
+
+.rr-tab--active {
+    border-color: var(--rr-color-primary);
+    background: var(--rr-color-surface-alt);
+    color: var(--rr-color-primary-dark);
+}
+
+:root[data-theme="dark"] .rr-tab--active {
+    color: var(--rr-color-primary-light);
+}
+
 /* ---------------------------------------------------------------------- */
 /* Buttons                                                                 */
 /* ---------------------------------------------------------------------- */

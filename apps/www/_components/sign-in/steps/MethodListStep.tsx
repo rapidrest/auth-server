@@ -1,4 +1,5 @@
 import React from "react";
+import { FiHardDrive, FiKey, FiLock, FiMail, FiPhone, FiShield } from "react-icons/fi";
 import Button from "../../buttons/Button.js";
 import { CONTACT_TYPE_LABELS, FIXED_METHOD_LABELS, FixedMethod, MethodListItem, OtpHint } from "../types.js";
 
@@ -9,6 +10,18 @@ export interface MethodListStepProps {
     onSelectOtp: (hint: OtpHint) => void;
     onBack: () => void;
 }
+
+const FIXED_METHOD_ICONS: Record<FixedMethod, React.ReactElement> = {
+    passkey: <FiKey size={18} aria-hidden="true" />,
+    password: <FiLock size={18} aria-hidden="true" />,
+    totp: <FiShield size={18} aria-hidden="true" />,
+    fido2: <FiHardDrive size={18} aria-hidden="true" />,
+};
+
+const CONTACT_TYPE_ICONS: Record<OtpHint["type"], React.ReactElement> = {
+    email: <FiMail size={18} aria-hidden="true" />,
+    phone: <FiPhone size={18} aria-hidden="true" />,
+};
 
 export default function MethodListStep({ identifier, methodItems, onSelectFixed, onSelectOtp, onBack }: MethodListStepProps) {
     return (
@@ -34,7 +47,10 @@ export default function MethodListStep({ identifier, methodItems, onSelectFixed,
                                 className="rr-method-list-item"
                                 onClick={() => onSelectFixed(item.method)}
                             >
-                                {FIXED_METHOD_LABELS[item.method]}
+                                <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                                    {FIXED_METHOD_ICONS[item.method]}
+                                    {FIXED_METHOD_LABELS[item.method]}
+                                </span>
                                 <span aria-hidden="true">&rsaquo;</span>
                             </button>
                         ) : (
@@ -44,7 +60,10 @@ export default function MethodListStep({ identifier, methodItems, onSelectFixed,
                                 className="rr-method-list-item"
                                 onClick={() => onSelectOtp(item.hint)}
                             >
-                                {CONTACT_TYPE_LABELS[item.hint.type]}: {item.hint.contact}
+                                <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                                    {CONTACT_TYPE_ICONS[item.hint.type]}
+                                    {CONTACT_TYPE_LABELS[item.hint.type]}: {item.hint.contact}
+                                </span>
                                 <span aria-hidden="true">&rsaquo;</span>
                             </button>
                         ),

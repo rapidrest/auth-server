@@ -1,4 +1,5 @@
 import React, { Dispatch, SetStateAction } from "react";
+import { FiHardDrive, FiKey, FiLock, FiShield } from "react-icons/fi";
 import Modal from "../../../_lib/Modal.js";
 import Button from "../../buttons/Button.js";
 import { SecretSummary, SecretType } from "../../../_lib/api.js";
@@ -31,15 +32,19 @@ export default function AddSecretModal({
             {!addMethodType && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                     <Button variant="secondary" type="button" onClick={() => setAddMethodType("password")}>
+                        <FiLock size={18} aria-hidden="true" />
                         Password
                     </Button>
                     <Button variant="secondary" type="button" onClick={() => setAddMethodType("totp")}>
+                        <FiShield size={18} aria-hidden="true" />
                         Authenticator app
                     </Button>
                     <Button variant="secondary" type="button" onClick={() => setAddMethodType("passkey")}>
+                        <FiKey size={18} aria-hidden="true" />
                         Passkey
                     </Button>
                     <Button variant="secondary" type="button" onClick={() => setAddMethodType("fido2")}>
+                        <FiHardDrive size={18} aria-hidden="true" />
                         Security key
                     </Button>
                 </div>

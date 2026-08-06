@@ -33,14 +33,19 @@ export default function AccountPage({ userUid }: AccountPageProps) {
             .then((p) => {
                 setProfile(p);
                 setProfileExists(true);
+                setProfileLoaded(true);
             })
             .catch((err) => {
                 // No Profile exists yet for a freshly-registered account — that's expected, not an error.
                 if (!(err instanceof ApiRequestError && err.status === 404)) {
                     setProfileError(err instanceof ApiRequestError ? err.message : "Could not load your profile.");
                 }
-            })
-            .finally(() => setProfileLoaded(true));
+                // Set together with the branch above (rather than in a trailing .finally()) so
+                // `profileLoaded` lands in the same batched update as `profile`/`profileExists` — a
+                // .finally() runs in its own later microtask, which let ProfileCard's seed effect
+                // (keyed on `profileLoaded`) fire a render behind AccountHeader's under load.
+                setProfileLoaded(true);
+            });
 
         listAliases()
             .then(setAliases)
