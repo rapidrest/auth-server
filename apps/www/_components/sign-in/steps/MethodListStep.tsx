@@ -31,45 +31,38 @@ export default function MethodListStep({ identifier, methodItems, onSelectFixed,
                 Choose how you&rsquo;d like to sign in as <strong>{identifier}</strong>.
             </p>
 
-            {methodItems.length === 0 && (
-                <p className="rr-hint" style={{ marginTop: 0 }}>
-                    No sign-in methods are available for that account ID. Double-check it and try again.
-                </p>
-            )}
-
-            {methodItems.length > 0 && (
-                <div className="rr-method-list">
-                    {methodItems.map((item) =>
-                        item.kind === "fixed" ? (
-                            <button
-                                key={item.method}
-                                type="button"
-                                className="rr-method-list-item"
-                                onClick={() => onSelectFixed(item.method)}
-                            >
-                                <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                                    {FIXED_METHOD_ICONS[item.method]}
-                                    {FIXED_METHOD_LABELS[item.method]}
-                                </span>
-                                <span aria-hidden="true">&rsaquo;</span>
-                            </button>
-                        ) : (
-                            <button
-                                key={`otp-${item.hint.type}-${item.hint.contact}`}
-                                type="button"
-                                className="rr-method-list-item"
-                                onClick={() => onSelectOtp(item.hint)}
-                            >
-                                <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                                    {CONTACT_TYPE_ICONS[item.hint.type]}
-                                    {CONTACT_TYPE_LABELS[item.hint.type]}: {item.hint.contact}
-                                </span>
-                                <span aria-hidden="true">&rsaquo;</span>
-                            </button>
-                        ),
-                    )}
-                </div>
-            )}
+            {/* SignInFlow redirects to sign-up before this step is ever reached with an empty list. */}
+            <div className="rr-method-list">
+                {methodItems.map((item) =>
+                    item.kind === "fixed" ? (
+                        <button
+                            key={item.method}
+                            type="button"
+                            className="rr-method-list-item"
+                            onClick={() => onSelectFixed(item.method)}
+                        >
+                            <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                                {FIXED_METHOD_ICONS[item.method]}
+                                {FIXED_METHOD_LABELS[item.method]}
+                            </span>
+                            <span aria-hidden="true">&rsaquo;</span>
+                        </button>
+                    ) : (
+                        <button
+                            key={`otp-${item.hint.type}-${item.hint.contact}`}
+                            type="button"
+                            className="rr-method-list-item"
+                            onClick={() => onSelectOtp(item.hint)}
+                        >
+                            <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                                {CONTACT_TYPE_ICONS[item.hint.type]}
+                                {CONTACT_TYPE_LABELS[item.hint.type]}: {item.hint.contact}
+                            </span>
+                            <span aria-hidden="true">&rsaquo;</span>
+                        </button>
+                    ),
+                )}
+            </div>
 
             <Button variant="text" type="button" style={{ marginTop: "1rem" }} onClick={onBack}>
                 Use a different account

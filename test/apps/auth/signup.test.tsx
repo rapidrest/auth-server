@@ -33,7 +33,7 @@ import {
     setAuthToken,
     verifyRegistration,
 } from "../../../apps/www/_lib/api.js";
-import SignUpPage from "../../../apps/www/auth/signup/index.js";
+import SignUpPage, { fetchProps } from "../../../apps/www/auth/signup/index.js";
 
 const mockedBeginRegistration = vi.mocked(beginRegistration);
 const mockedVerifyRegistration = vi.mocked(verifyRegistration);
@@ -352,6 +352,82 @@ describe("SignUpPage — profile step", () => {
         await user.click(screen.getByRole("button", { name: "Create account" }));
 
         expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    });
+});
+
+describe("SignUpPage — fetchProps (sign-in hand-off query params)", () => {
+    it("passes through a recognized type, the id, and autosend:true", async () => {
+        const props = await fetchProps({ query: { type: "email", id: "a@example.com", autosend: "1" } });
+        expect(props).toEqual({ initialIdentifierType: "email", initialIdentifier: "a@example.com", autoSend: true });
+    });
+
+    it("recognizes phone as well as email", async () => {
+        const props = await fetchProps({ query: { type: "phone", id: "+15551234567", autosend: "1" } });
+        expect(props.initialIdentifierType).toBe("phone");
+    });
+
+    it("ignores an unrecognized type value", async () => {
+        const props = await fetchProps({ query: { type: "username", id: "coolname" } });
+        expect(props.initialIdentifierType).toBeUndefined();
+    });
+
+    it("defaults autoSend to false and identifier fields to undefined with no query params", async () => {
+        const props = await fetchProps({});
+        expect(props).toEqual({ initialIdentifierType: undefined, initialIdentifier: undefined, autoSend: false });
+    });
+
+    it("ignores a non-string id (e.g. a repeated query param parsed as an array)", async () => {
+        const props = await fetchProps({ query: { id: ["a", "b"] } });
+        expect(props.initialIdentifier).toBeUndefined();
+    });
+});
+
+describe("SignUpPage — auto-send hand-off from sign-in", () => {
+    it("sends the code immediately on mount and jumps straight to the code step (e-mail)", async () => {
+        mockedBeginRegistration.mockResolvedValueOnce({});
+        render(<SignUpPage initialIdentifierType="email" initialIdentifier="a@example.com" autoSend />);
+
+        await screen.findByText("Check your inbox");
+        expect(mockedBeginRegistration).toHaveBeenCalledWith("email", "a@example.com");
+        expect(screen.getByText(/a@example\.com/)).toBeInTheDocument();
+    });
+
+    it("sends the code immediately on mount and jumps straight to the code step (phone)", async () => {
+        mockedBeginRegistration.mockResolvedValueOnce({});
+        render(<SignUpPage initialIdentifierType="phone" initialIdentifier="+15551234567" autoSend />);
+
+        await screen.findByText("Check your messages");
+        expect(mockedBeginRegistration).toHaveBeenCalledWith("phone", "+15551234567");
+    });
+
+    it("defaults to email when autoSend is set but no type was given", async () => {
+        mockedBeginRegistration.mockResolvedValueOnce({});
+        render(<SignUpPage initialIdentifier="a@example.com" autoSend />);
+
+        await screen.findByText("Check your inbox");
+        expect(mockedBeginRegistration).toHaveBeenCalledWith("email", "a@example.com");
+    });
+
+    it("shows the ApiRequestError message and stays on a prefilled identifier step when the auto-send fails", async () => {
+        mockedBeginRegistration.mockRejectedValueOnce(new ApiRequestError("Already registered.", 409));
+        render(<SignUpPage initialIdentifierType="email" initialIdentifier="a@example.com" autoSend />);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Already registered.");
+        expect(screen.getByLabelText("E-mail address")).toHaveValue("a@example.com");
+    });
+
+    it("shows a generic message when the auto-send fails with a non-API error", async () => {
+        mockedBeginRegistration.mockRejectedValueOnce(new TypeError("boom"));
+        render(<SignUpPage initialIdentifierType="email" initialIdentifier="a@example.com" autoSend />);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    });
+
+    it("prefills the identifier step without auto-sending when autoSend is not set", async () => {
+        render(<SignUpPage initialIdentifierType="phone" initialIdentifier="+15551234567" />);
+
+        expect(screen.getByLabelText("Phone number")).toHaveValue("+15551234567");
+        expect(mockedBeginRegistration).not.toHaveBeenCalled();
     });
 });
 

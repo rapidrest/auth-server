@@ -1,4 +1,4 @@
-import React, { FormEvent, useState } from "react";
+import React, { FormEvent, useEffect, useState } from "react";
 import {
     ApiRequestError,
     beginRegistration,
@@ -21,10 +21,37 @@ type Step = "identifier" | "code" | "profile";
 
 const STEPS: Step[] = ["identifier", "code", "profile"];
 
-export default function SignUpPage() {
+export interface SignUpPageProps {
+    /**
+     * Seeded from `?type=` when sign-in hands off an unrecognized e-mail/phone-shaped identifier — see
+     * `fetchProps()` below.
+     */
+    initialIdentifierType?: RegistrationIdentifierType;
+    /** Seeded from `?id=`, same hand-off. */
+    initialIdentifier?: string;
+    /**
+     * Seeded from `?autosend=1`, same hand-off — the identifier was already typed once on the sign-in page,
+     * so skip re-entering it and send the verification code immediately on mount.
+     */
+    autoSend?: boolean;
+}
+
+/** Reads the sign-in-page hand-off query params (see `SignInFlow`'s redirect-to-sign-up branch). */
+export async function fetchProps(req: { query?: Record<string, string | string[]> }): Promise<SignUpPageProps> {
+    const type = req.query?.type;
+    const id = req.query?.id;
+    const autosend = req.query?.autosend;
+    return {
+        initialIdentifierType: type === "email" || type === "phone" ? type : undefined,
+        initialIdentifier: typeof id === "string" ? id : undefined,
+        autoSend: autosend === "1",
+    };
+}
+
+export default function SignUpPage({ initialIdentifierType, initialIdentifier, autoSend }: SignUpPageProps) {
     const [step, setStep] = useState<Step>("identifier");
-    const [identifierType, setIdentifierType] = useState<RegistrationIdentifierType>("email");
-    const [identifier, setIdentifier] = useState("");
+    const [identifierType, setIdentifierType] = useState<RegistrationIdentifierType>(initialIdentifierType ?? "email");
+    const [identifier, setIdentifier] = useState(initialIdentifier ?? "");
     const [code, setCode] = useState("");
     const [username, setUsername] = useState("");
     const [givenName, setGivenName] = useState("");
@@ -37,6 +64,19 @@ export default function SignUpPage() {
     const { criteria: passwordCriteria } = usePasswordRequirements();
 
     const stepIndex = STEPS.indexOf(step);
+
+    useEffect(() => {
+        if (!autoSend || !initialIdentifier) {
+            return;
+        }
+        setLoading(true);
+        beginRegistration(initialIdentifierType ?? "email", initialIdentifier)
+            .then(() => setStep("code"))
+            .catch((err) => setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again."))
+            .finally(() => setLoading(false));
+        // Driven by the server-provided initial props (a one-time hand-off from the sign-in page), not by
+        // any client-side state — intentionally runs once on mount only.
+    }, []);
 
     async function handleIdentifierSubmit(e: FormEvent) {
         e.preventDefault();

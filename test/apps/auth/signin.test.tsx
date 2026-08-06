@@ -127,23 +127,66 @@ describe("SignInPage — identifier step", () => {
         expect(screen.getByText(/a@example.com/)).toBeInTheDocument();
     });
 
-    it("degrades to the empty result (generic message, no method list) if discover itself throws", async () => {
+    it("shows a fixed message and stays on the identifier step when discover throws an ApiRequestError", async () => {
+        mockedDiscoverAuthMethods.mockRejectedValueOnce(new ApiRequestError("Too many requests.", 429));
+        const user = userEvent.setup();
+        render(<SignInPage />);
+        await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), "a@example.com");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Too many requests.");
+        expect(screen.getByLabelText("Account ID, e-mail, or phone")).toBeInTheDocument();
+    });
+
+    it("shows a generic message and stays on the identifier step when discover throws a non-API error", async () => {
         mockedDiscoverAuthMethods.mockRejectedValueOnce(new Error("network down"));
         const user = userEvent.setup();
         render(<SignInPage />);
         await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), "a@example.com");
         await user.click(screen.getByRole("button", { name: "Continue" }));
 
-        expect(await screen.findByText(/No sign-in methods are available/)).toBeInTheDocument();
+        expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+        expect(screen.getByLabelText("Account ID, e-mail, or phone")).toBeInTheDocument();
     });
 });
 
-describe("SignInPage — nothing available", () => {
-    it("shows a single generic message and no method list", async () => {
+describe("SignInPage — unrecognized identifier redirects to sign-up", () => {
+    it("redirects with type/id/autosend when the identifier looks like an e-mail address", async () => {
+        const location = mockLocation();
         const user = userEvent.setup();
-        await goToMethods(user, EMPTY_DISCOVER);
-        expect(screen.getByText(/No sign-in methods are available/)).toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: /Password|Passkey|One-time code/ })).not.toBeInTheDocument();
+        mockedDiscoverAuthMethods.mockResolvedValueOnce(EMPTY_DISCOVER);
+        render(<SignInPage />);
+
+        await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), "new@example.com");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        await waitFor(() =>
+            expect(location.href).toBe("/auth/signup?type=email&id=new%40example.com&autosend=1"),
+        );
+    });
+
+    it("redirects with type/id/autosend when the identifier looks like a phone number", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        mockedDiscoverAuthMethods.mockResolvedValueOnce(EMPTY_DISCOVER);
+        render(<SignInPage />);
+
+        await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), "+15551234567");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        await waitFor(() => expect(location.href).toBe("/auth/signup?type=phone&id=%2B15551234567&autosend=1"));
+    });
+
+    it("redirects with no query params when the identifier doesn't look like an e-mail or phone", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        mockedDiscoverAuthMethods.mockResolvedValueOnce(EMPTY_DISCOVER);
+        render(<SignInPage />);
+
+        await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), "coolusername");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        await waitFor(() => expect(location.href).toBe("/auth/signup"));
     });
 });
 

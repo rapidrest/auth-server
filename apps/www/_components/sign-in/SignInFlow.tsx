@@ -14,6 +14,7 @@ import {
     verifyFido2SignIn,
     verifyPasskeySignIn,
 } from "../../_lib/api.js";
+import { guessIdentifierType } from "../../_lib/identifier.js";
 import IdentifierStep from "./steps/IdentifierStep.js";
 import MethodListStep from "./steps/MethodListStep.js";
 import ChallengeStep from "./steps/ChallengeStep.js";
@@ -55,11 +56,24 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
         e.preventDefault();
         setError(null);
         setDiscoverLoading(true);
+        const trimmedIdentifier = identifier.trim();
         let result: DiscoverResult;
         try {
-            result = await discoverAuthMethods(identifier.trim());
-        } catch {
-            result = EMPTY_DISCOVER;
+            result = await discoverAuthMethods(trimmedIdentifier);
+        } catch (err) {
+            setDiscoverLoading(false);
+            setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");
+            return;
+        }
+        if (buildMethodList(result).length === 0) {
+            // No account recognizes this identifier — send the user to sign-up instead of a dead end. An
+            // e-mail/phone-shaped identifier can skip straight to sign-up's verification step (they already
+            // typed the contact value); anything else (e.g. a username attempt) can only start sign-up fresh.
+            const guessedType = guessIdentifierType(trimmedIdentifier);
+            window.location.href = guessedType
+                ? `/auth/signup?${new URLSearchParams({ type: guessedType, id: trimmedIdentifier, autosend: "1" }).toString()}`
+                : "/auth/signup";
+            return;
         }
         setDiscover(result);
         setDiscoverLoading(false);
@@ -204,6 +218,7 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
                     identifier={identifier}
                     setIdentifier={setIdentifier}
                     discoverLoading={discoverLoading}
+                    error={error}
                     onSubmit={handleIdentifierSubmit}
                 />
             )}
