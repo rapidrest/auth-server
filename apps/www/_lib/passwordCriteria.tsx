@@ -1,5 +1,5 @@
-import React from "react";
-import { PasswordRequirements } from "./api.js";
+import React, { useEffect, useMemo, useState } from "react";
+import { getPasswordRequirements, PasswordRequirements } from "./api.js";
 
 export interface PasswordCriterion {
     label: string;
@@ -46,6 +46,27 @@ export function buildPasswordCriteria(req: PasswordRequirements): PasswordCriter
 
 export function isPasswordValid(password: string, criteria: PasswordCriterion[]): boolean {
     return criteria.every((c) => c.test(password));
+}
+
+/**
+ * Fetches the server's password requirements (falling back to `FALLBACK_PASSWORD_REQUIREMENTS` while
+ * loading or if the request fails — the server remains the source of truth at submit time either way)
+ * and derives the live criteria list from them. Shared by sign-up's profile step and account's
+ * add-password form, which previously duplicated this fetch-and-memoize logic verbatim.
+ */
+export function usePasswordRequirements(): { requirements: PasswordRequirements; criteria: PasswordCriterion[] } {
+    const [requirements, setRequirements] = useState<PasswordRequirements>(FALLBACK_PASSWORD_REQUIREMENTS);
+
+    useEffect(() => {
+        getPasswordRequirements()
+            .then(setRequirements)
+            .catch(() => {
+                // Keep the fallback defaults — the server is still the source of truth at submit time.
+            });
+    }, []);
+
+    const criteria = useMemo(() => buildPasswordCriteria(requirements), [requirements]);
+    return { requirements, criteria };
 }
 
 export function PasswordCriteriaList({ password, criteria }: { password: string; criteria: PasswordCriterion[] }) {
