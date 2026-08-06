@@ -108,9 +108,15 @@ export default function AccountPage({ userUid }: AccountPageProps) {
     // --- Contacts ---
     const contacts = profile?.contacts ?? [];
     const [contactsError, setContactsError] = useState<string | null>(null);
+    const [addContactModalOpen, setAddContactModalOpen] = useState(false);
+    const [addContactError, setAddContactError] = useState<string | null>(null);
     const [newContactType, setNewContactType] = useState<RegistrationIdentifierType>("email");
     const [newContactValue, setNewContactValue] = useState("");
     const [contactAdding, setContactAdding] = useState(false);
+    // An account must always retain at least one verified contact and at least one enabled sign-in alias —
+    // both counts gate the Contacts table's Remove/Disable actions below.
+    const verifiedContactCount = contacts.filter((c) => c.verified).length;
+    const enabledAliasCount = (aliases ?? []).filter((a) => a.type === "email" || a.type === "phone").length;
 
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
     const [verifyingContact, setVerifyingContact] = useState<Contact | null>(null);
@@ -129,6 +135,9 @@ export default function AccountPage({ userUid }: AccountPageProps) {
 
     const [addMethodModalOpen, setAddMethodModalOpen] = useState(false);
     const [addMethodType, setAddMethodType] = useState<AddMethodType>(null);
+    // Shared across all four add-method forms below — only one is ever active at a time, and it's reset
+    // whenever the modal closes (see closeAddMethodModal()).
+    const [methodHint, setMethodHint] = useState("");
 
     const [newPassword, setNewPassword] = useState("");
     const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -275,23 +284,38 @@ export default function AccountPage({ userUid }: AccountPageProps) {
         return created;
     }
 
+    function openAddContactModal() {
+        setNewContactType("email");
+        setNewContactValue("");
+        setAddContactError(null);
+        setAddContactModalOpen(true);
+    }
+
+    function closeAddContactModal() {
+        setAddContactModalOpen(false);
+        setNewContactType("email");
+        setNewContactValue("");
+        setAddContactError(null);
+    }
+
     async function handleAddContact(e: FormEvent) {
         e.preventDefault();
-        setContactsError(null);
+        setAddContactError(null);
         setContactAdding(true);
         const contact: Contact = { contact: newContactValue.trim(), type: newContactType, verified: false };
         try {
             await saveContacts([...contacts, contact]);
-            setNewContactValue("");
+            closeAddContactModal();
             // The server auto-sends a verification code as a side effect of adding a genuinely new,
             // unverified contact — prompt for it immediately rather than making the user hunt for a
             // separate "verify" action.
             setVerifyingContact(contact);
             setVerifyCode("");
             setVerifyError(null);
+            setResent(false);
             setVerifyModalOpen(true);
         } catch (err) {
-            setContactsError(err instanceof ApiRequestError ? err.message : "Could not add that contact.");
+            setAddContactError(err instanceof ApiRequestError ? err.message : "Could not add that contact.");
         } finally {
             setContactAdding(false);
         }
@@ -399,6 +423,7 @@ export default function AccountPage({ userUid }: AccountPageProps) {
     function closeAddMethodModal() {
         setAddMethodModalOpen(false);
         setAddMethodType(null);
+        setMethodHint("");
         setNewPassword("");
         setConfirmNewPassword("");
         setPasswordError(null);
@@ -423,7 +448,7 @@ export default function AccountPage({ userUid }: AccountPageProps) {
 
         setPasswordSaving(true);
         try {
-            const created = (await createPasswordSecret(newPassword)) as SecretSummary;
+            const created = (await createPasswordSecret(newPassword, methodHint.trim() || undefined)) as SecretSummary;
             // Secrets have no update endpoint — "changing" a password means creating the new one, then
             // removing any old password secret(s), as two separate (non-atomic) requests.
             const oldPasswords = (secrets ?? []).filter((s) => s.type === "password");
@@ -439,11 +464,12 @@ export default function AccountPage({ userUid }: AccountPageProps) {
         }
     }
 
-    async function handleAddTotp() {
+    async function handleAddTotp(e: FormEvent) {
+        e.preventDefault();
         setTotpError(null);
         setTotpAdding(true);
         try {
-            const created = await createTotpSecret();
+            const created = await createTotpSecret(methodHint.trim() || undefined);
             const qrDataUrl = await QRCode.toDataURL(created.data.uri, { width: 220, margin: 1 });
             setTotpSetup({ secret: created.data.secret, qrDataUrl });
             setSecrets((prev) => [...(prev ?? []), created]);
@@ -454,13 +480,14 @@ export default function AccountPage({ userUid }: AccountPageProps) {
         }
     }
 
-    async function handleAddPasskey() {
+    async function handleAddPasskey(e: FormEvent) {
+        e.preventDefault();
         setPasskeyError(null);
         setPasskeyAdding(true);
         try {
             const optionsJSON = (await getPasskeyRegistrationOptions()) as PublicKeyCredentialCreationOptionsJSON;
             const response = await startRegistration({ optionsJSON });
-            const created = await registerPasskey(response);
+            const created = await registerPasskey(response, methodHint.trim() || undefined);
             setSecrets((prev) => [...(prev ?? []), created]);
             closeAddMethodModal();
         } catch (err) {
@@ -474,13 +501,14 @@ export default function AccountPage({ userUid }: AccountPageProps) {
         }
     }
 
-    async function handleAddFido2() {
+    async function handleAddFido2(e: FormEvent) {
+        e.preventDefault();
         setFido2Error(null);
         setFido2Adding(true);
         try {
             const optionsJSON = (await getFido2RegistrationOptions()) as PublicKeyCredentialCreationOptionsJSON;
             const response = await startRegistration({ optionsJSON });
-            const created = await registerFido2(response);
+            const created = await registerFido2(response, methodHint.trim() || undefined);
             setSecrets((prev) => [...(prev ?? []), created]);
             closeAddMethodModal();
         } catch (err) {
@@ -631,10 +659,22 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                 </div>
 
                 <div className="rr-card">
-                    <div className="rr-card__title">Contacts</div>
-                    <p className="rr-card__subtitle">
-                        The e-mail addresses and phone numbers on your account. Verify one to sign in with it.
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div>
+                            <div className="rr-card__title">Contacts</div>
+                            <p className="rr-card__subtitle">
+                                The e-mail addresses and phone numbers on your account. Verify one to sign in with it.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            className="rr-button rr-button--secondary"
+                            style={{ width: "auto" }}
+                            onClick={openAddContactModal}
+                        >
+                            + Add
+                        </button>
+                    </div>
                     {aliasError && (
                         <div className="rr-alert rr-alert--error" role="alert">
                             {aliasError}
@@ -661,6 +701,9 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                                 <tbody>
                                     {contacts.map((c) => {
                                         const enabledAlias = findAliasForContact(aliases, c);
+                                        const isLastEnabledAlias = !!enabledAlias && enabledAliasCount <= 1;
+                                        const isLastVerifiedContact = c.verified && verifiedContactCount <= 1;
+                                        const removeDisabled = isLastVerifiedContact || isLastEnabledAlias;
                                         return (
                                             <tr key={`${c.type}:${c.contact}`}>
                                                 <td>{c.contact}</td>
@@ -676,6 +719,12 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                                                             type="button"
                                                             className="rr-button--text"
                                                             onClick={() => handleToggleContactSignIn(c)}
+                                                            disabled={!!enabledAlias && isLastEnabledAlias}
+                                                            title={
+                                                                enabledAlias && isLastEnabledAlias
+                                                                    ? "You must keep at least one sign-in method enabled."
+                                                                    : undefined
+                                                            }
                                                         >
                                                             {enabledAlias ? "Disable" : "Enable"}
                                                         </button>
@@ -686,7 +735,19 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                                                     )}
                                                 </td>
                                                 <td>
-                                                    <button type="button" className="rr-button--text" onClick={() => handleRemoveContact(c)}>
+                                                    <button
+                                                        type="button"
+                                                        className="rr-button--text"
+                                                        onClick={() => handleRemoveContact(c)}
+                                                        disabled={removeDisabled}
+                                                        title={
+                                                            isLastVerifiedContact
+                                                                ? "You must keep at least one verified contact."
+                                                                : isLastEnabledAlias
+                                                                  ? "You must keep at least one sign-in method enabled."
+                                                                  : undefined
+                                                        }
+                                                    >
                                                         Remove
                                                     </button>
                                                 </td>
@@ -697,38 +758,6 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                             </table>
                         </div>
                     )}
-
-                    <form
-                        onSubmit={handleAddContact}
-                        style={{ display: "flex", gap: "0.5rem", marginTop: "1rem", alignItems: "flex-start" }}
-                    >
-                        <select
-                            className="rr-input"
-                            style={{ width: "auto" }}
-                            value={newContactType}
-                            onChange={(e) => setNewContactType(e.target.value as RegistrationIdentifierType)}
-                        >
-                            <option value="email">E-mail</option>
-                            <option value="phone">Phone</option>
-                        </select>
-                        <input
-                            className="rr-input"
-                            type="text"
-                            required
-                            placeholder={newContactType === "email" ? "you@example.com" : "+1 555 123 4567"}
-                            value={newContactValue}
-                            onChange={(e) => setNewContactValue(e.target.value)}
-                        />
-                        <button
-                            className="rr-button rr-button--secondary"
-                            type="submit"
-                            disabled={contactAdding}
-                            style={{ width: "auto" }}
-                        >
-                            {contactAdding && <span className="rr-spinner" />}
-                            Add
-                        </button>
-                    </form>
                 </div>
 
                 <div className="rr-card">
@@ -765,7 +794,14 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                                 <tbody>
                                     {secrets.map((s) => (
                                         <tr key={s.uid}>
-                                            <td>{SECRET_TYPE_LABELS[s.type]}</td>
+                                            <td>
+                                                {SECRET_TYPE_LABELS[s.type]}
+                                                {s.hint && (
+                                                    <span className="rr-hint" style={{ marginLeft: "0.4rem" }}>
+                                                        ({s.hint})
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td>{formatDate(s.dateCreated)}</td>
                                             <td>
                                                 <button
@@ -806,6 +842,44 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                     <button className="rr-button rr-button--primary" type="submit" disabled={usernameSaving} style={{ width: "auto" }}>
                         {usernameSaving && <span className="rr-spinner" />}
                         Save
+                    </button>
+                </form>
+            </Modal>
+
+            <Modal open={addContactModalOpen} onClose={closeAddContactModal} title="Add a contact">
+                {addContactError && (
+                    <div className="rr-alert rr-alert--error" role="alert">
+                        {addContactError}
+                    </div>
+                )}
+                <form onSubmit={handleAddContact}>
+                    <div className="rr-field">
+                        <label htmlFor="newContactType">Type</label>
+                        <select
+                            id="newContactType"
+                            className="rr-input"
+                            value={newContactType}
+                            onChange={(e) => setNewContactType(e.target.value as RegistrationIdentifierType)}
+                        >
+                            <option value="email">E-mail</option>
+                            <option value="phone">Phone</option>
+                        </select>
+                    </div>
+                    <div className="rr-field">
+                        <label htmlFor="newContactValue">{newContactType === "email" ? "E-mail address" : "Phone number"}</label>
+                        <input
+                            id="newContactValue"
+                            className="rr-input"
+                            type="text"
+                            required
+                            placeholder={newContactType === "email" ? "you@example.com" : "+1 555 123 4567"}
+                            value={newContactValue}
+                            onChange={(e) => setNewContactValue(e.target.value)}
+                        />
+                    </div>
+                    <button className="rr-button rr-button--primary" type="submit" disabled={contactAdding} style={{ width: "auto" }}>
+                        {contactAdding && <span className="rr-spinner" />}
+                        Add
                     </button>
                 </form>
             </Modal>
@@ -905,6 +979,17 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                                 <div className="rr-error-text">Passwords do not match.</div>
                             )}
                         </div>
+                        <div className="rr-field">
+                            <label htmlFor="passwordHint">Label (optional)</label>
+                            <input
+                                id="passwordHint"
+                                className="rr-input"
+                                type="text"
+                                placeholder="e.g. LastPass, 1Password"
+                                value={methodHint}
+                                onChange={(e) => setMethodHint(e.target.value)}
+                            />
+                        </div>
                         <button
                             className="rr-button rr-button--primary"
                             type="submit"
@@ -927,21 +1012,31 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                             </div>
                         )}
                         {!totpSetup && (
-                            <div>
+                            <form onSubmit={handleAddTotp}>
                                 <p className="rr-hint" style={{ marginTop: 0 }}>
                                     Add an authenticator app (e.g. Google Authenticator, 1Password) as a sign-in method.
                                 </p>
+                                <div className="rr-field">
+                                    <label htmlFor="totpHint">Label (optional)</label>
+                                    <input
+                                        id="totpHint"
+                                        className="rr-input"
+                                        type="text"
+                                        placeholder="e.g. LastPass, 1Password"
+                                        value={methodHint}
+                                        onChange={(e) => setMethodHint(e.target.value)}
+                                    />
+                                </div>
                                 <button
-                                    type="button"
+                                    type="submit"
                                     className="rr-button rr-button--primary"
                                     style={{ width: "auto" }}
-                                    onClick={handleAddTotp}
                                     disabled={totpAdding}
                                 >
                                     {totpAdding && <span className="rr-spinner" />}
                                     Add authenticator app
                                 </button>
-                            </div>
+                            </form>
                         )}
                         {totpSetup && (
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.75rem" }}>
@@ -965,7 +1060,7 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                 )}
 
                 {addMethodType === "passkey" && (
-                    <div>
+                    <form onSubmit={handleAddPasskey}>
                         {passkeyError && (
                             <div className="rr-alert rr-alert--error" role="alert">
                                 {passkeyError}
@@ -974,21 +1069,31 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                         <p className="rr-hint" style={{ marginTop: 0 }}>
                             Your browser will prompt you to create a passkey.
                         </p>
+                        <div className="rr-field">
+                            <label htmlFor="passkeyHint">Label (optional)</label>
+                            <input
+                                id="passkeyHint"
+                                className="rr-input"
+                                type="text"
+                                placeholder="e.g. iPhone, YubiKey"
+                                value={methodHint}
+                                onChange={(e) => setMethodHint(e.target.value)}
+                            />
+                        </div>
                         <button
-                            type="button"
+                            type="submit"
                             className="rr-button rr-button--primary"
                             style={{ width: "auto" }}
-                            onClick={handleAddPasskey}
                             disabled={passkeyAdding}
                         >
                             {passkeyAdding && <span className="rr-spinner" />}
                             Add passkey
                         </button>
-                    </div>
+                    </form>
                 )}
 
                 {addMethodType === "fido2" && (
-                    <div>
+                    <form onSubmit={handleAddFido2}>
                         {fido2Error && (
                             <div className="rr-alert rr-alert--error" role="alert">
                                 {fido2Error}
@@ -997,17 +1102,27 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                         <p className="rr-hint" style={{ marginTop: 0 }}>
                             Insert your security key and follow your browser&rsquo;s prompt.
                         </p>
+                        <div className="rr-field">
+                            <label htmlFor="fido2Hint">Label (optional)</label>
+                            <input
+                                id="fido2Hint"
+                                className="rr-input"
+                                type="text"
+                                placeholder="e.g. YubiKey"
+                                value={methodHint}
+                                onChange={(e) => setMethodHint(e.target.value)}
+                            />
+                        </div>
                         <button
-                            type="button"
+                            type="submit"
                             className="rr-button rr-button--primary"
                             style={{ width: "auto" }}
-                            onClick={handleAddFido2}
                             disabled={fido2Adding}
                         >
                             {fido2Adding && <span className="rr-spinner" />}
                             Add security key
                         </button>
-                    </div>
+                    </form>
                 )}
             </Modal>
         </div>

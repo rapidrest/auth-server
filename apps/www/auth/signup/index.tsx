@@ -4,6 +4,7 @@ import {
     beginRegistration,
     createPasswordSecret,
     createProfile,
+    createUsernameAlias,
     getPasswordRequirements,
     PasswordRequirements,
     RegistrationIdentifierType,
@@ -26,6 +27,7 @@ export default function SignUpPage() {
     const [identifierType, setIdentifierType] = useState<RegistrationIdentifierType>("email");
     const [identifier, setIdentifier] = useState("");
     const [code, setCode] = useState("");
+    const [username, setUsername] = useState("");
     const [givenName, setGivenName] = useState("");
     const [familyName, setFamilyName] = useState("");
     const [birthdate, setBirthdate] = useState("");
@@ -113,6 +115,9 @@ export default function SignUpPage() {
                 birthdate: birthdate || undefined,
                 contacts: [{ contact: identifier.trim(), type: identifierType, verified: true }],
             });
+            if (username.trim()) {
+                await createUsernameAlias(username.trim());
+            }
             if (password) {
                 await createPasswordSecret(password);
             }
@@ -223,6 +228,18 @@ export default function SignUpPage() {
                         <form onSubmit={handleProfileSubmit}>
                             <div className="rr-card__title">Tell us about yourself</div>
                             <p className="rr-card__subtitle">A password is optional — you can add one, a passkey, or an authenticator app later.</p>
+                            <div className="rr-field">
+                                <label htmlFor="username">Username (optional)</label>
+                                <input
+                                    id="username"
+                                    className="rr-input"
+                                    type="text"
+                                    autoComplete="username"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    placeholder="A unique name you can sign in with"
+                                />
+                            </div>
                             <div className="rr-field">
                                 <label htmlFor="givenName">Given name</label>
                                 <input

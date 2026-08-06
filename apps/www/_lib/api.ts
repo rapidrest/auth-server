@@ -208,9 +208,15 @@ export function resendContactVerificationCode(contact: string): Promise<void> {
 /**
  * Registers a password credential for the authenticated caller. The server hashes `password` (argon2) and
  * enforces the configured strength rules — `userUid` is defaulted server-side to the caller's own uid.
+ * `hint` is an optional caller-supplied label (e.g. "LastPass") to help identify this secret later — it's a
+ * discrete top-level field on `Secret`, not part of `data`, so it survives the server-side scrub of `data`
+ * on every later `GET`/list.
  */
-export function createPasswordSecret(password: string): Promise<unknown> {
-    return apiFetch("/secrets", { method: "POST", body: JSON.stringify({ type: "password", data: password }) });
+export function createPasswordSecret(password: string, hint?: string): Promise<unknown> {
+    return apiFetch("/secrets", {
+        method: "POST",
+        body: JSON.stringify({ type: "password", data: password, ...(hint ? { hint } : {}) }),
+    });
 }
 
 /** Mirrors `@rapidrest/auth`'s `PasswordConfig` — the shape returned by `GET /secrets/password`. */
@@ -377,13 +383,18 @@ export async function updateUsernameAlias(oldUid: string, value: string): Promis
 
 export type SecretType = "password" | "totp" | "passkey" | "fido2";
 
-/** The shape returned by `GET /secrets` and `GET /secrets/:id` — `data` is always scrubbed server-side. */
+/**
+ * The shape returned by `GET /secrets` and `GET /secrets/:id` — `data` is always scrubbed server-side, but
+ * `hint` is a discrete top-level field on `Secret` (not part of `data`), so it survives that scrub and is
+ * always available to help identify which secret is which later.
+ */
 export interface SecretSummary {
     uid: string;
     version: number;
     type: SecretType;
     userUid: string;
     dateCreated: string;
+    hint?: string;
 }
 
 /** Lists the authenticated caller's own registered sign-in methods (secrets) — scoped server-side to the caller. */
@@ -412,10 +423,11 @@ export interface CreatedTotpSecret extends SecretSummary {
  * Registers a new authenticator-app (TOTP) secret. The server generates the Base32 secret and an
  * `otpauth://` provisioning URI for a QR code, but only ever returns them in THIS response — every later
  * `GET`/list scrubs `data` from all Secret types, so the caller must capture and display the QR
- * code/manual-entry string immediately, since it can never be re-fetched.
+ * code/manual-entry string immediately, since it can never be re-fetched. `hint` is an optional
+ * caller-supplied label (see `createPasswordSecret`'s doc comment).
  */
-export function createTotpSecret(): Promise<CreatedTotpSecret> {
-    return apiFetch("/secrets", { method: "POST", body: JSON.stringify({ type: "totp" }) });
+export function createTotpSecret(hint?: string): Promise<CreatedTotpSecret> {
+    return apiFetch("/secrets", { method: "POST", body: JSON.stringify({ type: "totp", ...(hint ? { hint } : {}) }) });
 }
 
 /** Begins a passkey *registration* ceremony (as opposed to `getPasskeyChallenge()`, which is for sign-in). */
@@ -423,9 +435,15 @@ export function getPasskeyRegistrationOptions(): Promise<unknown> {
     return apiFetch("/secrets/passkey/register");
 }
 
-/** Finishes a passkey registration ceremony with the `RegistrationResponseJSON` from `startRegistration()`. */
-export function registerPasskey(response: unknown): Promise<SecretSummary> {
-    return apiFetch("/secrets", { method: "POST", body: JSON.stringify({ type: "passkey", data: response }) });
+/**
+ * Finishes a passkey registration ceremony with the `RegistrationResponseJSON` from `startRegistration()`.
+ * `hint` is an optional caller-supplied label (see `createPasswordSecret`'s doc comment).
+ */
+export function registerPasskey(response: unknown, hint?: string): Promise<SecretSummary> {
+    return apiFetch("/secrets", {
+        method: "POST",
+        body: JSON.stringify({ type: "passkey", data: response, ...(hint ? { hint } : {}) }),
+    });
 }
 
 /** Begins a FIDO2 security key *registration* ceremony (as opposed to `getFido2Challenge()`, which is for sign-in). */
@@ -433,7 +451,13 @@ export function getFido2RegistrationOptions(): Promise<unknown> {
     return apiFetch("/secrets/fido2/register");
 }
 
-/** Finishes a FIDO2 registration ceremony with the `RegistrationResponseJSON` from `startRegistration()`. */
-export function registerFido2(response: unknown): Promise<SecretSummary> {
-    return apiFetch("/secrets", { method: "POST", body: JSON.stringify({ type: "fido2", data: response }) });
+/**
+ * Finishes a FIDO2 registration ceremony with the `RegistrationResponseJSON` from `startRegistration()`.
+ * `hint` is an optional caller-supplied label (see `createPasswordSecret`'s doc comment).
+ */
+export function registerFido2(response: unknown, hint?: string): Promise<SecretSummary> {
+    return apiFetch("/secrets", {
+        method: "POST",
+        body: JSON.stringify({ type: "fido2", data: response, ...(hint ? { hint } : {}) }),
+    });
 }

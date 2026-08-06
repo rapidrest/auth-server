@@ -263,6 +263,15 @@ describe("password", () => {
         );
     });
 
+    it("createPasswordSecret includes a top-level hint when one is given", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "s1" }));
+        await createPasswordSecret("Sup3r$ecret1", "LastPass");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/secrets",
+            expect.objectContaining({ body: JSON.stringify({ type: "password", data: "Sup3r$ecret1", hint: "LastPass" }) }),
+        );
+    });
+
     it("getPasswordRequirements fetches /secrets/password", async () => {
         const requirements = {
             min_length: 8,
@@ -506,6 +515,15 @@ describe("secrets", () => {
         expect(result).toEqual(created);
     });
 
+    it("createTotpSecret includes a top-level hint when one is given", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "s1" }));
+        await createTotpSecret("LastPass");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/secrets",
+            expect.objectContaining({ body: JSON.stringify({ type: "totp", hint: "LastPass" }) }),
+        );
+    });
+
     it("getPasskeyRegistrationOptions fetches /secrets/passkey/register", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, {}));
         await getPasskeyRegistrationOptions();
@@ -522,6 +540,16 @@ describe("secrets", () => {
         );
     });
 
+    it("registerPasskey includes a top-level hint when one is given", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "cred1" }));
+        const response = { id: "cred1" };
+        await registerPasskey(response, "iPhone");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/secrets",
+            expect.objectContaining({ body: JSON.stringify({ type: "passkey", data: response, hint: "iPhone" }) }),
+        );
+    });
+
     it("getFido2RegistrationOptions fetches /secrets/fido2/register", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, {}));
         await getFido2RegistrationOptions();
@@ -535,6 +563,16 @@ describe("secrets", () => {
         expect(fetchMock).toHaveBeenCalledWith(
             "/api/secrets",
             expect.objectContaining({ body: JSON.stringify({ type: "fido2", data: response }) }),
+        );
+    });
+
+    it("registerFido2 includes a top-level hint when one is given", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "cred1" }));
+        const response = { id: "cred1" };
+        await registerFido2(response, "YubiKey");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/secrets",
+            expect.objectContaining({ body: JSON.stringify({ type: "fido2", data: response, hint: "YubiKey" }) }),
         );
     });
 });

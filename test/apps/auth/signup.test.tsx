@@ -17,6 +17,7 @@ vi.mock("../../../apps/www/_lib/api.js", async (importOriginal) => {
         verifyRegistration: vi.fn(),
         createProfile: vi.fn(),
         createPasswordSecret: vi.fn(),
+        createUsernameAlias: vi.fn(),
         getPasswordRequirements: vi.fn(),
         setAuthToken: vi.fn(),
     };
@@ -27,6 +28,7 @@ import {
     beginRegistration,
     createPasswordSecret,
     createProfile,
+    createUsernameAlias,
     getPasswordRequirements,
     setAuthToken,
     verifyRegistration,
@@ -37,6 +39,7 @@ const mockedBeginRegistration = vi.mocked(beginRegistration);
 const mockedVerifyRegistration = vi.mocked(verifyRegistration);
 const mockedCreateProfile = vi.mocked(createProfile);
 const mockedCreatePasswordSecret = vi.mocked(createPasswordSecret);
+const mockedCreateUsernameAlias = vi.mocked(createUsernameAlias);
 const mockedGetPasswordRequirements = vi.mocked(getPasswordRequirements);
 const mockedSetAuthToken = vi.mocked(setAuthToken);
 
@@ -216,6 +219,45 @@ describe("SignUpPage — profile step", () => {
             birthdate: "1990-01-01",
             contacts: [{ contact: "a@example.com", type: "email", verified: true }],
         });
+        expect(mockedCreatePasswordSecret).not.toHaveBeenCalled();
+    });
+
+    it("creates a username alias when one is provided", async () => {
+        const user = userEvent.setup();
+        const location = mockLocation();
+        await advanceToProfileStep(user);
+        mockedCreateProfile.mockResolvedValueOnce({});
+        mockedCreateUsernameAlias.mockResolvedValueOnce({});
+
+        await user.type(screen.getByLabelText("Username (optional)"), "coolname");
+        await user.click(screen.getByRole("button", { name: "Create account" }));
+
+        await waitFor(() => expect(location.href).toBe("/account"));
+        expect(mockedCreateUsernameAlias).toHaveBeenCalledWith("coolname");
+    });
+
+    it("does not attempt to create a username alias when left blank", async () => {
+        const user = userEvent.setup();
+        const location = mockLocation();
+        await advanceToProfileStep(user);
+        mockedCreateProfile.mockResolvedValueOnce({});
+
+        await user.click(screen.getByRole("button", { name: "Create account" }));
+
+        await waitFor(() => expect(location.href).toBe("/account"));
+        expect(mockedCreateUsernameAlias).not.toHaveBeenCalled();
+    });
+
+    it("shows the ApiRequestError message when creating the username alias fails", async () => {
+        const user = userEvent.setup();
+        await advanceToProfileStep(user);
+        mockedCreateProfile.mockResolvedValueOnce({});
+        mockedCreateUsernameAlias.mockRejectedValueOnce(new ApiRequestError("Username taken.", 409));
+
+        await user.type(screen.getByLabelText("Username (optional)"), "taken");
+        await user.click(screen.getByRole("button", { name: "Create account" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Username taken.");
         expect(mockedCreatePasswordSecret).not.toHaveBeenCalled();
     });
 

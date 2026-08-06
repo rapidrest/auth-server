@@ -426,38 +426,41 @@ a {
     background: var(--rr-color-border);
 }
 
-.rr-method-tabs {
+.rr-method-list {
     display: flex;
-    gap: 0.4rem;
-    margin-bottom: 1.25rem;
-    border-bottom: 1px solid var(--rr-color-border);
+    flex-direction: column;
+    gap: 0.6rem;
 }
 
-.rr-method-tab {
-    flex: 1;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    padding: 0.6rem 0.4rem;
+.rr-method-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: var(--rr-color-surface);
+    border: 1px solid var(--rr-color-border);
+    border-radius: var(--rr-radius-sm);
+    padding: 0.85rem 1rem;
     font-family: inherit;
-    font-size: 0.825rem;
+    font-size: 0.975rem;
     font-weight: 600;
-    color: var(--rr-color-text-muted);
-    cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.rr-method-tab:hover {
     color: var(--rr-color-text);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
 }
 
-.rr-method-tab--active {
+.rr-method-list-item:hover {
+    border-color: var(--rr-color-primary);
     color: var(--rr-color-primary-dark);
-    border-bottom-color: var(--rr-color-primary);
 }
 
-:root[data-theme="dark"] .rr-method-tab--active {
+:root[data-theme="dark"] .rr-method-list-item:hover {
     color: var(--rr-color-primary-light);
+}
+
+.rr-method-list-item span {
+    font-size: 1.1rem;
+    color: var(--rr-color-text-muted);
 }
 
 .rr-footer-link {

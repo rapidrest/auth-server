@@ -60,17 +60,25 @@ const mockedVerifyPasskeySignIn = vi.mocked(verifyPasskeySignIn);
 
 const AUTH_RESULT = { token: "tok-123", user: { uid: "u1", roles: [], scopes: [] } };
 
+const EMAIL_HINT = { contact: "j***n@example.com", type: "email" as const };
+const PHONE_HINT = { contact: "***1234", type: "phone" as const };
+
 const ALL_METHODS: DiscoverResult = {
     password: true,
     totp: true,
     passkey: true,
     fido2: true,
-    otp: [{ contact: "j***n@example.com", type: "email" }],
+    otp: [EMAIL_HINT],
 };
 
 const EMPTY_DISCOVER: DiscoverResult = { password: false, totp: false, passkey: false, fido2: false, otp: [] };
 
-async function openMethodModal(
+function escapeRegExp(s: string) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Drives the identifier step to completion, landing on the method-list step (no modal involved). */
+async function goToMethods(
     user: ReturnType<typeof userEvent.setup>,
     discoverResult: DiscoverResult,
     identifier = "a@example.com",
@@ -79,8 +87,31 @@ async function openMethodModal(
     render(<SignInPage />);
     await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), identifier);
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("dialog", { name: "Sign in" });
+    await screen.findByText(/Choose how/);
     expect(mockedDiscoverAuthMethods).toHaveBeenCalledWith(identifier);
+}
+
+/** Drives all the way to a given fixed method's challenge screen by clicking its entry in the method list. */
+async function goToChallenge(
+    user: ReturnType<typeof userEvent.setup>,
+    methodLabel: string,
+    discoverResult: DiscoverResult = ALL_METHODS,
+    identifier = "a@example.com",
+) {
+    await goToMethods(user, discoverResult, identifier);
+    await user.click(screen.getByRole("button", { name: new RegExp(`^${methodLabel}`) }));
+}
+
+/** Drives all the way to a given OTP contact's own challenge screen, by clicking its specific list entry. */
+async function goToOtpChallenge(
+    user: ReturnType<typeof userEvent.setup>,
+    hint: { contact: string; type: "email" | "phone" },
+    discoverResult: DiscoverResult = ALL_METHODS,
+    identifier = "a@example.com",
+) {
+    await goToMethods(user, discoverResult, identifier);
+    const typeLabel = hint.type === "email" ? "Email" : "Phone";
+    await user.click(screen.getByRole("button", { name: new RegExp(`^${typeLabel}: ${escapeRegExp(hint.contact)}`) }));
 }
 
 describe("SignInPage — identifier step", () => {
@@ -90,13 +121,13 @@ describe("SignInPage — identifier step", () => {
         expect(screen.getByRole("button", { name: "Continue with Microsoft" })).toBeDisabled();
     });
 
-    it("calls discoverAuthMethods and opens the method-picker modal on submit", async () => {
+    it("calls discoverAuthMethods and advances to the method-list step on submit", async () => {
         const user = userEvent.setup();
-        await openMethodModal(user, ALL_METHODS, "a@example.com");
+        await goToMethods(user, ALL_METHODS, "a@example.com");
         expect(screen.getByText(/a@example.com/)).toBeInTheDocument();
     });
 
-    it("degrades to the empty result (generic message, no per-method breakdown) if discover itself throws", async () => {
+    it("degrades to the empty result (generic message, no method list) if discover itself throws", async () => {
         mockedDiscoverAuthMethods.mockRejectedValueOnce(new Error("network down"));
         const user = userEvent.setup();
         render(<SignInPage />);
@@ -104,82 +135,95 @@ describe("SignInPage — identifier step", () => {
         await user.click(screen.getByRole("button", { name: "Continue" }));
 
         expect(await screen.findByText(/No sign-in methods are available/)).toBeInTheDocument();
-        expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     });
 });
 
 describe("SignInPage — nothing available", () => {
-    it("shows a single generic message and no method tabs", async () => {
+    it("shows a single generic message and no method list", async () => {
         const user = userEvent.setup();
-        await openMethodModal(user, EMPTY_DISCOVER);
+        await goToMethods(user, EMPTY_DISCOVER);
         expect(screen.getByText(/No sign-in methods are available/)).toBeInTheDocument();
-        expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /Password|Passkey|One-time code/ })).not.toBeInTheDocument();
     });
 });
 
-describe("SignInPage — method tabs", () => {
-    it("defaults to passkey (listed first) and switches between all five methods", async () => {
+describe("SignInPage — method list", () => {
+    it("lists passkey first, and only the methods discover actually returned as available", async () => {
         const user = userEvent.setup();
-        await openMethodModal(user, ALL_METHODS);
+        await goToMethods(user, ALL_METHODS);
 
-        expect(screen.getByRole("tab", { name: "Passkey" })).toHaveAttribute("aria-selected", "true");
-        expect(screen.getByRole("button", { name: "Continue with passkey" })).toBeInTheDocument();
+        const items = screen.getAllByRole("button").filter((b) => b.className.includes("rr-method-list-item"));
+        const strip = (s: string) => s.replace(/[^\w\- ]/g, "").trim();
+        expect(items.map((b) => strip(b.textContent || ""))).toEqual([
+            "Passkey",
+            "Password",
+            "Authenticator app",
+            strip(`Email: ${EMAIL_HINT.contact}`),
+            "Security key",
+        ]);
+    });
 
-        await user.click(screen.getByRole("tab", { name: "Password" }));
+    it("lists one entry per discovered OTP contact, not a single combined entry", async () => {
+        const user = userEvent.setup();
+        await goToMethods(user, { ...EMPTY_DISCOVER, otp: [EMAIL_HINT, PHONE_HINT] });
+
+        expect(screen.getByRole("button", { name: new RegExp(`^Email: ${escapeRegExp(EMAIL_HINT.contact)}`) })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: new RegExp(`^Phone: ${escapeRegExp(PHONE_HINT.contact)}`) })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /^One-time code/ })).not.toBeInTheDocument();
+    });
+
+    it("only lists methods discover returned as available", async () => {
+        const user = userEvent.setup();
+        await goToMethods(user, { password: true, totp: false, passkey: false, fido2: false, otp: [] });
+
+        expect(screen.getByRole("button", { name: /^Password/ })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /^Passkey/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /^Authenticator app/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /^Email:|^Phone:/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /^Security key/ })).not.toBeInTheDocument();
+    });
+
+    it("clicking a method advances to its challenge screen", async () => {
+        const user = userEvent.setup();
+        await goToMethods(user, ALL_METHODS);
+
+        await user.click(screen.getByRole("button", { name: /^Password/ }));
+
         expect(screen.getByLabelText("Password")).toBeInTheDocument();
-
-        await user.click(screen.getByRole("tab", { name: "Authenticator app" }));
-        expect(screen.getByLabelText("Authenticator code")).toBeInTheDocument();
-
-        await user.click(screen.getByRole("tab", { name: "One-time code" }));
-        expect(screen.getByLabelText("E-mail or phone")).toBeInTheDocument();
-
-        await user.click(screen.getByRole("tab", { name: "Security key" }));
-        expect(screen.getByRole("button", { name: "Continue with security key" })).toBeInTheDocument();
     });
 
-    it("only renders tabs for methods discover actually returned as available", async () => {
+    it("'Use a different account' returns to the identifier step", async () => {
         const user = userEvent.setup();
-        await openMethodModal(user, { password: true, totp: false, passkey: false, fido2: false, otp: [] });
+        await goToMethods(user, ALL_METHODS, "a@example.com");
 
-        expect(screen.getByRole("tab", { name: "Password" })).toBeInTheDocument();
-        expect(screen.queryByRole("tab", { name: "Passkey" })).not.toBeInTheDocument();
-        expect(screen.queryByRole("tab", { name: "Authenticator app" })).not.toBeInTheDocument();
-        expect(screen.queryByRole("tab", { name: "One-time code" })).not.toBeInTheDocument();
-        expect(screen.queryByRole("tab", { name: "Security key" })).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Use a different account" }));
+
+        expect(screen.getByLabelText("Account ID, e-mail, or phone")).toHaveValue("a@example.com");
     });
 
-    it("clears the input fields and error when the modal is closed and reopened", async () => {
+    it("'Choose a different method' returns from the challenge screen to the method list, clearing fields", async () => {
         const user = userEvent.setup();
-        await openMethodModal(user, ALL_METHODS, "a@example.com");
-        await user.click(screen.getByRole("tab", { name: "Password" }));
+        await goToChallenge(user, "Password");
         await user.type(screen.getByLabelText("Password"), "hunter2");
         mockedSignInWithPassword.mockRejectedValueOnce(new ApiRequestError("nope", 401));
         await user.click(screen.getByRole("button", { name: "Sign in" }));
         expect(await screen.findByRole("alert")).toBeInTheDocument();
 
-        await user.keyboard("{Escape}");
-        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Choose a different method" }));
 
-        mockedDiscoverAuthMethods.mockResolvedValueOnce(ALL_METHODS);
-        await user.click(screen.getByRole("button", { name: "Continue" }));
-        await screen.findByRole("dialog", { name: "Sign in" });
-        await user.click(screen.getByRole("tab", { name: "Password" }));
-        expect(screen.getByLabelText("Password")).toHaveValue("");
         expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /^Password/ })).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: /^Password/ }));
+        expect(screen.getByLabelText("Password")).toHaveValue("");
     });
 });
 
 describe("SignInPage — password method", () => {
-    async function goToPassword(user: ReturnType<typeof userEvent.setup>, identifier = "a@example.com") {
-        await openMethodModal(user, ALL_METHODS, identifier);
-        await user.click(screen.getByRole("tab", { name: "Password" }));
-    }
-
     it("signs in successfully and redirects to /account", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
-        await goToPassword(user, "a@example.com");
+        await goToChallenge(user, "Password", ALL_METHODS, "a@example.com");
         mockedSignInWithPassword.mockResolvedValueOnce(AUTH_RESULT);
 
         await user.type(screen.getByLabelText("Password"), "hunter2");
@@ -192,7 +236,7 @@ describe("SignInPage — password method", () => {
 
     it("shows a fixed message on an ApiRequestError", async () => {
         const user = userEvent.setup();
-        await goToPassword(user);
+        await goToChallenge(user, "Password");
         mockedSignInWithPassword.mockRejectedValueOnce(new ApiRequestError("nope", 401));
 
         await user.type(screen.getByLabelText("Password"), "wrong");
@@ -203,7 +247,7 @@ describe("SignInPage — password method", () => {
 
     it("shows a generic message on a non-API error", async () => {
         const user = userEvent.setup();
-        await goToPassword(user);
+        await goToChallenge(user, "Password");
         mockedSignInWithPassword.mockRejectedValueOnce(new TypeError("boom"));
 
         await user.type(screen.getByLabelText("Password"), "wrong");
@@ -214,14 +258,9 @@ describe("SignInPage — password method", () => {
 });
 
 describe("SignInPage — totp method", () => {
-    async function goToTotp(user: ReturnType<typeof userEvent.setup>, identifier = "a@example.com") {
-        await openMethodModal(user, ALL_METHODS, identifier);
-        await user.click(screen.getByRole("tab", { name: "Authenticator app" }));
-    }
-
     it("strips non-digits from the code field", async () => {
         const user = userEvent.setup();
-        await goToTotp(user);
+        await goToChallenge(user, "Authenticator app");
         await user.type(screen.getByLabelText("Authenticator code"), "12a3b456");
         expect(screen.getByLabelText("Authenticator code")).toHaveValue("123456");
     });
@@ -229,7 +268,7 @@ describe("SignInPage — totp method", () => {
     it("signs in successfully and redirects to /account", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
-        await goToTotp(user, "u1");
+        await goToChallenge(user, "Authenticator app", ALL_METHODS, "u1");
         mockedSignInWithTotp.mockResolvedValueOnce(AUTH_RESULT);
 
         await user.type(screen.getByLabelText("Authenticator code"), "654321");
@@ -241,7 +280,7 @@ describe("SignInPage — totp method", () => {
 
     it("shows a fixed message on an ApiRequestError", async () => {
         const user = userEvent.setup();
-        await goToTotp(user);
+        await goToChallenge(user, "Authenticator app");
         mockedSignInWithTotp.mockRejectedValueOnce(new ApiRequestError("nope", 401));
 
         await user.type(screen.getByLabelText("Authenticator code"), "000000");
@@ -252,7 +291,7 @@ describe("SignInPage — totp method", () => {
 
     it("shows a generic message on a non-API error", async () => {
         const user = userEvent.setup();
-        await goToTotp(user);
+        await goToChallenge(user, "Authenticator app");
         mockedSignInWithTotp.mockRejectedValueOnce(new TypeError("boom"));
 
         await user.type(screen.getByLabelText("Authenticator code"), "000000");
@@ -263,33 +302,28 @@ describe("SignInPage — totp method", () => {
 });
 
 describe("SignInPage — otp method", () => {
-    async function goToOtp(user: ReturnType<typeof userEvent.setup>, discoverResult = ALL_METHODS, identifier = "a@example.com") {
-        await openMethodModal(user, discoverResult, identifier);
-        await user.click(screen.getByRole("tab", { name: "One-time code" }));
-    }
-
-    it("shows an obfuscated hint (single contact) before the contact is typed", async () => {
+    it("shows the hint scoped to whichever entry was clicked, and the type as the heading", async () => {
         const user = userEvent.setup();
-        await goToOtp(user, ALL_METHODS);
+        await goToOtpChallenge(user, EMAIL_HINT, { ...EMPTY_DISCOVER, otp: [EMAIL_HINT, PHONE_HINT] });
+
+        expect(screen.getByText("Email")).toBeInTheDocument();
         expect(screen.getByText(/We can send a code to j\*\*\*n@example\.com\./)).toBeInTheDocument();
+        expect(screen.queryByText(/\*\*\*1234/)).not.toBeInTheDocument();
     });
 
-    it("joins multiple obfuscated hints with 'or'", async () => {
+    it("shows the phone entry's own hint when the phone entry is clicked instead", async () => {
         const user = userEvent.setup();
-        await goToOtp(user, {
-            ...ALL_METHODS,
-            otp: [
-                { contact: "j***n@example.com", type: "email" },
-                { contact: "***1234", type: "phone" },
-            ],
-        });
-        expect(screen.getByText(/We can send a code to j\*\*\*n@example\.com or \*\*\*1234\./)).toBeInTheDocument();
+        await goToOtpChallenge(user, PHONE_HINT, { ...EMPTY_DISCOVER, otp: [EMAIL_HINT, PHONE_HINT] });
+
+        expect(screen.getByText("Phone")).toBeInTheDocument();
+        expect(screen.getByText(/We can send a code to \*\*\*1234\./)).toBeInTheDocument();
+        expect(screen.queryByText(/j\*\*\*n@example\.com/)).not.toBeInTheDocument();
     });
 
     it("sends a challenge to the typed contact, then verifies the code and signs in", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
-        await goToOtp(user);
+        await goToOtpChallenge(user, EMAIL_HINT);
         mockedGetOtpChallenge.mockResolvedValueOnce({});
 
         await user.type(screen.getByLabelText("E-mail or phone"), "a@example.com");
@@ -310,7 +344,7 @@ describe("SignInPage — otp method", () => {
 
     it("shows the ApiRequestError message when the challenge fails", async () => {
         const user = userEvent.setup();
-        await goToOtp(user);
+        await goToOtpChallenge(user, EMAIL_HINT);
         mockedGetOtpChallenge.mockRejectedValueOnce(new ApiRequestError("Too many requests.", 429));
 
         await user.type(screen.getByLabelText("E-mail or phone"), "a@example.com");
@@ -321,7 +355,7 @@ describe("SignInPage — otp method", () => {
 
     it("shows a generic message when the challenge fails with a non-API error", async () => {
         const user = userEvent.setup();
-        await goToOtp(user);
+        await goToOtpChallenge(user, EMAIL_HINT);
         mockedGetOtpChallenge.mockRejectedValueOnce(new TypeError("boom"));
 
         await user.type(screen.getByLabelText("E-mail or phone"), "a@example.com");
@@ -332,7 +366,7 @@ describe("SignInPage — otp method", () => {
 
     it("shows a fixed message on an invalid code", async () => {
         const user = userEvent.setup();
-        await goToOtp(user);
+        await goToOtpChallenge(user, EMAIL_HINT);
         mockedGetOtpChallenge.mockResolvedValueOnce({});
         await user.type(screen.getByLabelText("E-mail or phone"), "a@example.com");
         await user.click(screen.getByRole("button", { name: "Send code" }));
@@ -347,7 +381,7 @@ describe("SignInPage — otp method", () => {
 
     it("shows a generic message when sign-in fails with a non-API error", async () => {
         const user = userEvent.setup();
-        await goToOtp(user);
+        await goToOtpChallenge(user, EMAIL_HINT);
         mockedGetOtpChallenge.mockResolvedValueOnce({});
         await user.type(screen.getByLabelText("E-mail or phone"), "a@example.com");
         await user.click(screen.getByRole("button", { name: "Send code" }));
@@ -362,7 +396,7 @@ describe("SignInPage — otp method", () => {
 
     it("'Use a different contact' returns to the contact step, clearing the code and error", async () => {
         const user = userEvent.setup();
-        await goToOtp(user);
+        await goToOtpChallenge(user, EMAIL_HINT);
         mockedGetOtpChallenge.mockResolvedValueOnce({});
         await user.type(screen.getByLabelText("E-mail or phone"), "a@example.com");
         await user.click(screen.getByRole("button", { name: "Send code" }));
@@ -377,17 +411,27 @@ describe("SignInPage — otp method", () => {
         expect(screen.getByLabelText("E-mail or phone")).toBeInTheDocument();
         expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
+
+    it("'Choose a different method' clears the selected OTP hint", async () => {
+        const user = userEvent.setup();
+        await goToOtpChallenge(user, EMAIL_HINT, { ...EMPTY_DISCOVER, otp: [EMAIL_HINT, PHONE_HINT] });
+        expect(screen.getByText(/j\*\*\*n@example\.com/)).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "Choose a different method" }));
+
+        await user.click(
+            screen.getByRole("button", { name: new RegExp(`^Phone: ${escapeRegExp(PHONE_HINT.contact)}`) }),
+        );
+
+        expect(screen.getByText(/We can send a code to \*\*\*1234\./)).toBeInTheDocument();
+    });
 });
 
 describe("SignInPage — passkey method", () => {
-    async function goToPasskey(user: ReturnType<typeof userEvent.setup>, identifier = "a@example.com") {
-        await openMethodModal(user, ALL_METHODS, identifier);
-    }
-
     it("completes the ceremony and redirects to /account", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
-        await goToPasskey(user, "a@example.com");
+        await goToChallenge(user, "Passkey", ALL_METHODS, "a@example.com");
         const options = { challenge: "c" };
         const response = { id: "cred1" };
         mockedGetPasskeyChallenge.mockResolvedValueOnce(options);
@@ -404,7 +448,7 @@ describe("SignInPage — passkey method", () => {
 
     it("shows a cancellation message on NotAllowedError", async () => {
         const user = userEvent.setup();
-        await goToPasskey(user);
+        await goToChallenge(user, "Passkey");
         mockedGetPasskeyChallenge.mockResolvedValueOnce({});
         const cancelled = new Error("cancelled");
         cancelled.name = "NotAllowedError";
@@ -417,7 +461,7 @@ describe("SignInPage — passkey method", () => {
 
     it("shows a fixed message on an ApiRequestError", async () => {
         const user = userEvent.setup();
-        await goToPasskey(user);
+        await goToChallenge(user, "Passkey");
         mockedGetPasskeyChallenge.mockRejectedValueOnce(new ApiRequestError("nope", 401));
 
         await user.click(screen.getByRole("button", { name: "Continue with passkey" }));
@@ -427,7 +471,7 @@ describe("SignInPage — passkey method", () => {
 
     it("shows a generic message on a non-API, non-cancellation error", async () => {
         const user = userEvent.setup();
-        await goToPasskey(user);
+        await goToChallenge(user, "Passkey");
         mockedGetPasskeyChallenge.mockRejectedValueOnce(new TypeError("boom"));
 
         await user.click(screen.getByRole("button", { name: "Continue with passkey" }));
@@ -437,15 +481,10 @@ describe("SignInPage — passkey method", () => {
 });
 
 describe("SignInPage — fido2 method", () => {
-    async function goToFido2(user: ReturnType<typeof userEvent.setup>, identifier = "a@example.com") {
-        await openMethodModal(user, ALL_METHODS, identifier);
-        await user.click(screen.getByRole("tab", { name: "Security key" }));
-    }
-
     it("completes the ceremony and redirects to /account", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
-        await goToFido2(user, "a@example.com");
+        await goToChallenge(user, "Security key", ALL_METHODS, "a@example.com");
         const options = { challenge: "c" };
         const response = { id: "cred1" };
         mockedGetFido2Challenge.mockResolvedValueOnce(options);
@@ -461,7 +500,7 @@ describe("SignInPage — fido2 method", () => {
 
     it("shows a cancellation message on NotAllowedError", async () => {
         const user = userEvent.setup();
-        await goToFido2(user);
+        await goToChallenge(user, "Security key");
         mockedGetFido2Challenge.mockResolvedValueOnce({});
         const cancelled = new Error("cancelled");
         cancelled.name = "NotAllowedError";
@@ -474,7 +513,7 @@ describe("SignInPage — fido2 method", () => {
 
     it("shows a fixed message on an ApiRequestError", async () => {
         const user = userEvent.setup();
-        await goToFido2(user);
+        await goToChallenge(user, "Security key");
         mockedGetFido2Challenge.mockRejectedValueOnce(new ApiRequestError("nope", 401));
 
         await user.click(screen.getByRole("button", { name: "Continue with security key" }));
@@ -484,7 +523,7 @@ describe("SignInPage — fido2 method", () => {
 
     it("shows a generic message on a non-API, non-cancellation error", async () => {
         const user = userEvent.setup();
-        await goToFido2(user);
+        await goToChallenge(user, "Security key");
         mockedGetFido2Challenge.mockRejectedValueOnce(new TypeError("boom"));
 
         await user.click(screen.getByRole("button", { name: "Continue with security key" }));

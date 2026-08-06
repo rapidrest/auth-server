@@ -15,46 +15,50 @@ import {
     verifyFido2SignIn,
     verifyPasskeySignIn,
 } from "../../_lib/api.js";
-import Modal from "../../_lib/Modal.js";
 
-type Method = "passkey" | "password" | "totp" | "otp" | "fido2";
+type Step = "identifier" | "methods" | "challenge";
+type FixedMethod = "passkey" | "password" | "totp" | "fido2";
+type Method = FixedMethod | "otp";
+type OtpHint = DiscoverResult["otp"][number];
 
-// Passkey listed first (and so selected by default when available) to mirror how other providers
-// auto-prioritize a configured passkey as the recommended sign-in method.
-const METHOD_LABELS: Record<Method, string> = {
+type MethodListItem = { kind: "fixed"; method: FixedMethod } | { kind: "otp"; hint: OtpHint };
+
+// Passkey listed first to mirror how other providers surface a configured passkey as the recommended option.
+const FIXED_METHOD_LABELS: Record<FixedMethod, string> = {
     passkey: "Passkey",
     password: "Password",
     totp: "Authenticator app",
-    otp: "One-time code",
     fido2: "Security key",
+};
+
+const CONTACT_TYPE_LABELS: Record<OtpHint["type"], string> = {
+    email: "Email",
+    phone: "Phone",
 };
 
 const EMPTY_DISCOVER: DiscoverResult = { password: false, totp: false, passkey: false, fido2: false, otp: [] };
 
-function availableMethods(discover: DiscoverResult): Method[] {
-    const methods: Method[] = [];
-    if (discover.passkey) methods.push("passkey");
-    if (discover.password) methods.push("password");
-    if (discover.totp) methods.push("totp");
-    if (discover.otp.length > 0) methods.push("otp");
-    if (discover.fido2) methods.push("fido2");
-    return methods;
-}
-
-// Only ever called with a non-empty list — "otp" is only an available tab when discover.otp is non-empty
-// (see availableMethods()).
-function formatOtpHint(hints: DiscoverResult["otp"]): string {
-    const contacts = hints.map((h) => h.contact);
-    if (contacts.length === 1) return `We can send a code to ${contacts[0]}.`;
-    return `We can send a code to ${contacts.slice(0, -1).join(", ")} or ${contacts[contacts.length - 1]}.`;
+// One list item per discovered OTP-eligible contact — each is its own selectable sign-in method, not a
+// single combined "One-time code" entry, so the user can tell which contact a code would go to before picking it.
+function buildMethodList(discover: DiscoverResult): MethodListItem[] {
+    const items: MethodListItem[] = [];
+    if (discover.passkey) items.push({ kind: "fixed", method: "passkey" });
+    if (discover.password) items.push({ kind: "fixed", method: "password" });
+    if (discover.totp) items.push({ kind: "fixed", method: "totp" });
+    for (const hint of discover.otp) {
+        items.push({ kind: "otp", hint });
+    }
+    if (discover.fido2) items.push({ kind: "fixed", method: "fido2" });
+    return items;
 }
 
 export default function SignInPage() {
+    const [step, setStep] = useState<Step>("identifier");
     const [identifier, setIdentifier] = useState("");
     const [discoverLoading, setDiscoverLoading] = useState(false);
     const [discover, setDiscover] = useState<DiscoverResult>(EMPTY_DISCOVER);
-    const [modalOpen, setModalOpen] = useState(false);
-    const [method, setMethod] = useState<Method>("password");
+    const [method, setMethod] = useState<Method | null>(null);
+    const [selectedOtpHint, setSelectedOtpHint] = useState<OtpHint | null>(null);
 
     const [password, setPassword] = useState("");
     const [totpCode, setTotpCode] = useState("");
@@ -65,7 +69,7 @@ export default function SignInPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const methods = availableMethods(discover);
+    const methodItems = buildMethodList(discover);
 
     async function handleIdentifierSubmit(e: FormEvent) {
         e.preventDefault();
@@ -78,22 +82,46 @@ export default function SignInPage() {
             result = EMPTY_DISCOVER;
         }
         setDiscover(result);
-        const available = availableMethods(result);
-        if (available.length > 0) {
-            setMethod(available[0]);
-        }
         setDiscoverLoading(false);
-        setModalOpen(true);
+        setStep("methods");
     }
 
-    function closeModal() {
-        setModalOpen(false);
+    function goToIdentifier() {
+        setStep("identifier");
         setError(null);
+        setMethod(null);
+        setSelectedOtpHint(null);
         setPassword("");
         setTotpCode("");
         setOtpStep("contact");
         setOtpContact("");
         setOtpCode("");
+    }
+
+    function goToMethods() {
+        setStep("methods");
+        setError(null);
+        setMethod(null);
+        setSelectedOtpHint(null);
+        setPassword("");
+        setTotpCode("");
+        setOtpStep("contact");
+        setOtpContact("");
+        setOtpCode("");
+    }
+
+    function selectFixedMethod(m: FixedMethod) {
+        setMethod(m);
+        setSelectedOtpHint(null);
+        setError(null);
+        setStep("challenge");
+    }
+
+    function selectOtpMethod(hint: OtpHint) {
+        setMethod("otp");
+        setSelectedOtpHint(hint);
+        setError(null);
+        setStep("challenge");
     }
 
     function completeSignIn(result: AuthResult) {
@@ -203,233 +231,272 @@ export default function SignInPage() {
                 </div>
 
                 <div className="rr-card">
-                    <form onSubmit={handleIdentifierSubmit}>
-                        <div className="rr-card__title">Sign in</div>
-                        <p className="rr-card__subtitle">Enter your account ID, e-mail, or phone number.</p>
-                        <div className="rr-field">
-                            <label htmlFor="identifier">Account ID, e-mail, or phone</label>
-                            <input
-                                id="identifier"
-                                className="rr-input"
-                                type="text"
-                                autoComplete="username"
-                                required
-                                value={identifier}
-                                onChange={(e) => setIdentifier(e.target.value)}
-                                placeholder="you@example.com"
-                            />
-                        </div>
-                        <button className="rr-button rr-button--primary" type="submit" disabled={discoverLoading}>
-                            {discoverLoading && <span className="rr-spinner" />}
-                            Continue
-                        </button>
+                    {step === "identifier" && (
+                        <form onSubmit={handleIdentifierSubmit}>
+                            <div className="rr-card__title">Sign in</div>
+                            <p className="rr-card__subtitle">Enter your account ID, e-mail, or phone number.</p>
+                            <div className="rr-field">
+                                <label htmlFor="identifier">Account ID, e-mail, or phone</label>
+                                <input
+                                    id="identifier"
+                                    className="rr-input"
+                                    type="text"
+                                    autoComplete="username"
+                                    required
+                                    value={identifier}
+                                    onChange={(e) => setIdentifier(e.target.value)}
+                                    placeholder="you@example.com"
+                                />
+                            </div>
+                            <button className="rr-button rr-button--primary" type="submit" disabled={discoverLoading}>
+                                {discoverLoading && <span className="rr-spinner" />}
+                                Continue
+                            </button>
 
-                        <div className="rr-divider">or</div>
+                            <div className="rr-divider">or</div>
 
-                        <button
-                            className="rr-button rr-button--oauth"
-                            type="button"
-                            disabled
-                            style={{ marginBottom: "0.6rem" }}
-                        >
-                            Continue with Google
-                        </button>
-                        <button className="rr-button rr-button--oauth" type="button" disabled>
-                            Continue with Microsoft
-                        </button>
-                        <div className="rr-hint" style={{ textAlign: "center", marginTop: "0.6rem" }}>
-                            OAuth sign-in isn&rsquo;t configured on this server yet.
+                            <button
+                                className="rr-button rr-button--oauth"
+                                type="button"
+                                disabled
+                                style={{ marginBottom: "0.6rem" }}
+                            >
+                                Continue with Google
+                            </button>
+                            <button className="rr-button rr-button--oauth" type="button" disabled>
+                                Continue with Microsoft
+                            </button>
+                            <div className="rr-hint" style={{ textAlign: "center", marginTop: "0.6rem" }}>
+                                OAuth sign-in isn&rsquo;t configured on this server yet.
+                            </div>
+                        </form>
+                    )}
+
+                    {step === "methods" && (
+                        <div>
+                            <div className="rr-card__title">Sign in</div>
+                            <p className="rr-card__subtitle">
+                                Choose how you&rsquo;d like to sign in as <strong>{identifier}</strong>.
+                            </p>
+
+                            {methodItems.length === 0 && (
+                                <p className="rr-hint" style={{ marginTop: 0 }}>
+                                    No sign-in methods are available for that account ID. Double-check it and try again.
+                                </p>
+                            )}
+
+                            {methodItems.length > 0 && (
+                                <div className="rr-method-list">
+                                    {methodItems.map((item) =>
+                                        item.kind === "fixed" ? (
+                                            <button
+                                                key={item.method}
+                                                type="button"
+                                                className="rr-method-list-item"
+                                                onClick={() => selectFixedMethod(item.method)}
+                                            >
+                                                {FIXED_METHOD_LABELS[item.method]}
+                                                <span aria-hidden="true">&rsaquo;</span>
+                                            </button>
+                                        ) : (
+                                            <button
+                                                key={`otp-${item.hint.type}-${item.hint.contact}`}
+                                                type="button"
+                                                className="rr-method-list-item"
+                                                onClick={() => selectOtpMethod(item.hint)}
+                                            >
+                                                {CONTACT_TYPE_LABELS[item.hint.type]}: {item.hint.contact}
+                                                <span aria-hidden="true">&rsaquo;</span>
+                                            </button>
+                                        ),
+                                    )}
+                                </div>
+                            )}
+
+                            <button
+                                type="button"
+                                className="rr-button--text"
+                                style={{ marginTop: "1rem" }}
+                                onClick={goToIdentifier}
+                            >
+                                Use a different account
+                            </button>
                         </div>
-                    </form>
+                    )}
+
+                    {step === "challenge" && method && (
+                        <div>
+                            <div className="rr-card__title">
+                                {method === "otp" ? CONTACT_TYPE_LABELS[selectedOtpHint!.type] : FIXED_METHOD_LABELS[method]}
+                            </div>
+                            <p className="rr-card__subtitle">
+                                Signing in as <strong>{identifier}</strong>.
+                            </p>
+
+                            {error && (
+                                <div className="rr-alert rr-alert--error" role="alert">
+                                    {error}
+                                </div>
+                            )}
+
+                            {method === "password" && (
+                                <form onSubmit={handlePasswordSubmit}>
+                                    <div className="rr-field">
+                                        <label htmlFor="password">Password</label>
+                                        <input
+                                            id="password"
+                                            className="rr-input"
+                                            type="password"
+                                            autoComplete="current-password"
+                                            required
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                        />
+                                    </div>
+                                    <button className="rr-button rr-button--primary" type="submit" disabled={loading}>
+                                        {loading && <span className="rr-spinner" />}
+                                        Sign in
+                                    </button>
+                                </form>
+                            )}
+
+                            {method === "totp" && (
+                                <form onSubmit={handleTotpSubmit}>
+                                    <div className="rr-field">
+                                        <label htmlFor="totpCode">Authenticator code</label>
+                                        <input
+                                            id="totpCode"
+                                            className="rr-code-input"
+                                            inputMode="numeric"
+                                            autoComplete="one-time-code"
+                                            maxLength={6}
+                                            required
+                                            value={totpCode}
+                                            onChange={(e) => setTotpCode(e.target.value.replace(/[^0-9]/g, ""))}
+                                            placeholder="······"
+                                        />
+                                    </div>
+                                    <button className="rr-button rr-button--primary" type="submit" disabled={loading}>
+                                        {loading && <span className="rr-spinner" />}
+                                        Sign in
+                                    </button>
+                                </form>
+                            )}
+
+                            {method === "otp" && otpStep === "contact" && (
+                                <form onSubmit={handleOtpChallengeSubmit}>
+                                    <p className="rr-hint" style={{ marginTop: 0 }}>
+                                        We can send a code to {selectedOtpHint!.contact}. Enter it below to receive a
+                                        one-time code.
+                                    </p>
+                                    <div className="rr-field">
+                                        <label htmlFor="otpContact">E-mail or phone</label>
+                                        <input
+                                            id="otpContact"
+                                            className="rr-input"
+                                            type="text"
+                                            required
+                                            value={otpContact}
+                                            onChange={(e) => setOtpContact(e.target.value)}
+                                            placeholder="you@example.com"
+                                        />
+                                    </div>
+                                    <button className="rr-button rr-button--primary" type="submit" disabled={loading}>
+                                        {loading && <span className="rr-spinner" />}
+                                        Send code
+                                    </button>
+                                </form>
+                            )}
+
+                            {method === "otp" && otpStep === "code" && (
+                                <form onSubmit={handleOtpVerifySubmit}>
+                                    <p className="rr-hint" style={{ marginTop: 0 }}>
+                                        We sent a code to {otpContact}.
+                                    </p>
+                                    <div className="rr-field">
+                                        <label htmlFor="otpCode">One-time code</label>
+                                        <input
+                                            id="otpCode"
+                                            className="rr-code-input"
+                                            inputMode="numeric"
+                                            autoComplete="one-time-code"
+                                            maxLength={6}
+                                            required
+                                            value={otpCode}
+                                            onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
+                                            placeholder="······"
+                                        />
+                                    </div>
+                                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                                        <button className="rr-button rr-button--primary" type="submit" disabled={loading}>
+                                            {loading && <span className="rr-spinner" />}
+                                            Sign in
+                                        </button>
+                                        <button
+                                            className="rr-button rr-button--secondary"
+                                            type="button"
+                                            onClick={() => {
+                                                setOtpStep("contact");
+                                                setOtpCode("");
+                                                setError(null);
+                                            }}
+                                        >
+                                            Use a different contact
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+
+                            {method === "passkey" && (
+                                <div className="rr-field">
+                                    <p className="rr-hint" style={{ marginTop: 0 }}>
+                                        Your browser will prompt you to confirm with a passkey.
+                                    </p>
+                                    <button
+                                        className="rr-button rr-button--primary"
+                                        type="button"
+                                        onClick={handlePasskeySignIn}
+                                        disabled={loading}
+                                    >
+                                        {loading && <span className="rr-spinner" />}
+                                        Continue with passkey
+                                    </button>
+                                </div>
+                            )}
+
+                            {method === "fido2" && (
+                                <div className="rr-field">
+                                    <p className="rr-hint" style={{ marginTop: 0 }}>
+                                        Insert your security key and follow your browser&rsquo;s prompt.
+                                    </p>
+                                    <button
+                                        className="rr-button rr-button--primary"
+                                        type="button"
+                                        onClick={handleFido2SignIn}
+                                        disabled={loading}
+                                    >
+                                        {loading && <span className="rr-spinner" />}
+                                        Continue with security key
+                                    </button>
+                                </div>
+                            )}
+
+                            <button
+                                type="button"
+                                className="rr-button--text"
+                                style={{ marginTop: "0.5rem" }}
+                                onClick={goToMethods}
+                            >
+                                Choose a different method
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="rr-footer-link">
                     Don&rsquo;t have an account? <a href="/auth/signup">Create one</a>
                 </div>
             </div>
-
-            <Modal open={modalOpen} onClose={closeModal} title="Sign in">
-                {error && (
-                    <div className="rr-alert rr-alert--error" role="alert">
-                        {error}
-                    </div>
-                )}
-
-                {methods.length === 0 && (
-                    <p className="rr-hint" style={{ marginTop: 0 }}>
-                        No sign-in methods are available for that account ID. Double-check it and try again.
-                    </p>
-                )}
-
-                {methods.length > 0 && (
-                    <div>
-                        <p className="rr-card__subtitle">
-                            Choose how you&rsquo;d like to sign in as <strong>{identifier}</strong>.
-                        </p>
-
-                        <div className="rr-method-tabs" role="tablist">
-                            {methods.map((m) => (
-                                <button
-                                    key={m}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={method === m}
-                                    className={"rr-method-tab" + (method === m ? " rr-method-tab--active" : "")}
-                                    onClick={() => {
-                                        setMethod(m);
-                                        setError(null);
-                                    }}
-                                >
-                                    {METHOD_LABELS[m]}
-                                </button>
-                            ))}
-                        </div>
-
-                        {method === "password" && (
-                            <form onSubmit={handlePasswordSubmit}>
-                                <div className="rr-field">
-                                    <label htmlFor="password">Password</label>
-                                    <input
-                                        id="password"
-                                        className="rr-input"
-                                        type="password"
-                                        autoComplete="current-password"
-                                        required
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                    />
-                                </div>
-                                <button className="rr-button rr-button--primary" type="submit" disabled={loading}>
-                                    {loading && <span className="rr-spinner" />}
-                                    Sign in
-                                </button>
-                            </form>
-                        )}
-
-                        {method === "totp" && (
-                            <form onSubmit={handleTotpSubmit}>
-                                <div className="rr-field">
-                                    <label htmlFor="totpCode">Authenticator code</label>
-                                    <input
-                                        id="totpCode"
-                                        className="rr-code-input"
-                                        inputMode="numeric"
-                                        autoComplete="one-time-code"
-                                        maxLength={6}
-                                        required
-                                        value={totpCode}
-                                        onChange={(e) => setTotpCode(e.target.value.replace(/[^0-9]/g, ""))}
-                                        placeholder="······"
-                                    />
-                                </div>
-                                <button className="rr-button rr-button--primary" type="submit" disabled={loading}>
-                                    {loading && <span className="rr-spinner" />}
-                                    Sign in
-                                </button>
-                            </form>
-                        )}
-
-                        {method === "otp" && otpStep === "contact" && (
-                            <form onSubmit={handleOtpChallengeSubmit}>
-                                {/* `otp` is only ever an available tab when discover.otp is non-empty (see
-                                    availableMethods()), so a hint is always present here. */}
-                                <p className="rr-hint" style={{ marginTop: 0 }}>
-                                    {formatOtpHint(discover.otp)} Enter it below to receive a one-time code.
-                                </p>
-                                <div className="rr-field">
-                                    <label htmlFor="otpContact">E-mail or phone</label>
-                                    <input
-                                        id="otpContact"
-                                        className="rr-input"
-                                        type="text"
-                                        required
-                                        value={otpContact}
-                                        onChange={(e) => setOtpContact(e.target.value)}
-                                        placeholder="you@example.com"
-                                    />
-                                </div>
-                                <button className="rr-button rr-button--primary" type="submit" disabled={loading}>
-                                    {loading && <span className="rr-spinner" />}
-                                    Send code
-                                </button>
-                            </form>
-                        )}
-
-                        {method === "otp" && otpStep === "code" && (
-                            <form onSubmit={handleOtpVerifySubmit}>
-                                <p className="rr-hint" style={{ marginTop: 0 }}>
-                                    We sent a code to {otpContact}.
-                                </p>
-                                <div className="rr-field">
-                                    <label htmlFor="otpCode">One-time code</label>
-                                    <input
-                                        id="otpCode"
-                                        className="rr-code-input"
-                                        inputMode="numeric"
-                                        autoComplete="one-time-code"
-                                        maxLength={6}
-                                        required
-                                        value={otpCode}
-                                        onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
-                                        placeholder="······"
-                                    />
-                                </div>
-                                <div style={{ display: "flex", gap: "0.5rem" }}>
-                                    <button className="rr-button rr-button--primary" type="submit" disabled={loading}>
-                                        {loading && <span className="rr-spinner" />}
-                                        Sign in
-                                    </button>
-                                    <button
-                                        className="rr-button rr-button--secondary"
-                                        type="button"
-                                        onClick={() => {
-                                            setOtpStep("contact");
-                                            setOtpCode("");
-                                            setError(null);
-                                        }}
-                                    >
-                                        Use a different contact
-                                    </button>
-                                </div>
-                            </form>
-                        )}
-
-                        {method === "passkey" && (
-                            <div className="rr-field">
-                                <p className="rr-hint" style={{ marginTop: 0 }}>
-                                    Your browser will prompt you to confirm with a passkey.
-                                </p>
-                                <button
-                                    className="rr-button rr-button--primary"
-                                    type="button"
-                                    onClick={handlePasskeySignIn}
-                                    disabled={loading}
-                                >
-                                    {loading && <span className="rr-spinner" />}
-                                    Continue with passkey
-                                </button>
-                            </div>
-                        )}
-
-                        {method === "fido2" && (
-                            <div className="rr-field">
-                                <p className="rr-hint" style={{ marginTop: 0 }}>
-                                    Insert your security key and follow your browser&rsquo;s prompt.
-                                </p>
-                                <button
-                                    className="rr-button rr-button--primary"
-                                    type="button"
-                                    onClick={handleFido2SignIn}
-                                    disabled={loading}
-                                >
-                                    {loading && <span className="rr-spinner" />}
-                                    Continue with security key
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </Modal>
         </div>
     );
 }

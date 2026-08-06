@@ -129,6 +129,15 @@ function profileObj(overrides: Partial<Profile> = {}): Profile {
     return { uid: "u1", version: 0, contacts: [], ...overrides };
 }
 
+// The Contacts and Sign-in methods cards each have their own "+ Add" button — scope queries to the right
+// card's container to disambiguate. Both card titles are static markup, present immediately after render.
+function contactsCard(): HTMLElement {
+    return screen.getByText("Contacts").closest(".rr-card") as HTMLElement;
+}
+function secretsCard(): HTMLElement {
+    return screen.getByText("Sign-in methods").closest(".rr-card") as HTMLElement;
+}
+
 beforeEach(() => {
     mockedGetProfile.mockRejectedValue(new ApiRequestError("not found", 404));
     mockedListAliases.mockResolvedValue([alias()]);
@@ -448,18 +457,25 @@ describe("AccountPage — contacts table", () => {
         expect(within(row).getByRole("button", { name: "Disable" })).toBeInTheDocument();
     });
 
+    async function openAddContactModal(user: ReturnType<typeof userEvent.setup>) {
+        await screen.findByText("Contacts");
+        await user.click(within(contactsCard()).getByRole("button", { name: "+ Add" }));
+        return screen.getByRole("dialog", { name: "Add a contact" });
+    }
+
     it("adds a contact (creating the profile, since none existed) and opens the verify modal", async () => {
         const user = userEvent.setup();
         render(<AccountPage userUid="u1" />);
-        await screen.findByText("Save profile");
+        const dialog = await openAddContactModal(user);
         mockedCreateProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ contact: "new@example.com", verified: false })] }));
 
-        await user.type(screen.getByPlaceholderText("you@example.com"), "new@example.com");
-        await user.click(within(screen.getByPlaceholderText("you@example.com").closest("form")!).getByRole("button", { name: "Add" }));
+        await user.type(within(dialog).getByLabelText("E-mail address"), "new@example.com");
+        await user.click(within(dialog).getByRole("button", { name: "Add" }));
 
         expect(mockedCreateProfile).toHaveBeenCalledWith({
             contacts: [{ contact: "new@example.com", type: "email", verified: false }],
         });
+        await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add a contact" })).not.toBeInTheDocument());
         expect(await screen.findByText("We sent a code to new@example.com.")).toBeInTheDocument();
     });
 
@@ -468,15 +484,15 @@ describe("AccountPage — contacts table", () => {
         mockedGetProfile.mockReset();
         mockedGetProfile.mockResolvedValueOnce(profileObj({ version: 1, contacts: [contact()] }));
         render(<AccountPage userUid="u1" />);
-        await screen.findByPlaceholderText("you@example.com");
+        const dialog = await openAddContactModal(user);
         mockedUpdateProfile.mockResolvedValueOnce(
             profileObj({ version: 2, contacts: [contact(), contact({ contact: "+15551234567", type: "phone", verified: false })] }),
         );
 
-        await user.selectOptions(screen.getByDisplayValue("E-mail"), "phone");
-        const input = screen.getByPlaceholderText("+1 555 123 4567");
+        await user.selectOptions(within(dialog).getByLabelText("Type"), "phone");
+        const input = within(dialog).getByLabelText("Phone number");
         await user.type(input, "+15551234567");
-        await user.click(within(input.closest("form")!).getByRole("button", { name: "Add" }));
+        await user.click(within(dialog).getByRole("button", { name: "Add" }));
 
         await waitFor(() =>
             expect(mockedUpdateProfile).toHaveBeenCalledWith({
@@ -486,31 +502,49 @@ describe("AccountPage — contacts table", () => {
             }),
         );
         expect(await screen.findByText("We sent a code to +15551234567.")).toBeInTheDocument();
-        expect(input).toHaveValue("");
     });
 
-    it("shows the ApiRequestError message when adding a contact fails", async () => {
+    it("shows the ApiRequestError message when adding a contact fails, without closing the modal", async () => {
         const user = userEvent.setup();
         render(<AccountPage userUid="u1" />);
-        await screen.findByText("Save profile");
+        const dialog = await openAddContactModal(user);
         mockedCreateProfile.mockRejectedValueOnce(new ApiRequestError("nope", 400));
 
-        await user.type(screen.getByPlaceholderText("you@example.com"), "new@example.com");
-        await user.click(within(screen.getByPlaceholderText("you@example.com").closest("form")!).getByRole("button", { name: "Add" }));
+        await user.type(within(dialog).getByLabelText("E-mail address"), "new@example.com");
+        await user.click(within(dialog).getByRole("button", { name: "Add" }));
 
-        expect(await screen.findByText("nope")).toBeInTheDocument();
+        expect(await within(dialog).findByText("nope")).toBeInTheDocument();
+        expect(screen.getByRole("dialog", { name: "Add a contact" })).toBeInTheDocument();
     });
 
     it("shows a generic message when adding a contact fails with a non-API error", async () => {
         const user = userEvent.setup();
         render(<AccountPage userUid="u1" />);
-        await screen.findByText("Save profile");
+        const dialog = await openAddContactModal(user);
         mockedCreateProfile.mockRejectedValueOnce(new TypeError("boom"));
 
-        await user.type(screen.getByPlaceholderText("you@example.com"), "new@example.com");
-        await user.click(within(screen.getByPlaceholderText("you@example.com").closest("form")!).getByRole("button", { name: "Add" }));
+        await user.type(within(dialog).getByLabelText("E-mail address"), "new@example.com");
+        await user.click(within(dialog).getByRole("button", { name: "Add" }));
 
-        expect(await screen.findByText("Could not add that contact.")).toBeInTheDocument();
+        expect(await within(dialog).findByText("Could not add that contact.")).toBeInTheDocument();
+    });
+
+    it("clears the type/value and error when the add-contact modal is closed and reopened", async () => {
+        const user = userEvent.setup();
+        render(<AccountPage userUid="u1" />);
+        let dialog = await openAddContactModal(user);
+        mockedCreateProfile.mockRejectedValueOnce(new ApiRequestError("nope", 400));
+        await user.selectOptions(within(dialog).getByLabelText("Type"), "phone");
+        await user.type(within(dialog).getByLabelText("Phone number"), "+15551234567");
+        await user.click(within(dialog).getByRole("button", { name: "Add" }));
+        await within(dialog).findByText("nope");
+
+        await user.keyboard("{Escape}");
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+        dialog = await openAddContactModal(user);
+        expect(within(dialog).getByLabelText("Type")).toHaveValue("email");
+        expect(within(dialog).queryByText("nope")).toBeNull();
     });
 
     it("verifies a contact successfully, updating the profile and closing the modal", async () => {
@@ -639,19 +673,38 @@ describe("AccountPage — contacts table", () => {
         expect(await screen.findByRole("button", { name: "Disable" })).toBeInTheDocument();
     });
 
-    it("disables sign-in for a verified contact", async () => {
+    it("disables sign-in for a verified contact when another enabled alias remains", async () => {
         const user = userEvent.setup();
+        mockedGetProfile.mockReset();
+        mockedGetProfile.mockResolvedValueOnce(
+            profileObj({ contacts: [contact({ verified: true }), contact({ contact: "second@example.com", verified: true })] }),
+        );
+        mockedListAliases.mockReset();
+        mockedListAliases.mockResolvedValueOnce([
+            alias({ uid: "a2", alias: "ada@example.com", type: "email" }),
+            alias({ uid: "a3", alias: "second@example.com", type: "email" }),
+        ]);
+        render(<AccountPage userUid="u1" />);
+        mockedDeleteAlias.mockResolvedValueOnce();
+
+        const table = await screen.findByRole("table");
+        const row = within(table).getByText("ada@example.com").closest("tr")!;
+        await user.click(within(row).getByRole("button", { name: "Disable" }));
+
+        expect(mockedDeleteAlias).toHaveBeenCalledWith("a2");
+        expect(await within(row).findByRole("button", { name: "Enable" })).toBeInTheDocument();
+    });
+
+    it("disables the Disable action when it is the only enabled sign-in method", async () => {
         mockedGetProfile.mockReset();
         mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
         mockedListAliases.mockReset();
         mockedListAliases.mockResolvedValueOnce([alias({ uid: "a2", alias: "ada@example.com", type: "email" })]);
         render(<AccountPage userUid="u1" />);
-        mockedDeleteAlias.mockResolvedValueOnce();
 
-        await user.click(await screen.findByRole("button", { name: "Disable" }));
-
-        expect(mockedDeleteAlias).toHaveBeenCalledWith("a2");
-        expect(await screen.findByRole("button", { name: "Enable" })).toBeInTheDocument();
+        const table = await screen.findByRole("table");
+        const row = within(table).getByText("ada@example.com").closest("tr")!;
+        expect(within(row).getByRole("button", { name: "Disable" })).toBeDisabled();
     });
 
     it("shows the ApiRequestError message when toggling sign-in fails", async () => {
@@ -682,11 +735,16 @@ describe("AccountPage — contacts table", () => {
         expect(await screen.findByText("Could not update that contact's sign-in setting.")).toBeInTheDocument();
     });
 
+    // Every "remove" test below includes a second, already-verified contact (with no alias of its own)
+    // so the target contact is never the account's last verified contact — otherwise Remove would be
+    // disabled by the minimum-contact guard covered separately below.
+    const secondContact = contact({ contact: "second@example.com", verified: true });
+
     it("does nothing when contact removal is declined", async () => {
         const user = userEvent.setup();
         window.confirm = vi.fn(() => false);
         mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact()] }));
+        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact(), secondContact] }));
         render(<AccountPage userUid="u1" />);
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
 
@@ -699,16 +757,18 @@ describe("AccountPage — contacts table", () => {
     it("removes a contact (no matching alias), updating the profile only", async () => {
         const user = userEvent.setup();
         mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ version: 5, contacts: [contact()] }));
+        mockedGetProfile.mockResolvedValueOnce(profileObj({ version: 5, contacts: [contact(), secondContact] }));
         mockedListAliases.mockReset();
         mockedListAliases.mockResolvedValueOnce([]);
         render(<AccountPage userUid="u1" />);
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
-        mockedUpdateProfile.mockResolvedValueOnce(profileObj({ version: 6, contacts: [] }));
+        mockedUpdateProfile.mockResolvedValueOnce(profileObj({ version: 6, contacts: [secondContact] }));
 
         await user.click(within(row).getByRole("button", { name: "Remove" }));
 
-        await waitFor(() => expect(mockedUpdateProfile).toHaveBeenCalledWith({ uid: "u1", version: 5, contacts: [] }));
+        await waitFor(() =>
+            expect(mockedUpdateProfile).toHaveBeenCalledWith({ uid: "u1", version: 5, contacts: [secondContact] }),
+        );
         expect(mockedDeleteAlias).not.toHaveBeenCalled();
         expect(screen.queryByText("ada@example.com")).toBeNull();
     });
@@ -716,12 +776,15 @@ describe("AccountPage — contacts table", () => {
     it("removes a contact and cascades to deleting its matching alias", async () => {
         const user = userEvent.setup();
         mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ version: 5, contacts: [contact()] }));
+        mockedGetProfile.mockResolvedValueOnce(profileObj({ version: 5, contacts: [contact(), secondContact] }));
         mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([alias({ uid: "a2", alias: "ada@example.com", type: "email" })]);
+        mockedListAliases.mockResolvedValueOnce([
+            alias({ uid: "a2", alias: "ada@example.com", type: "email" }),
+            alias({ uid: "a3", alias: "second@example.com", type: "email" }),
+        ]);
         render(<AccountPage userUid="u1" />);
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
-        mockedUpdateProfile.mockResolvedValueOnce(profileObj({ version: 6, contacts: [] }));
+        mockedUpdateProfile.mockResolvedValueOnce(profileObj({ version: 6, contacts: [secondContact] }));
         mockedDeleteAlias.mockResolvedValueOnce();
 
         await user.click(within(row).getByRole("button", { name: "Remove" }));
@@ -732,7 +795,7 @@ describe("AccountPage — contacts table", () => {
     it("shows the ApiRequestError message when removing a contact fails", async () => {
         const user = userEvent.setup();
         mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact()] }));
+        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact(), secondContact] }));
         render(<AccountPage userUid="u1" />);
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
         mockedUpdateProfile.mockRejectedValueOnce(new ApiRequestError("cannot remove", 403));
@@ -744,13 +807,41 @@ describe("AccountPage — contacts table", () => {
     it("shows a generic message when removing a contact fails with a non-API error", async () => {
         const user = userEvent.setup();
         mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact()] }));
+        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact(), secondContact] }));
         render(<AccountPage userUid="u1" />);
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
         mockedUpdateProfile.mockRejectedValueOnce(new TypeError("boom"));
 
         await user.click(within(row).getByRole("button", { name: "Remove" }));
         expect(await screen.findByText("Could not remove that contact.")).toBeInTheDocument();
+    });
+
+    it("disables Remove when the contact is the account's last verified contact", async () => {
+        mockedGetProfile.mockReset();
+        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
+        mockedListAliases.mockReset();
+        mockedListAliases.mockResolvedValueOnce([]);
+        render(<AccountPage userUid="u1" />);
+
+        const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
+        expect(within(row).getByRole("button", { name: "Remove" })).toBeDisabled();
+    });
+
+    it("disables Remove when the contact is the account's last enabled sign-in alias, even if not the last verified contact", async () => {
+        mockedGetProfile.mockReset();
+        mockedGetProfile.mockResolvedValueOnce(
+            profileObj({ contacts: [contact({ verified: true }), contact({ contact: "unverified@example.com", verified: false })] }),
+        );
+        mockedListAliases.mockReset();
+        mockedListAliases.mockResolvedValueOnce([alias({ uid: "a2", alias: "ada@example.com", type: "email" })]);
+        render(<AccountPage userUid="u1" />);
+
+        const table = await screen.findByRole("table");
+        const row = within(table).getByText("ada@example.com").closest("tr")!;
+        expect(within(row).getByRole("button", { name: "Remove" })).toBeDisabled();
+        // The unverified contact isn't gated by either rule — it has no alias and isn't the last verified one.
+        const otherRow = within(table).getByText("unverified@example.com").closest("tr")!;
+        expect(within(otherRow).getByRole("button", { name: "Remove" })).toBeEnabled();
     });
 });
 
@@ -866,7 +957,8 @@ describe("AccountPage — secrets loading", () => {
 describe("AccountPage — add sign-in method modal", () => {
     async function openAddModal(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
-        await user.click(await screen.findByRole("button", { name: "+ Add" }));
+        await screen.findByText("Sign-in methods");
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         await screen.findByRole("dialog", { name: "Add a sign-in method" });
     }
 
@@ -889,7 +981,7 @@ describe("AccountPage — add sign-in method modal", () => {
         await user.keyboard("{Escape}");
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-        await user.click(screen.getByRole("button", { name: "+ Add" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         expect(screen.getByRole("button", { name: "Password" })).toBeInTheDocument();
         expect(screen.queryByLabelText("New password")).toBeNull();
     });
@@ -898,7 +990,8 @@ describe("AccountPage — add sign-in method modal", () => {
 describe("AccountPage — password", () => {
     async function goToPasswordForm(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
-        await user.click(await screen.findByRole("button", { name: "+ Add" }));
+        await screen.findByText("Sign-in methods");
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         await user.click(screen.getByRole("button", { name: "Password" }));
     }
 
@@ -955,9 +1048,24 @@ describe("AccountPage — password", () => {
         await user.click(screen.getByRole("button", { name: "Save password" }));
 
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-        expect(mockedCreatePasswordSecret).toHaveBeenCalledWith("Sup3r$ecret1");
+        expect(mockedCreatePasswordSecret).toHaveBeenCalledWith("Sup3r$ecret1", undefined);
         expect(mockedDeleteSecret).not.toHaveBeenCalled();
         expect(screen.getByText("Password")).toBeInTheDocument();
+    });
+
+    it("passes a trimmed label through as the hint when one is entered", async () => {
+        const user = userEvent.setup();
+        await goToPasswordForm(user);
+        mockedCreatePasswordSecret.mockResolvedValueOnce(secret({ uid: "newpw", hint: "LastPass" }));
+
+        await user.type(screen.getByLabelText("New password"), "Sup3r$ecret1");
+        await user.type(screen.getByLabelText("Confirm new password"), "Sup3r$ecret1");
+        await user.type(screen.getByLabelText("Label (optional)"), "  LastPass  ");
+        await user.click(screen.getByRole("button", { name: "Save password" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(mockedCreatePasswordSecret).toHaveBeenCalledWith("Sup3r$ecret1", "LastPass");
+        expect(screen.getByText("(LastPass)")).toBeInTheDocument();
     });
 
     it("changes an existing password, deleting the old secret", async () => {
@@ -1006,7 +1114,8 @@ describe("AccountPage — password requirements fetch failure", () => {
         mockedGetPasswordRequirements.mockRejectedValueOnce(new Error("offline"));
         const user = userEvent.setup();
         render(<AccountPage userUid="u1" />);
-        await user.click(await screen.findByRole("button", { name: "+ Add" }));
+        await screen.findByText("Sign-in methods");
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         await user.click(screen.getByRole("button", { name: "Password" }));
         await user.type(screen.getByLabelText("New password"), "a");
         expect(screen.getByText("At least 8 characters")).toBeInTheDocument();
@@ -1016,7 +1125,8 @@ describe("AccountPage — password requirements fetch failure", () => {
 describe("AccountPage — authenticator app (TOTP)", () => {
     async function goToTotp(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
-        await user.click(await screen.findByRole("button", { name: "+ Add" }));
+        await screen.findByText("Sign-in methods");
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         await user.click(screen.getByRole("button", { name: "Authenticator app" }));
     }
 
@@ -1032,12 +1142,35 @@ describe("AccountPage — authenticator app (TOTP)", () => {
         await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
 
         expect(await screen.findByText("ABCD1234")).toBeInTheDocument();
+        expect(mockedCreateTotpSecret).toHaveBeenCalledWith(undefined);
         expect(mockedToDataURL).toHaveBeenCalledWith("otpauth://totp/x", { width: 220, margin: 1 });
         expect(screen.getByAltText("Authenticator app QR code")).toHaveAttribute("src", "data:image/png;base64,xyz");
 
         await user.click(screen.getByRole("button", { name: "Done" }));
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
         expect(screen.getByText("Authenticator app")).toBeInTheDocument();
+    });
+
+    it("goes straight to secret creation with no intermediate confirm step, and passes a trimmed label as the hint", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        // No "Add an authenticator app to continue"-only screen — the very first thing shown after picking
+        // "Authenticator app" is already the hint form whose submit performs the creation directly.
+        expect(screen.getByLabelText("Label (optional)")).toBeInTheDocument();
+        mockedCreateTotpSecret.mockResolvedValueOnce({
+            ...secret({ uid: "totp1", type: "totp", hint: "LastPass" }),
+            data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
+        });
+        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
+
+        await user.type(screen.getByLabelText("Label (optional)"), "  LastPass  ");
+        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
+
+        expect(await screen.findByText("ABCD1234")).toBeInTheDocument();
+        expect(mockedCreateTotpSecret).toHaveBeenCalledWith("LastPass");
+
+        await user.click(screen.getByRole("button", { name: "Done" }));
+        expect(screen.getByText("(LastPass)")).toBeInTheDocument();
     });
 
     it("shows the ApiRequestError message when adding fails", async () => {
@@ -1062,7 +1195,8 @@ describe("AccountPage — authenticator app (TOTP)", () => {
 describe("AccountPage — passkey", () => {
     async function goToPasskey(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
-        await user.click(await screen.findByRole("button", { name: "+ Add" }));
+        await screen.findByText("Sign-in methods");
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         await user.click(screen.getByRole("button", { name: "Passkey" }));
     }
 
@@ -1079,8 +1213,25 @@ describe("AccountPage — passkey", () => {
 
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
         expect(mockedStartRegistration).toHaveBeenCalledWith({ optionsJSON: options });
-        expect(mockedRegisterPasskey).toHaveBeenCalledWith(response);
+        expect(mockedRegisterPasskey).toHaveBeenCalledWith(response, undefined);
         expect(screen.getByText("Passkey")).toBeInTheDocument();
+    });
+
+    it("passes a trimmed label through as the hint when one is entered", async () => {
+        const user = userEvent.setup();
+        await goToPasskey(user);
+        const options = { challenge: "c" };
+        const response = { id: "cred1" };
+        mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce(options);
+        mockedStartRegistration.mockResolvedValueOnce(response as any);
+        mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", hint: "iPhone" }));
+
+        await user.type(screen.getByLabelText("Label (optional)"), "  iPhone  ");
+        await user.click(screen.getByRole("button", { name: "Add passkey" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(mockedRegisterPasskey).toHaveBeenCalledWith(response, "iPhone");
+        expect(screen.getByText("(iPhone)")).toBeInTheDocument();
     });
 
     it("shows a cancellation message on NotAllowedError", async () => {
@@ -1117,7 +1268,8 @@ describe("AccountPage — passkey", () => {
 describe("AccountPage — FIDO2 security key", () => {
     async function goToFido2(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
-        await user.click(await screen.findByRole("button", { name: "+ Add" }));
+        await screen.findByText("Sign-in methods");
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         await user.click(screen.getByRole("button", { name: "Security key" }));
     }
 
@@ -1133,8 +1285,25 @@ describe("AccountPage — FIDO2 security key", () => {
         await user.click(screen.getByRole("button", { name: "Add security key" }));
 
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-        expect(mockedRegisterFido2).toHaveBeenCalledWith(response);
+        expect(mockedRegisterFido2).toHaveBeenCalledWith(response, undefined);
         expect(screen.getByText("Security key")).toBeInTheDocument();
+    });
+
+    it("passes a trimmed label through as the hint when one is entered", async () => {
+        const user = userEvent.setup();
+        await goToFido2(user);
+        const options = { challenge: "c" };
+        const response = { id: "cred1" };
+        mockedGetFido2RegistrationOptions.mockResolvedValueOnce(options);
+        mockedStartRegistration.mockResolvedValueOnce(response as any);
+        mockedRegisterFido2.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2", hint: "YubiKey" }));
+
+        await user.type(screen.getByLabelText("Label (optional)"), "  YubiKey  ");
+        await user.click(screen.getByRole("button", { name: "Add security key" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(mockedRegisterFido2).toHaveBeenCalledWith(response, "YubiKey");
+        expect(screen.getByText("(YubiKey)")).toBeInTheDocument();
     });
 
     it("shows a cancellation message on NotAllowedError", async () => {
@@ -1207,7 +1376,8 @@ describe("AccountPage — state updaters fire while the initial list is still lo
         mockedListSecrets.mockReset();
         mockedListSecrets.mockReturnValueOnce(new Promise(() => undefined));
         render(<AccountPage userUid="u1" />);
-        await user.click(await screen.findByRole("button", { name: "+ Add" }));
+        await screen.findByText("Sign-in methods");
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         await user.click(screen.getByRole("button", { name: "Password" }));
         mockedCreatePasswordSecret.mockResolvedValueOnce(secret({ uid: "newpw" }));
 
@@ -1224,7 +1394,8 @@ describe("AccountPage — state updaters fire while the initial list is still lo
         mockedListSecrets.mockReset();
         mockedListSecrets.mockReturnValueOnce(new Promise(() => undefined));
         render(<AccountPage userUid="u1" />);
-        await user.click(await screen.findByRole("button", { name: "+ Add" }));
+        await screen.findByText("Sign-in methods");
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         await user.click(screen.getByRole("button", { name: "Authenticator app" }));
         mockedCreateTotpSecret.mockResolvedValueOnce({
             ...secret({ uid: "totp1", type: "totp" }),
@@ -1244,7 +1415,8 @@ describe("AccountPage — state updaters fire while the initial list is still lo
         mockedListSecrets.mockReset();
         mockedListSecrets.mockReturnValueOnce(new Promise(() => undefined));
         render(<AccountPage userUid="u1" />);
-        await user.click(await screen.findByRole("button", { name: "+ Add" }));
+        await screen.findByText("Sign-in methods");
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         await user.click(screen.getByRole("button", { name: "Passkey" }));
         mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({});
         mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
@@ -1261,7 +1433,8 @@ describe("AccountPage — state updaters fire while the initial list is still lo
         mockedListSecrets.mockReset();
         mockedListSecrets.mockReturnValueOnce(new Promise(() => undefined));
         render(<AccountPage userUid="u1" />);
-        await user.click(await screen.findByRole("button", { name: "+ Add" }));
+        await screen.findByText("Sign-in methods");
+        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
         await user.click(screen.getByRole("button", { name: "Security key" }));
         mockedGetFido2RegistrationOptions.mockResolvedValueOnce({});
         mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
