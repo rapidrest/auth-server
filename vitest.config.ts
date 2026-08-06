@@ -46,13 +46,13 @@ export default defineConfig({
             enabled: true,
             provider: 'v8',
             include: ['src/**/*.ts', 'apps/**/*.ts', 'apps/**/*.tsx'],
-            exclude: ['**/node_modules/**', '**/test/**'],
+            exclude: ['**/node_modules/**', 'src/server.ts', 'src/**/Models.ts', '**/test/**'],
             reporter: ['text', 'json', 'html', 'lcov'],
             thresholds: {
-                branches: 0,
-                functions: 0,
-                lines: 0,
-                statements: 0,
+                branches: 99,
+                functions: 100,
+                lines: 100,
+                statements: 100,
                 // The frontend (apps/www) is fully unit-tested and held to 100% — this fails the build if
                 // new frontend code lands without matching tests. The backend (src/**) keeps the relaxed
                 // 0% fallback above; its coverage today comes from Server.*.test.ts's integration-level
