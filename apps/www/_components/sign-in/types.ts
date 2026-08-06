@@ -12,7 +12,7 @@ export const FIXED_METHOD_LABELS: Record<FixedMethod, string> = {
     passkey: "Passkey",
     password: "Password",
     totp: "Authenticator app",
-    fido2: "Security key",
+    fido2: "Hardware key",
 };
 
 export const CONTACT_TYPE_LABELS: Record<OtpHint["type"], string> = {

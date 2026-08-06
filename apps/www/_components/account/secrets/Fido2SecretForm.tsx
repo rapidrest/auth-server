@@ -27,7 +27,7 @@ export default function Fido2SecretForm({ setSecrets, onClose }: Fido2SecretForm
             onClose();
         } catch (err) {
             if (err instanceof Error && err.name === "NotAllowedError") {
-                setError("Security key setup was cancelled.");
+                setError("Hardware key setup was cancelled.");
             } else {
                 setError(err instanceof ApiRequestError ? err.message : "Could not add a security key.");
             }

@@ -159,7 +159,7 @@ describe("SignInPage — method list", () => {
             "Password",
             "Authenticator app",
             strip(`Email: ${EMAIL_HINT.contact}`),
-            "Security key",
+            "Hardware key",
         ]);
     });
 
@@ -180,7 +180,7 @@ describe("SignInPage — method list", () => {
         expect(screen.queryByRole("button", { name: /^Passkey/ })).not.toBeInTheDocument();
         expect(screen.queryByRole("button", { name: /^Authenticator app/ })).not.toBeInTheDocument();
         expect(screen.queryByRole("button", { name: /^Email:|^Phone:/ })).not.toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: /^Security key/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /^Hardware key/ })).not.toBeInTheDocument();
     });
 
     it("clicking a method advances to its challenge screen", async () => {
@@ -484,7 +484,7 @@ describe("SignInPage — fido2 method", () => {
     it("completes the ceremony and redirects to /account", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
-        await goToChallenge(user, "Security key", ALL_METHODS, "a@example.com");
+        await goToChallenge(user, "Hardware key", ALL_METHODS, "a@example.com");
         const options = { challenge: "c" };
         const response = { id: "cred1" };
         mockedGetFido2Challenge.mockResolvedValueOnce(options);
@@ -500,7 +500,7 @@ describe("SignInPage — fido2 method", () => {
 
     it("shows a cancellation message on NotAllowedError", async () => {
         const user = userEvent.setup();
-        await goToChallenge(user, "Security key");
+        await goToChallenge(user, "Hardware key");
         mockedGetFido2Challenge.mockResolvedValueOnce({});
         const cancelled = new Error("cancelled");
         cancelled.name = "NotAllowedError";
@@ -508,22 +508,22 @@ describe("SignInPage — fido2 method", () => {
 
         await user.click(screen.getByRole("button", { name: "Continue with security key" }));
 
-        expect(await screen.findByRole("alert")).toHaveTextContent("Security key sign-in was cancelled.");
+        expect(await screen.findByRole("alert")).toHaveTextContent("Hardware key sign-in was cancelled.");
     });
 
     it("shows a fixed message on an ApiRequestError", async () => {
         const user = userEvent.setup();
-        await goToChallenge(user, "Security key");
+        await goToChallenge(user, "Hardware key");
         mockedGetFido2Challenge.mockRejectedValueOnce(new ApiRequestError("nope", 401));
 
         await user.click(screen.getByRole("button", { name: "Continue with security key" }));
 
-        expect(await screen.findByRole("alert")).toHaveTextContent("Security key sign-in failed.");
+        expect(await screen.findByRole("alert")).toHaveTextContent("Hardware key sign-in failed.");
     });
 
     it("shows a generic message on a non-API, non-cancellation error", async () => {
         const user = userEvent.setup();
-        await goToChallenge(user, "Security key");
+        await goToChallenge(user, "Hardware key");
         mockedGetFido2Challenge.mockRejectedValueOnce(new TypeError("boom"));
 
         await user.click(screen.getByRole("button", { name: "Continue with security key" }));

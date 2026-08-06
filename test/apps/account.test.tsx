@@ -901,7 +901,7 @@ describe("AccountPage — secrets loading", () => {
         expect(await screen.findByText("Password")).toBeInTheDocument();
         expect(screen.getByText("Authenticator app")).toBeInTheDocument();
         expect(screen.getByText("Passkey")).toBeInTheDocument();
-        expect(screen.getByText("Security key")).toBeInTheDocument();
+        expect(screen.getByText("Hardware key")).toBeInTheDocument();
     });
 
     it("removes a secret after confirmation", async () => {
@@ -969,7 +969,7 @@ describe("AccountPage — add sign-in method modal", () => {
         expect(screen.getByRole("button", { name: "Password" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Authenticator app" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Passkey" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Security key" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Hardware key" })).toBeInTheDocument();
         expect(screen.queryByLabelText("New password")).toBeNull();
     });
 
@@ -1271,7 +1271,7 @@ describe("AccountPage — FIDO2 security key", () => {
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
         await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
-        await user.click(screen.getByRole("button", { name: "Security key" }));
+        await user.click(screen.getByRole("button", { name: "Hardware key" }));
     }
 
     it("adds a security key via WebAuthn registration, closing the modal", async () => {
@@ -1287,7 +1287,7 @@ describe("AccountPage — FIDO2 security key", () => {
 
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
         expect(mockedRegisterFido2).toHaveBeenCalledWith(response, undefined);
-        expect(screen.getByText("Security key")).toBeInTheDocument();
+        expect(screen.getByText("Hardware key")).toBeInTheDocument();
     });
 
     it("passes a trimmed label through as the hint when one is entered", async () => {
@@ -1316,7 +1316,7 @@ describe("AccountPage — FIDO2 security key", () => {
         mockedStartRegistration.mockRejectedValueOnce(cancelled);
 
         await user.click(screen.getByRole("button", { name: "Add security key" }));
-        expect(await screen.findByText("Security key setup was cancelled.")).toBeInTheDocument();
+        expect(await screen.findByText("Hardware key setup was cancelled.")).toBeInTheDocument();
     });
 
     it("shows the underlying ApiRequestError message when registration fails", async () => {
@@ -1436,7 +1436,7 @@ describe("AccountPage — state updaters fire while the initial list is still lo
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
         await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
-        await user.click(screen.getByRole("button", { name: "Security key" }));
+        await user.click(screen.getByRole("button", { name: "Hardware key" }));
         mockedGetFido2RegistrationOptions.mockResolvedValueOnce({});
         mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
         mockedRegisterFido2.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2" }));
@@ -1444,7 +1444,7 @@ describe("AccountPage — state updaters fire while the initial list is still lo
         await user.click(screen.getByRole("button", { name: "Add security key" }));
 
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-        expect(screen.getByText("Security key")).toBeInTheDocument();
+        expect(screen.getByText("Hardware key")).toBeInTheDocument();
     });
 });
 

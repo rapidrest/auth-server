@@ -213,7 +213,7 @@ export default function ContactsCard({
                     </p>
                 </div>
                 <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={openAddContactModal}>
-                    + Add
+                    +
                 </Button>
             </div>
             {aliasError && <Alert>{aliasError}</Alert>}

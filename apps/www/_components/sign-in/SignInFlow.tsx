@@ -187,10 +187,10 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
             onSuccess(result);
         } catch (err) {
             if (err instanceof Error && err.name === "NotAllowedError") {
-                setError("Security key sign-in was cancelled.");
+                setError("Hardware key sign-in was cancelled.");
             } else {
                 setError(
-                    err instanceof ApiRequestError ? "Security key sign-in failed." : "Something went wrong. Please try again.",
+                    err instanceof ApiRequestError ? "Hardware key sign-in failed." : "Something went wrong. Please try again.",
                 );
             }
             setLoading(false);

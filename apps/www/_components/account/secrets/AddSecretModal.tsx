@@ -45,7 +45,7 @@ export default function AddSecretModal({
                     </Button>
                     <Button variant="secondary" type="button" onClick={() => setAddMethodType("fido2")}>
                         <FiHardDrive size={18} aria-hidden="true" />
-                        Security key
+                        Hardware key (e.g. YubiKey)
                     </Button>
                 </div>
             )}

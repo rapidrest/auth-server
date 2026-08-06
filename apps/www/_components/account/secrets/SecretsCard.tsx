@@ -8,7 +8,7 @@ const SECRET_TYPE_LABELS: Record<SecretType, string> = {
     password: "Password",
     totp: "Authenticator app",
     passkey: "Passkey",
-    fido2: "Security key",
+    fido2: "Hardware key",
 };
 
 function formatDate(iso: string | undefined): string {
@@ -61,7 +61,7 @@ export default function SecretsCard() {
                     <p className="rr-card__subtitle">Passwords, authenticator apps, passkeys, and security keys.</p>
                 </div>
                 <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={() => setAddMethodModalOpen(true)}>
-                    + Add
+                    +
                 </Button>
             </div>
             {secretError && <Alert>{secretError}</Alert>}
