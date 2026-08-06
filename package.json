@@ -36,10 +36,10 @@
     "trailingComma": "es5"
   },
   "dependencies": {
-    "@rapidrest/auth": "^1.0.0-rc.9",
+    "@rapidrest/auth": "^1.0.0-rc.10",
     "@rapidrest/core": "^1.12.0",
     "@rapidrest/react": "^0.10.1",
-    "@rapidrest/service-core": "^1.0.0-rc.31",
+    "@rapidrest/service-core": "^1.0.0-rc.32",
     "@simplewebauthn/browser": "^13.1.2",
     "@simplewebauthn/server": "^13.3.2",
     "@types/node": "^25.9.3",

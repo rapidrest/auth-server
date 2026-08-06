@@ -1498,9 +1498,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/auth@npm:^1.0.0-rc.9":
-  version: 1.0.0-rc.9
-  resolution: "@rapidrest/auth@npm:1.0.0-rc.9"
+"@rapidrest/auth@npm:^1.0.0-rc.10":
+  version: 1.0.0-rc.10
+  resolution: "@rapidrest/auth@npm:1.0.0-rc.10"
   dependencies:
     cross-spawn: "npm:^7.0.5"
   peerDependencies:
@@ -1532,7 +1532,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/16ea8468e5da17e39a68ad5d34fb9c19ad10934b7e6713eebeba53170295de25bbcf46b7e9987b00135e5daecd12f14590e1185084c2c2a8a99b9654a01f1e9d
+  checksum: 10c0/160631def41ec23d466362b01fb8c981ce09e7991894e5cf261680ec230bb141fe3d3e48615e808a743d48d63c09b05563047501ca9952b19f2f5569b40f58a8
   languageName: node
   linkType: hard
 
@@ -1611,9 +1611,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/service-core@npm:^1.0.0-rc.31":
-  version: 1.0.0-rc.31
-  resolution: "@rapidrest/service-core@npm:1.0.0-rc.31"
+"@rapidrest/service-core@npm:^1.0.0-rc.32":
+  version: 1.0.0-rc.32
+  resolution: "@rapidrest/service-core@npm:1.0.0-rc.32"
   dependencies:
     axios: "npm:^1.17.0"
     dayjs: "npm:^1.11.21"
@@ -1645,7 +1645,7 @@ __metadata:
       optional: true
     uWebSockets.js:
       optional: true
-  checksum: 10c0/0c797b571d0c90711ab19e68b0cd9e31d6f3d9c538658d04b61a1d1972accb2404f211ffdb39667ac0aa4e33fb3c5a30adeb87e80cc40cc42d7ea020a821acb4
+  checksum: 10c0/902a0aa4bd336a5ee7768159a0178e8e1baeaff3e7d1805eba473055fbccdb09afff01fc22a48d58909337552e561ef301c371ca1057d5a618342a8f74011551
   languageName: node
   linkType: hard
 
@@ -2977,11 +2977,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "auth-server@workspace:."
   dependencies:
-    "@rapidrest/auth": "npm:^1.0.0-rc.9"
+    "@rapidrest/auth": "npm:^1.0.0-rc.10"
     "@rapidrest/cli": "npm:^0.18.0"
     "@rapidrest/core": "npm:^1.12.0"
     "@rapidrest/react": "npm:^0.10.1"
-    "@rapidrest/service-core": "npm:^1.0.0-rc.31"
+    "@rapidrest/service-core": "npm:^1.0.0-rc.32"
     "@simplewebauthn/browser": "npm:^13.1.2"
     "@simplewebauthn/server": "npm:^13.3.2"
     "@swc/core": "npm:^1.15.41"
