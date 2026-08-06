@@ -178,11 +178,31 @@ export interface UpdateProfileInput {
     givenName?: string;
     familyName?: string;
     birthdate?: string;
+    /**
+     * When present, REPLACES the entire `contacts` array server-side (not merged element-wise) — always
+     * pass the full desired array, not just the entries being added/changed. Adding a genuinely new,
+     * unverified contact this way automatically triggers a one-time verification code to be sent to it.
+     */
+    contacts?: Contact[];
 }
 
 /** Updates the authenticated caller's own `Profile`. `version` must be the value from the last `getProfile()`. */
 export function updateProfile(input: UpdateProfileInput): Promise<Profile> {
     return apiFetch("/profiles/me", { method: "PUT", body: JSON.stringify(input) });
+}
+
+/**
+ * Verifies a pending contact using the one-time code that was sent automatically when it was added (see
+ * `updateProfile`/`createProfile`) or resent (see `resendContactVerificationCode`). Flips that contact's
+ * `verified` flag to `true` on success.
+ */
+export function verifyContact(contact: string, token: string): Promise<Profile> {
+    return apiFetch("/profiles/me/contacts/verify", { method: "POST", body: JSON.stringify({ contact, token }) });
+}
+
+/** Requests a fresh verification code for a pending contact (e.g. the original expired or never arrived). */
+export function resendContactVerificationCode(contact: string): Promise<void> {
+    return apiFetch(`/profiles/me/contacts/sendCode?contact=${encodeURIComponent(contact)}`);
 }
 
 /**
@@ -266,6 +286,47 @@ export function verifyFido2SignIn(response: unknown): Promise<AuthResult> {
     return apiFetch("/auth/fido2", { method: "POST", body: JSON.stringify(response) });
 }
 
+/** A hint about one of an account's OTP-eligible contacts — obfuscated, never the real value. */
+export interface DiscoveredOtpContact {
+    contact: string;
+    type: RegistrationIdentifierType;
+}
+
+/** The set of sign-in methods available for a claimed account identifier. */
+export interface DiscoverResult {
+    password: boolean;
+    totp: boolean;
+    passkey: boolean;
+    fido2: boolean;
+    /** Hints only — signing in via OTP still requires the caller to type the real contact themselves. */
+    otp: DiscoveredOtpContact[];
+}
+
+/**
+ * Discovers which sign-in methods are available for a claimed account identifier (e-mail, phone, or
+ * username), so the sign-in page can present only the methods that will actually work. Anonymous — no
+ * account needed. Always returns the same response shape whether or not the identifier resolves to a real
+ * account (anti-enumeration), so a "nothing available" result should be treated as a generic failure, not
+ * as proof the account doesn't exist.
+ */
+export function discoverAuthMethods(id: string): Promise<DiscoverResult> {
+    return apiFetch(`/auth/discover?id=${encodeURIComponent(id)}`);
+}
+
+/**
+ * Begins an OTP sign-in ceremony: sends a one-time code to `contact` (which must be the real, exact
+ * contact value the caller types in — `discoverAuthMethods()`'s hints are obfuscated and intentionally not
+ * enough on their own to trigger this).
+ */
+export function getOtpChallenge(contact: string): Promise<unknown> {
+    return apiFetch("/auth/otp", { method: "POST", body: JSON.stringify({ id: contact }) });
+}
+
+/** Finishes an OTP sign-in ceremony with the code sent by `getOtpChallenge()`. */
+export function signInWithOtp(contact: string, token: string): Promise<AuthResult> {
+    return apiFetch("/auth/otp", { method: "POST", body: JSON.stringify({ id: contact, token }) });
+}
+
 export type AliasType = "email" | "phone" | "name" | "oauth";
 
 export interface Alias {
@@ -284,15 +345,34 @@ export function listAliases(): Promise<Alias[]> {
 
 /**
  * Registers a new alias (an additional e-mail, phone number, or username the caller can sign in with).
- * Always created unverified — there is no OTP-verification flow for aliases added after signup.
+ * `verified` defaults to `false` (the server only honors a `true` claim on an e-mail/phone alias when the
+ * caller's own Profile already lists that exact contact as verified — see `createAlias(type, contact, true)`
+ * right after a successful `verifyContact()`, which is the only legitimate way to pass `true` here).
  */
-export function createAlias(type: AliasType, alias: string): Promise<Alias> {
-    return apiFetch("/aliases", { method: "POST", body: JSON.stringify({ type, alias, verified: false }) });
+export function createAlias(type: AliasType, alias: string, verified = false): Promise<Alias> {
+    return apiFetch("/aliases", { method: "POST", body: JSON.stringify({ type, alias, verified }) });
 }
 
 /** Removes one of the authenticated caller's own aliases. */
 export function deleteAlias(uid: string): Promise<void> {
     return apiFetch(`/aliases/${encodeURIComponent(uid)}`, { method: "DELETE" });
+}
+
+/** Registers a new username (`name`-type alias) for the caller. Always created verified. */
+export function createUsernameAlias(value: string): Promise<Alias> {
+    return createAlias("name", value, true);
+}
+
+/**
+ * "Changes" the caller's username. `Alias`'s `update`/`updateBulk`/`updateProperty` endpoints are
+ * disabled server-side (they always 404) — there is no in-place rename, so this deletes the old alias and
+ * creates the new one as two separate, non-atomic requests. If the create fails (e.g. the new name is
+ * already taken), the old username has still been removed; callers should surface the error clearly since
+ * there's no automatic rollback.
+ */
+export async function updateUsernameAlias(oldUid: string, value: string): Promise<Alias> {
+    await deleteAlias(oldUid);
+    return createUsernameAlias(value);
 }
 
 export type SecretType = "password" | "totp" | "passkey" | "fido2";

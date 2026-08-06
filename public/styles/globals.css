@@ -560,3 +560,97 @@ a {
     background: var(--rr-color-surface-alt);
     color: var(--rr-color-text-muted);
 }
+
+.rr-badge--success {
+    background: var(--rr-color-success);
+    color: var(--rr-color-text-on-primary);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Table                                                                   */
+/* ---------------------------------------------------------------------- */
+
+.rr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.rr-table th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--rr-color-text-muted);
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--rr-color-border);
+}
+
+.rr-table td {
+    padding: 0.65rem 0.6rem;
+    border-bottom: 1px solid var(--rr-color-border);
+    vertical-align: middle;
+}
+
+.rr-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Modal                                                                   */
+/* ---------------------------------------------------------------------- */
+
+.rr-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    z-index: 1000;
+}
+
+.rr-modal {
+    width: 100%;
+    max-width: 440px;
+    max-height: calc(100vh - 2.5rem);
+    overflow-y: auto;
+    background: var(--rr-color-surface);
+    border: 1px solid var(--rr-color-border);
+    border-radius: var(--rr-radius-md);
+    box-shadow: var(--rr-shadow-md);
+    padding: 1.75rem;
+}
+
+.rr-modal:focus {
+    outline: none;
+}
+
+.rr-modal__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.rr-modal__title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.rr-modal__close {
+    background: transparent;
+    border: none;
+    color: var(--rr-color-text-muted);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+.rr-modal__close:hover {
+    color: var(--rr-color-text);
+}

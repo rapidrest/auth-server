@@ -13,11 +13,14 @@ import {
     createPasswordSecret,
     createProfile,
     createTotpSecret,
+    createUsernameAlias,
     deleteAlias,
     deleteSecret,
+    discoverAuthMethods,
     getAuthToken,
     getFido2Challenge,
     getFido2RegistrationOptions,
+    getOtpChallenge,
     getPasskeyChallenge,
     getPasskeyRegistrationOptions,
     getPasswordRequirements,
@@ -27,10 +30,14 @@ import {
     logout,
     registerFido2,
     registerPasskey,
+    resendContactVerificationCode,
     setAuthToken,
+    signInWithOtp,
     signInWithPassword,
     signInWithTotp,
     updateProfile,
+    updateUsernameAlias,
+    verifyContact,
     verifyFido2SignIn,
     verifyPasskeySignIn,
     verifyRegistration,
@@ -370,6 +377,101 @@ describe("aliases", () => {
         const fetchMock = mockFetch(() => emptyResponse(200));
         await deleteAlias("a/1");
         expect(fetchMock).toHaveBeenCalledWith("/api/aliases/a%2F1", expect.objectContaining({ method: "DELETE" }));
+    });
+
+    it("createAlias posts verified:true when explicitly passed", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "a1" }));
+        await createAlias("phone", "+15551234567", true);
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/aliases",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({ type: "phone", alias: "+15551234567", verified: true }),
+            }),
+        );
+    });
+
+    it("createUsernameAlias posts a verified name-type alias", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "a1" }));
+        await createUsernameAlias("coolname");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/aliases",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({ type: "name", alias: "coolname", verified: true }),
+            }),
+        );
+    });
+
+    it("updateUsernameAlias deletes the old alias then creates the new one", async () => {
+        const fetchMock = mockFetch((url) =>
+            url.startsWith("/api/aliases/old-uid") ? emptyResponse(200) : jsonResponse(200, { uid: "a2" }),
+        );
+        const result = await updateUsernameAlias("old-uid", "newname");
+        expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/aliases/old-uid", expect.objectContaining({ method: "DELETE" }));
+        expect(fetchMock).toHaveBeenNthCalledWith(
+            2,
+            "/api/aliases",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({ type: "name", alias: "newname", verified: true }),
+            }),
+        );
+        expect(result).toEqual({ uid: "a2" });
+    });
+});
+
+describe("auth discovery", () => {
+    it("discoverAuthMethods fetches /auth/discover with an encoded id", async () => {
+        const result = {
+            password: true,
+            totp: false,
+            passkey: false,
+            fido2: false,
+            otp: [{ contact: "j***n@example.com", type: "email" as const }],
+        };
+        const fetchMock = mockFetch(() => jsonResponse(200, result));
+        const returned = await discoverAuthMethods("a b@example.com");
+        expect(fetchMock).toHaveBeenCalledWith("/api/auth/discover?id=a%20b%40example.com", expect.anything());
+        expect(returned).toEqual(result);
+    });
+});
+
+describe("otp sign-in", () => {
+    it("getOtpChallenge posts only the id (no token)", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, {}));
+        await getOtpChallenge("+15551234567");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/otp",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ id: "+15551234567" }) }),
+        );
+    });
+
+    it("signInWithOtp posts the id and token", async () => {
+        const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
+        const fetchMock = mockFetch(() => jsonResponse(200, authResult));
+        await signInWithOtp("+15551234567", "654321");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/otp",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ id: "+15551234567", token: "654321" }) }),
+        );
+    });
+});
+
+describe("contact verification", () => {
+    it("verifyContact posts the contact and token", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "u1", version: 1 }));
+        await verifyContact("+15551234567", "654321");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/profiles/me/contacts/verify",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ contact: "+15551234567", token: "654321" }) }),
+        );
+    });
+
+    it("resendContactVerificationCode GETs the sendCode endpoint with an encoded contact query param", async () => {
+        const fetchMock = mockFetch(() => emptyResponse(204));
+        await resendContactVerificationCode("a b@example.com");
+        expect(fetchMock).toHaveBeenCalledWith("/api/profiles/me/contacts/sendCode?contact=a%20b%40example.com", expect.anything());
     });
 });
 
