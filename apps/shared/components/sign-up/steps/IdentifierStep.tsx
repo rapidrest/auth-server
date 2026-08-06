@@ -1,7 +1,7 @@
 import React, { FormEvent } from "react";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";
-import { RegistrationIdentifierType } from "../../../_lib/api.js";
+import { RegistrationIdentifierType } from "../../../lib/api.js";
 
 export interface IdentifierStepProps {
     identifierType: RegistrationIdentifierType;

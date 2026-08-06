@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Alias, ApiRequestError, getProfile, listAliases, logout, Profile } from "../_lib/api.js";
-import AuthShell from "../_components/layout/AuthShell.js";
-import AccountHeader from "../_components/account/header/AccountHeader.js";
-import UsernameCard from "../_components/account/username/UsernameCard.js";
-import ProfileCard from "../_components/account/profile/ProfileCard.js";
-import ContactsCard from "../_components/account/contacts/ContactsCard.js";
-import SecretsCard from "../_components/account/secrets/SecretsCard.js";
+import { Alias, ApiRequestError, getProfile, listAliases, logout, Profile } from "../../shared/lib/api.js";
+import AuthShell from "../../shared/components/layout/AuthShell.js";
+import AccountHeader from "../../shared/components/account/header/AccountHeader.js";
+import UsernameCard from "../../shared/components/account/username/UsernameCard.js";
+import ProfileCard from "../../shared/components/account/profile/ProfileCard.js";
+import ContactsCard from "../../shared/components/account/contacts/ContactsCard.js";
+import SecretsCard from "../../shared/components/account/secrets/SecretsCard.js";
 
 interface AccountPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */

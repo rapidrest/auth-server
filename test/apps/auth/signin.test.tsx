@@ -12,8 +12,8 @@ vi.mock("@simplewebauthn/browser", () => ({
     startAuthentication: vi.fn(),
 }));
 
-vi.mock("../../../apps/www/_lib/api.js", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../../apps/www/_lib/api.js")>();
+vi.mock("../../../apps/www/lib/api.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../apps/www/lib/api.js")>();
     return {
         ...actual,
         discoverAuthMethods: vi.fn(),
@@ -43,7 +43,7 @@ import {
     signInWithTotp,
     verifyFido2SignIn,
     verifyPasskeySignIn,
-} from "../../../apps/www/_lib/api.js";
+} from "../../../apps/www/lib/api.js";
 import SignInPage from "../../../apps/www/auth/signin/index.js";
 
 const mockedStartAuthentication = vi.mocked(startAuthentication);

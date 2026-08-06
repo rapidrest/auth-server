@@ -1,5 +1,5 @@
 import React from "react";
-import { isPasswordValid, PasswordCriteriaList, type PasswordCriterion } from "../../_lib/passwordCriteria.js";
+import { isPasswordValid, PasswordCriteriaList, type PasswordCriterion } from "../../lib/passwordCriteria.js";
 
 export interface PasswordFieldsetProps {
     id: string;

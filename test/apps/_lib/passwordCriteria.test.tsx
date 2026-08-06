@@ -5,13 +5,13 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { PasswordRequirements } from "../../../apps/www/_lib/api.js";
+import { PasswordRequirements } from "../../../apps/www/lib/api.js";
 import {
     buildPasswordCriteria,
     FALLBACK_PASSWORD_REQUIREMENTS,
     isPasswordValid,
     PasswordCriteriaList,
-} from "../../../apps/www/_lib/passwordCriteria.js";
+} from "../../../apps/www/lib/passwordCriteria.js";
 
 const FULL_REQUIREMENTS: PasswordRequirements = FALLBACK_PASSWORD_REQUIREMENTS;
 

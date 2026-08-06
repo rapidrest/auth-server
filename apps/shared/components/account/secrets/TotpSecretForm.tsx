@@ -1,6 +1,6 @@
 import React, { Dispatch, FormEvent, SetStateAction, useState } from "react";
 import QRCode from "qrcode";
-import { ApiRequestError, createTotpSecret, SecretSummary } from "../../../_lib/api.js";
+import { ApiRequestError, createTotpSecret, SecretSummary } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";

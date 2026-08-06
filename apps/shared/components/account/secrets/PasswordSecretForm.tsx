@@ -1,6 +1,6 @@
 import React, { Dispatch, FormEvent, SetStateAction, useState } from "react";
-import { ApiRequestError, createPasswordSecret, deleteSecret, SecretSummary } from "../../../_lib/api.js";
-import { isPasswordValid, usePasswordRequirements } from "../../../_lib/passwordCriteria.js";
+import { ApiRequestError, createPasswordSecret, deleteSecret, SecretSummary } from "../../../lib/api.js";
+import { isPasswordValid, usePasswordRequirements } from "../../../lib/passwordCriteria.js";
 import Alert from "../../feedback/Alert.js";
 import FormField from "../../forms/FormField.js";
 import PasswordFieldset from "../../forms/PasswordFieldset.js";

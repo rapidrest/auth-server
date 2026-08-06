@@ -1,4 +1,4 @@
-import { DiscoverResult } from "../../_lib/api.js";
+import { DiscoverResult } from "../../lib/api.js";
 
 export type Step = "identifier" | "methods" | "challenge";
 export type FixedMethod = "passkey" | "password" | "totp" | "fido2";

@@ -2,7 +2,7 @@ import React, { FormEvent } from "react";
 import FormField from "../../forms/FormField.js";
 import CodeInput from "../../forms/CodeInput.js";
 import Button from "../../buttons/Button.js";
-import { RegistrationIdentifierType } from "../../../_lib/api.js";
+import { RegistrationIdentifierType } from "../../../lib/api.js";
 
 export interface CodeStepProps {
     identifierType: RegistrationIdentifierType;

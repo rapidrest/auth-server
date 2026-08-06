@@ -6,7 +6,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import Modal from "../../../apps/www/_lib/Modal.js";
+import Modal from "../../../apps/www/lib/Modal.js";
 
 describe("Modal", () => {
     it("renders nothing when closed", () => {

@@ -1,5 +1,5 @@
 import React, { FormEvent } from "react";
-import Modal from "../../../_lib/Modal.js";
+import Modal from "../../../lib/Modal.js";
 import Alert from "../../feedback/Alert.js";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";

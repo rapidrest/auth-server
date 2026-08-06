@@ -1,5 +1,5 @@
 import React, { Dispatch, FormEvent, SetStateAction, useEffect, useState } from "react";
-import { ApiRequestError, createProfile, Profile, updateProfile } from "../../../_lib/api.js";
+import { ApiRequestError, createProfile, Profile, updateProfile } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";

@@ -1,5 +1,5 @@
 import React, { Dispatch, FormEvent, SetStateAction, useMemo, useState } from "react";
-import { Alias, ApiRequestError, createUsernameAlias, updateUsernameAlias } from "../../../_lib/api.js";
+import { Alias, ApiRequestError, createUsernameAlias, updateUsernameAlias } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
 import ChangeUsernameModal from "./ChangeUsernameModal.js";

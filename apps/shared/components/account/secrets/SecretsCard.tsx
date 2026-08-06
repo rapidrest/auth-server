@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ApiRequestError, deleteSecret, listSecrets, SecretSummary, SecretType } from "../../../_lib/api.js";
+import { ApiRequestError, deleteSecret, listSecrets, SecretSummary, SecretType } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
 import AddSecretModal, { AddMethodType } from "./AddSecretModal.js";

@@ -1,10 +1,10 @@
 import React, { FormEvent } from "react";
 import { FiMail, FiPhone } from "react-icons/fi";
-import Modal from "../../../_lib/Modal.js";
+import Modal from "../../../lib/Modal.js";
 import Alert from "../../feedback/Alert.js";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";
-import { RegistrationIdentifierType } from "../../../_lib/api.js";
+import { RegistrationIdentifierType } from "../../../lib/api.js";
 
 export interface AddContactModalProps {
     open: boolean;

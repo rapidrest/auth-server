@@ -1,8 +1,8 @@
 import React, { Dispatch, SetStateAction } from "react";
 import { FiHardDrive, FiKey, FiLock, FiShield } from "react-icons/fi";
-import Modal from "../../../_lib/Modal.js";
+import Modal from "../../../lib/Modal.js";
 import Button from "../../buttons/Button.js";
-import { SecretSummary, SecretType } from "../../../_lib/api.js";
+import { SecretSummary, SecretType } from "../../../lib/api.js";
 import PasswordSecretForm from "./PasswordSecretForm.js";
 import TotpSecretForm from "./TotpSecretForm.js";
 import PasskeySecretForm from "./PasskeySecretForm.js";

@@ -2,14 +2,14 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
-// Covers the `typeof window === "undefined"` guards in `_lib/api.ts`'s token-storage helpers — only
+// Covers the `typeof window === "undefined"` guards in `lib/api.ts`'s token-storage helpers — only
 // reachable when these run during SSR, i.e. without a DOM at all. Forced onto the plain `node`
 // environment (rather than the `jsdom` environment the rest of `test/apps/**` uses) via the
 // `@vitest-environment` docblock above, which overrides `environmentMatchGlobs` for this one file.
 import { describe, expect, it } from "vitest";
-import { clearAuthToken, getAuthToken, setAuthToken } from "../../../apps/www/_lib/api.js";
+import { clearAuthToken, getAuthToken, setAuthToken } from "../../../apps/www/lib/api.js";
 
-describe("_lib/api.ts SSR guards (no window)", () => {
+describe("lib/api.ts SSR guards (no window)", () => {
     it("getAuthToken returns null without throwing", () => {
         expect(typeof window).toBe("undefined");
         expect(getAuthToken()).toBeNull();

@@ -1,10 +1,10 @@
 import React, { FormEvent } from "react";
-import Modal from "../../../_lib/Modal.js";
+import Modal from "../../../lib/Modal.js";
 import Alert from "../../feedback/Alert.js";
 import FormField from "../../forms/FormField.js";
 import CodeInput from "../../forms/CodeInput.js";
 import Button from "../../buttons/Button.js";
-import { Contact } from "../../../_lib/api.js";
+import { Contact } from "../../../lib/api.js";
 
 export interface VerifyContactModalProps {
     open: boolean;

@@ -11,7 +11,7 @@ import {
     updateProfile,
     createProfile,
     verifyContact,
-} from "../../../_lib/api.js";
+} from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
 import AddContactModal from "./AddContactModal.js";

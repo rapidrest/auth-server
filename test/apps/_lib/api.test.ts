@@ -41,7 +41,7 @@ import {
     verifyFido2SignIn,
     verifyPasskeySignIn,
     verifyRegistration,
-} from "../../../apps/www/_lib/api.js";
+} from "../../../apps/www/lib/api.js";
 
 beforeEach(() => {
     window.localStorage.clear();

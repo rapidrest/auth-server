@@ -2,7 +2,7 @@ import React, { FormEvent } from "react";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";
 import PasswordFieldset from "../../forms/PasswordFieldset.js";
-import { isPasswordValid, PasswordCriterion } from "../../../_lib/passwordCriteria.js";
+import { isPasswordValid, PasswordCriterion } from "../../../lib/passwordCriteria.js";
 
 export interface ProfileStepProps {
     username: string;

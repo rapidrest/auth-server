@@ -1,35 +1,35 @@
 import React, { Dispatch, FormEvent, SetStateAction, useState } from "react";
 import { startRegistration, type PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
-import { ApiRequestError, getFido2RegistrationOptions, registerFido2, SecretSummary } from "../../../_lib/api.js";
+import { ApiRequestError, getPasskeyRegistrationOptions, registerPasskey, SecretSummary } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";
 
-export interface Fido2SecretFormProps {
+export interface PasskeySecretFormProps {
     setSecrets: Dispatch<SetStateAction<SecretSummary[] | null>>;
     onClose: () => void;
 }
 
-export default function Fido2SecretForm({ setSecrets, onClose }: Fido2SecretFormProps) {
+export default function PasskeySecretForm({ setSecrets, onClose }: PasskeySecretFormProps) {
     const [hint, setHint] = useState("");
     const [adding, setAdding] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    async function handleAddFido2(e: FormEvent) {
+    async function handleAddPasskey(e: FormEvent) {
         e.preventDefault();
         setError(null);
         setAdding(true);
         try {
-            const optionsJSON = (await getFido2RegistrationOptions()) as PublicKeyCredentialCreationOptionsJSON;
+            const optionsJSON = (await getPasskeyRegistrationOptions()) as PublicKeyCredentialCreationOptionsJSON;
             const response = await startRegistration({ optionsJSON });
-            const created = await registerFido2(response, hint.trim() || undefined);
+            const created = await registerPasskey(response, hint.trim() || undefined);
             setSecrets((prev) => [...(prev ?? []), created]);
             onClose();
         } catch (err) {
             if (err instanceof Error && err.name === "NotAllowedError") {
-                setError("Hardware key setup was cancelled.");
+                setError("Passkey setup was cancelled.");
             } else {
-                setError(err instanceof ApiRequestError ? err.message : "Could not add a security key.");
+                setError(err instanceof ApiRequestError ? err.message : "Could not add a passkey.");
             }
         } finally {
             setAdding(false);
@@ -37,23 +37,23 @@ export default function Fido2SecretForm({ setSecrets, onClose }: Fido2SecretForm
     }
 
     return (
-        <form onSubmit={handleAddFido2}>
+        <form onSubmit={handleAddPasskey}>
             {error && <Alert>{error}</Alert>}
             <p className="rr-hint" style={{ marginTop: 0 }}>
-                Insert your security key and follow your browser&rsquo;s prompt.
+                Your browser will prompt you to create a passkey.
             </p>
-            <FormField label="Label (optional)" htmlFor="fido2Hint">
+            <FormField label="Label (optional)" htmlFor="passkeyHint">
                 <input
-                    id="fido2Hint"
+                    id="passkeyHint"
                     className="rr-input"
                     type="text"
-                    placeholder="e.g. YubiKey"
+                    placeholder="e.g. iPhone, YubiKey"
                     value={hint}
                     onChange={(e) => setHint(e.target.value)}
                 />
             </FormField>
             <Button type="submit" style={{ width: "auto" }} loading={adding} disabled={adding}>
-                Add security key
+                Add passkey
             </Button>
         </form>
     );

@@ -1,6 +1,6 @@
 import React from "react";
 import Button from "../../buttons/Button.js";
-import { Profile } from "../../../_lib/api.js";
+import { Profile } from "../../../lib/api.js";
 
 export interface AccountHeaderProps {
     profile: Profile | null;

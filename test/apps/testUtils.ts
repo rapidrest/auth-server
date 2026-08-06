@@ -19,7 +19,7 @@ export function emptyResponse(status: number, init: ResponseInit = {}): Response
 
 /**
  * Stubs `global.fetch` with the given implementation and returns the underlying mock so call args can be
- * asserted on. `apiFetch()` (the only thing in `_lib/api.ts` that touches `fetch` directly) always calls
+ * asserted on. `apiFetch()` (the only thing in `lib/api.ts` that touches `fetch` directly) always calls
  * it as `fetch(url, init)`, never with a `Request` object, so the mock signature is narrowed to that.
  */
 export function mockFetch(

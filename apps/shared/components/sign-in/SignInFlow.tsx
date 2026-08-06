@@ -13,8 +13,8 @@ import {
     signInWithTotp,
     verifyFido2SignIn,
     verifyPasskeySignIn,
-} from "../../_lib/api.js";
-import { guessIdentifierType } from "../../_lib/identifier.js";
+} from "../../lib/api.js";
+import { guessIdentifierType } from "../../lib/identifier.js";
 import IdentifierStep from "./steps/IdentifierStep.js";
 import MethodListStep from "./steps/MethodListStep.js";
 import ChallengeStep from "./steps/ChallengeStep.js";

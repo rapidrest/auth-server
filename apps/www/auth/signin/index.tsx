@@ -1,7 +1,7 @@
 import React from "react";
-import { AuthResult, setAuthToken } from "../../_lib/api.js";
-import AuthShell from "../../_components/layout/AuthShell.js";
-import SignInFlow from "../../_components/sign-in/SignInFlow.js";
+import { AuthResult, setAuthToken } from "../../../shared/lib/api.js";
+import AuthShell from "../../../shared/components/layout/AuthShell.js";
+import SignInFlow from "../../../shared/components/sign-in/SignInFlow.js";
 
 function completeSignIn(result: AuthResult) {
     setAuthToken(result.token);

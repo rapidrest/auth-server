@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 import { describe, expect, it } from "vitest";
-import { guessIdentifierType } from "../../../apps/www/_lib/identifier.js";
+import { guessIdentifierType } from "../../../apps/www/lib/identifier.js";
 
 describe("guessIdentifierType", () => {
     it("recognizes a plain e-mail address", () => {
