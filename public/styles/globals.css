@@ -608,6 +608,60 @@ a {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Chip editor (e.g. roles/scopes)                                        */
+/* ---------------------------------------------------------------------- */
+
+.rr-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.rr-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.2rem 0.4rem 0.2rem 0.6rem;
+    border-radius: var(--rr-radius-pill);
+    background: var(--rr-color-surface-alt);
+    color: var(--rr-color-text-muted);
+}
+
+.rr-chip__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+.rr-chip__remove:hover {
+    background: var(--rr-color-border);
+}
+
+.rr-chip-input {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.rr-chip-input .rr-input {
+    flex: 1;
+}
+
+/* ---------------------------------------------------------------------- */
 /* Table                                                                   */
 /* ---------------------------------------------------------------------- */
 

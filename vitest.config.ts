@@ -53,11 +53,30 @@ export default defineConfig({
                 functions: 100,
                 lines: 100,
                 statements: 100,
-                // The frontend (apps/www) is fully unit-tested and held to 100% — this fails the build if
-                // new frontend code lands without matching tests. The backend (src/**) keeps the relaxed
-                // 0% fallback above; its coverage today comes from Server.*.test.ts's integration-level
-                // start/stop checks, not per-route unit tests.
+                // The frontend (apps/www, apps/admin, and the apps/shared code they both depend on) is fully
+                // unit-tested and held to 100% — this fails the build if new frontend code lands without
+                // matching tests. The backend (src/**) keeps the relaxed 0% fallback above; its coverage
+                // today comes from Server.*.test.ts's integration-level start/stop checks, not per-route
+                // unit tests.
                 'apps/www/**': {
+                    branches: 100,
+                    functions: 100,
+                    lines: 100,
+                    statements: 100,
+                },
+                'apps/admin/**': {
+                    branches: 100,
+                    functions: 100,
+                    lines: 100,
+                    statements: 100,
+                },
+                'apps/shared/lib/adminApi.ts': {
+                    branches: 100,
+                    functions: 100,
+                    lines: 100,
+                    statements: 100,
+                },
+                'apps/shared/components/admin/**': {
                     branches: 100,
                     functions: 100,
                     lines: 100,

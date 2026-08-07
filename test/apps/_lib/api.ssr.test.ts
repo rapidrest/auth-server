@@ -7,7 +7,7 @@
 // environment (rather than the `jsdom` environment the rest of `test/apps/**` uses) via the
 // `@vitest-environment` docblock above, which overrides `environmentMatchGlobs` for this one file.
 import { describe, expect, it } from "vitest";
-import { clearAuthToken, getAuthToken, setAuthToken } from "../../../apps/www/lib/api.js";
+import { clearAuthToken, getAuthToken, setAuthToken } from "../../../apps/shared/lib/api.js";
 
 describe("lib/api.ts SSR guards (no window)", () => {
     it("getAuthToken returns null without throwing", () => {

@@ -18,6 +18,7 @@ import {
     deleteSecret,
     discoverAuthMethods,
     getAuthToken,
+    getCurrentUser,
     getFido2Challenge,
     getFido2RegistrationOptions,
     getOtpChallenge,
@@ -41,7 +42,7 @@ import {
     verifyFido2SignIn,
     verifyPasskeySignIn,
     verifyRegistration,
-} from "../../../apps/www/lib/api.js";
+} from "../../../apps/shared/lib/api.js";
 
 beforeEach(() => {
     window.localStorage.clear();
@@ -224,6 +225,16 @@ describe("registration", () => {
             expect.objectContaining({ body: JSON.stringify({ email: "a@example.com", token: "123456" }) }),
         );
         expect(result).toEqual(authResult);
+    });
+});
+
+describe("getCurrentUser", () => {
+    it("fetches /users/me", async () => {
+        const user = { uid: "u1", roles: ["admin"], scopes: [] };
+        const fetchMock = mockFetch(() => jsonResponse(200, user));
+        const result = await getCurrentUser();
+        expect(fetchMock).toHaveBeenCalledWith("/api/users/me", expect.anything());
+        expect(result).toEqual(user);
     });
 });
 

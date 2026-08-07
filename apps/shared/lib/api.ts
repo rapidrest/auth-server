@@ -112,6 +112,11 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
     return body as T;
 }
 
+/** Fetches the authenticated caller's own `User` record (roles, scopes, verified) — used e.g. to check for admin access. */
+export function getCurrentUser(): Promise<ApiUser> {
+    return apiFetch("/users/me");
+}
+
 export type RegistrationIdentifierType = "email" | "phone";
 
 function identifierBody(type: RegistrationIdentifierType, identifier: string): { email: string } | { phone: string } {

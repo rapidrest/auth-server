@@ -7,10 +7,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockLocation } from "../testUtils.js";
-import { FALLBACK_PASSWORD_REQUIREMENTS } from "../../../apps/www/lib/passwordCriteria.js";
+import { FALLBACK_PASSWORD_REQUIREMENTS } from "../../../apps/shared/lib/passwordCriteria.js";
 
-vi.mock("../../../apps/www/lib/api.js", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../../apps/www/lib/api.js")>();
+vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../apps/shared/lib/api.js")>();
     return {
         ...actual,
         beginRegistration: vi.fn(),
@@ -32,7 +32,7 @@ import {
     getPasswordRequirements,
     setAuthToken,
     verifyRegistration,
-} from "../../../apps/www/lib/api.js";
+} from "../../../apps/shared/lib/api.js";
 import SignUpPage, { fetchProps } from "../../../apps/www/auth/signup/index.js";
 
 const mockedBeginRegistration = vi.mocked(beginRegistration);

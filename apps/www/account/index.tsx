@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alias, ApiRequestError, getProfile, listAliases, logout, Profile } from "../../shared/lib/api.js";
+import { Alias, ApiRequestError, getCurrentUser, getProfile, listAliases, logout, Profile } from "../../shared/lib/api.js";
 import AuthShell from "../../shared/components/layout/AuthShell.js";
 import AccountHeader from "../../shared/components/account/header/AccountHeader.js";
 import UsernameCard from "../../shared/components/account/username/UsernameCard.js";
@@ -23,11 +23,21 @@ export default function AccountPage({ userUid }: AccountPageProps) {
     const [aliases, setAliases] = useState<Alias[] | null>(null);
     const [aliasError, setAliasError] = useState<string | null>(null);
 
+    const [isAdmin, setIsAdmin] = useState(false);
+
     useEffect(() => {
         if (!userUid) {
             window.location.replace("/auth/signin");
             return;
         }
+
+        // Purely cosmetic (shows/hides the "Admin console" link) — the admin console itself re-checks the
+        // caller's role server-side, so a failure here just means the link doesn't appear, nothing unsafe.
+        getCurrentUser()
+            .then((u) => setIsAdmin(!!u.roles?.includes("admin")))
+            .catch(() => {
+                // Leave isAdmin false — see comment above.
+            });
 
         getProfile()
             .then((p) => {
@@ -63,7 +73,7 @@ export default function AccountPage({ userUid }: AccountPageProps) {
 
     return (
         <AuthShell wide>
-            <AccountHeader profile={profile} onLogout={handleLogout} />
+            <AccountHeader profile={profile} onLogout={handleLogout} isAdmin={isAdmin} />
 
             <UsernameCard aliases={aliases} setAliases={setAliases} />
 

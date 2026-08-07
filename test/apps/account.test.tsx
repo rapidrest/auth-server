@@ -7,7 +7,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockLocation } from "./testUtils.js";
-import { FALLBACK_PASSWORD_REQUIREMENTS } from "../../apps/www/lib/passwordCriteria.js";
+import { FALLBACK_PASSWORD_REQUIREMENTS } from "../../apps/shared/lib/passwordCriteria.js";
 
 vi.mock("@simplewebauthn/browser", () => ({
     startRegistration: vi.fn(),
@@ -17,8 +17,8 @@ vi.mock("qrcode", () => ({
     default: { toDataURL: vi.fn() },
 }));
 
-vi.mock("../../apps/www/lib/api.js", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../apps/www/lib/api.js")>();
+vi.mock("../../apps/shared/lib/api.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../apps/shared/lib/api.js")>();
     return {
         ...actual,
         logout: vi.fn(),
@@ -29,6 +29,7 @@ vi.mock("../../apps/www/lib/api.js", async (importOriginal) => {
         createUsernameAlias: vi.fn(),
         deleteAlias: vi.fn(),
         deleteSecret: vi.fn(),
+        getCurrentUser: vi.fn(),
         getFido2RegistrationOptions: vi.fn(),
         getPasskeyRegistrationOptions: vi.fn(),
         getPasswordRequirements: vi.fn(),
@@ -59,6 +60,7 @@ import {
     createUsernameAlias,
     deleteAlias,
     deleteSecret,
+    getCurrentUser,
     getFido2RegistrationOptions,
     getPasskeyRegistrationOptions,
     getPasswordRequirements,
@@ -72,7 +74,7 @@ import {
     updateProfile,
     updateUsernameAlias,
     verifyContact,
-} from "../../apps/www/lib/api.js";
+} from "../../apps/shared/lib/api.js";
 import AccountPage from "../../apps/www/account/index.js";
 
 const mockedStartRegistration = vi.mocked(startRegistration);
@@ -85,6 +87,7 @@ const mockedCreateTotpSecret = vi.mocked(createTotpSecret);
 const mockedCreateUsernameAlias = vi.mocked(createUsernameAlias);
 const mockedDeleteAlias = vi.mocked(deleteAlias);
 const mockedDeleteSecret = vi.mocked(deleteSecret);
+const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedGetFido2RegistrationOptions = vi.mocked(getFido2RegistrationOptions);
 const mockedGetPasskeyRegistrationOptions = vi.mocked(getPasskeyRegistrationOptions);
 const mockedGetPasswordRequirements = vi.mocked(getPasswordRequirements);
@@ -143,6 +146,7 @@ beforeEach(() => {
     mockedListAliases.mockResolvedValue([alias()]);
     mockedListSecrets.mockResolvedValue([]);
     mockedGetPasswordRequirements.mockResolvedValue(FALLBACK_PASSWORD_REQUIREMENTS);
+    mockedGetCurrentUser.mockResolvedValue({ uid: "u1", roles: [], scopes: [] });
     window.confirm = vi.fn(() => true);
 });
 
@@ -1460,5 +1464,27 @@ describe("AccountPage — logout", () => {
 
         await waitFor(() => expect(location.href).toBe("/auth/signin"));
         expect(mockedLogout).toHaveBeenCalled();
+    });
+});
+
+describe("AccountPage — admin console link", () => {
+    it("does not show an admin console link for a non-admin account", async () => {
+        mockedGetCurrentUser.mockResolvedValueOnce({ uid: "u1", roles: ["user"], scopes: [] });
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Save profile");
+        expect(screen.queryByRole("link", { name: "Admin console" })).not.toBeInTheDocument();
+    });
+
+    it("shows an admin console link pointing at /admin for an admin account", async () => {
+        mockedGetCurrentUser.mockResolvedValueOnce({ uid: "u1", roles: ["admin"], scopes: [] });
+        render(<AccountPage userUid="u1" />);
+        expect(await screen.findByRole("link", { name: "Admin console" })).toHaveAttribute("href", "/admin");
+    });
+
+    it("does not show an admin console link (and does not error) when the role check fails", async () => {
+        mockedGetCurrentUser.mockRejectedValueOnce(new Error("network down"));
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Save profile");
+        expect(screen.queryByRole("link", { name: "Admin console" })).not.toBeInTheDocument();
     });
 });
