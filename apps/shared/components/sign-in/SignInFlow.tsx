@@ -65,7 +65,8 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
             setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");
             return;
         }
-        if (buildMethodList(result).length === 0) {
+        const items = buildMethodList(result);
+        if (items.length === 0) {
             // No account recognizes this identifier — send the user to sign-up instead of a dead end. An
             // e-mail/phone-shaped identifier can skip straight to sign-up's verification step (they already
             // typed the contact value); anything else (e.g. a username attempt) can only start sign-up fresh.
@@ -77,6 +78,17 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
         }
         setDiscover(result);
         setDiscoverLoading(false);
+        if (items.length === 1) {
+            // Nothing to choose between — skip the method-list step and go straight to the one method's
+            // challenge. `onBack` from there returns to the identifier step instead of a one-item list.
+            const only = items[0];
+            if (only.kind === "fixed") {
+                selectFixedMethod(only.method);
+            } else {
+                selectOtpMethod(only.hint);
+            }
+            return;
+        }
         setStep("methods");
     }
 
@@ -240,7 +252,8 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
                     selectedOtpHint={selectedOtpHint}
                     error={error}
                     loading={loading}
-                    onBack={goToMethods}
+                    onBack={methodItems.length === 1 ? goToIdentifier : goToMethods}
+                    backLabel={methodItems.length === 1 ? "Use a different account" : undefined}
                     password={password}
                     setPassword={setPassword}
                     onPasswordSubmit={handlePasswordSubmit}

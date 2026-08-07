@@ -15,6 +15,9 @@ export interface ChallengeStepProps {
     error: string | null;
     loading: boolean;
     onBack: () => void;
+    /** Defaults to "Choose a different method" — pass "Use a different account" when this method was the
+     * only one available (there was no method list to return to; `onBack` goes to the identifier step instead). */
+    backLabel?: string;
 
     password: string;
     setPassword: (value: string) => void;
@@ -44,6 +47,7 @@ export default function ChallengeStep({
     error,
     loading,
     onBack,
+    backLabel = "Choose a different method",
     password,
     setPassword,
     onPasswordSubmit,
@@ -100,7 +104,7 @@ export default function ChallengeStep({
             {method === "fido2" && <Fido2Challenge loading={loading} onSignIn={onFido2SignIn} />}
 
             <Button variant="text" type="button" style={{ marginTop: "0.5rem" }} onClick={onBack}>
-                Choose a different method
+                {backLabel}
             </Button>
         </div>
     );

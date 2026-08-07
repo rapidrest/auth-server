@@ -216,12 +216,14 @@ describe("SignInPage — method list", () => {
     });
 
     it("only lists methods discover returned as available", async () => {
+        // Two available methods here (not one) — a single method skips this list entirely, covered under
+        // "single available method" below.
         const user = userEvent.setup();
-        await goToMethods(user, { password: true, totp: false, passkey: false, fido2: false, otp: [] });
+        await goToMethods(user, { password: true, totp: true, passkey: false, fido2: false, otp: [] });
 
         expect(screen.getByRole("button", { name: /^Password/ })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /^Authenticator app/ })).toBeInTheDocument();
         expect(screen.queryByRole("button", { name: /^Passkey/ })).not.toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: /^Authenticator app/ })).not.toBeInTheDocument();
         expect(screen.queryByRole("button", { name: /^Email:|^Phone:/ })).not.toBeInTheDocument();
         expect(screen.queryByRole("button", { name: /^Hardware key/ })).not.toBeInTheDocument();
     });
@@ -259,6 +261,62 @@ describe("SignInPage — method list", () => {
 
         await user.click(screen.getByRole("button", { name: /^Password/ }));
         expect(screen.getByLabelText("Password")).toHaveValue("");
+    });
+});
+
+describe("SignInPage — single available method", () => {
+    it("skips the method list and goes straight to the challenge when only one fixed method is available", async () => {
+        const user = userEvent.setup();
+        mockedDiscoverAuthMethods.mockResolvedValueOnce({ ...EMPTY_DISCOVER, password: true });
+        render(<SignInPage />);
+        await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), "a@example.com");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        expect(await screen.findByLabelText("Password")).toBeInTheDocument();
+        expect(screen.queryByText(/Choose how/)).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Use a different account" })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Choose a different method" })).not.toBeInTheDocument();
+    });
+
+    it("skips straight to the OTP challenge when the only available method is a single discovered contact", async () => {
+        const user = userEvent.setup();
+        mockedDiscoverAuthMethods.mockResolvedValueOnce({ ...EMPTY_DISCOVER, otp: [EMAIL_HINT] });
+        render(<SignInPage />);
+        await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), "a@example.com");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        expect(await screen.findByText(new RegExp(escapeRegExp(EMAIL_HINT.contact)))).toBeInTheDocument();
+        expect(screen.queryByText(/Choose how/)).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Use a different account" })).toBeInTheDocument();
+    });
+
+    it("'Use a different account' returns to the identifier step, preserving the typed value", async () => {
+        const user = userEvent.setup();
+        mockedDiscoverAuthMethods.mockResolvedValueOnce({ ...EMPTY_DISCOVER, password: true });
+        render(<SignInPage />);
+        await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), "a@example.com");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+        await screen.findByLabelText("Password");
+
+        await user.click(screen.getByRole("button", { name: "Use a different account" }));
+
+        expect(screen.getByLabelText("Account ID, e-mail, or phone")).toHaveValue("a@example.com");
+    });
+
+    it("still signs in successfully from the skipped challenge screen", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        mockedDiscoverAuthMethods.mockResolvedValueOnce({ ...EMPTY_DISCOVER, password: true });
+        mockedSignInWithPassword.mockResolvedValueOnce(AUTH_RESULT);
+        render(<SignInPage />);
+        await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), "a@example.com");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        await user.type(await screen.findByLabelText("Password"), "hunter2");
+        await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+        await waitFor(() => expect(location.href).toBe("/account"));
+        expect(mockedSignInWithPassword).toHaveBeenCalledWith("a@example.com", "hunter2");
     });
 });
 
