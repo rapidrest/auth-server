@@ -466,3 +466,28 @@ export function registerFido2(response: unknown, hint?: string): Promise<SecretS
         body: JSON.stringify({ type: "fido2", data: response, ...(hint ? { hint } : {}) }),
     });
 }
+
+/** The consolidated view of an account returned by `GET /accounts/:id` — everything the account page needs in one round trip. */
+export interface AccountData {
+    user: ApiUser;
+    /** Absent when the account has no `Profile` yet (e.g. a freshly-registered account) — mirrors `getProfile()`'s 404 case. */
+    profile?: Profile;
+    aliases: Alias[];
+    secrets: SecretSummary[];
+}
+
+/**
+ * Fetches all data (user, profile, aliases, secrets) for an account in a single request. Defaults to the
+ * caller's own account (`"me"`); only a trusted role (e.g. `admin`) may pass another account's uid.
+ */
+export function getAccount(id = "me"): Promise<AccountData> {
+    return apiFetch(`/accounts/${encodeURIComponent(id)}`);
+}
+
+/**
+ * Permanently deletes an account and all of its associated data (aliases, secrets, profile). Defaults to
+ * the caller's own account (`"me"`); only a trusted role may delete another account. Irreversible.
+ */
+export function deleteAccount(id = "me"): Promise<void> {
+    return apiFetch(`/accounts/${encodeURIComponent(id)}`, { method: "DELETE" });
+}

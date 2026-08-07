@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alias, ApiRequestError, getCurrentUser, getProfile, listAliases, logout, Profile } from "../../shared/lib/api.js";
+import { Alias, ApiRequestError, getAccount, logout, Profile, SecretSummary } from "../../shared/lib/api.js";
 import AuthShell from "../../shared/components/layout/AuthShell.js";
 import AccountHeader from "../../shared/components/account/header/AccountHeader.js";
 import UsernameCard from "../../shared/components/account/username/UsernameCard.js";
@@ -15,13 +15,15 @@ interface AccountPageProps {
 export default function AccountPage({ userUid }: AccountPageProps) {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [profileExists, setProfileExists] = useState(false);
-    // Flips true once the initial getProfile() load settles (success or 404-caught) — see ProfileCard,
+    // Flips true once the initial getAccount() load settles (success or failure) — see ProfileCard,
     // which uses this (rather than `profile` itself) to seed its editable fields exactly once.
     const [profileLoaded, setProfileLoaded] = useState(false);
-    const [profileError, setProfileError] = useState<string | null>(null);
 
     const [aliases, setAliases] = useState<Alias[] | null>(null);
-    const [aliasError, setAliasError] = useState<string | null>(null);
+    const [secrets, setSecrets] = useState<SecretSummary[] | null>(null);
+    // A single request now backs profile/aliases/secrets together (GET /accounts/me), so a failure is
+    // reported in all three places at once rather than tracked as three independent error states.
+    const [accountError, setAccountError] = useState<string | null>(null);
 
     const [isAdmin, setIsAdmin] = useState(false);
 
@@ -31,38 +33,33 @@ export default function AccountPage({ userUid }: AccountPageProps) {
             return;
         }
 
-        // Purely cosmetic (shows/hides the "Admin console" link) — the admin console itself re-checks the
-        // caller's role server-side, so a failure here just means the link doesn't appear, nothing unsafe.
-        getCurrentUser()
-            .then((u) => setIsAdmin(!!u.roles?.includes("admin")))
-            .catch(() => {
-                // Leave isAdmin false — see comment above.
-            });
-
-        getProfile()
-            .then((p) => {
-                setProfile(p);
-                setProfileExists(true);
-                setProfileLoaded(true);
-            })
-            .catch((err) => {
-                // No Profile exists yet for a freshly-registered account — that's expected, not an error.
-                if (!(err instanceof ApiRequestError && err.status === 404)) {
-                    setProfileError(err instanceof ApiRequestError ? err.message : "Could not load your profile.");
-                }
+        getAccount("me")
+            .then((data) => {
+                setIsAdmin(!!data.user.roles?.includes("admin"));
+                setProfile(data.profile ?? null);
+                setProfileExists(!!data.profile);
+                setAliases(data.aliases);
+                setSecrets(data.secrets);
                 // Set together with the branch above (rather than in a trailing .finally()) so
                 // `profileLoaded` lands in the same batched update as `profile`/`profileExists` — a
                 // .finally() runs in its own later microtask, which let ProfileCard's seed effect
                 // (keyed on `profileLoaded`) fire a render behind AccountHeader's under load.
                 setProfileLoaded(true);
+            })
+            .catch((err) => {
+                setAccountError(err instanceof ApiRequestError ? err.message : "Could not load your account.");
+                setProfileLoaded(true);
             });
-
-        listAliases()
-            .then(setAliases)
-            .catch((err) => setAliasError(err instanceof ApiRequestError ? err.message : "Could not load your aliases."));
     }, [userUid]);
 
     async function handleLogout() {
+        await logout();
+        window.location.href = "/auth/signin";
+    }
+
+    async function handleAccountDeleted() {
+        // The account (and its JWT-bearing User record) is already gone server-side — still run the
+        // normal logout flow to clear local/cookie auth state, same as handleLogout above.
         await logout();
         window.location.href = "/auth/signin";
     }
@@ -73,7 +70,7 @@ export default function AccountPage({ userUid }: AccountPageProps) {
 
     return (
         <AuthShell wide>
-            <AccountHeader profile={profile} onLogout={handleLogout} isAdmin={isAdmin} />
+            <AccountHeader profile={profile} onLogout={handleLogout} onAccountDeleted={handleAccountDeleted} isAdmin={isAdmin} />
 
             <UsernameCard aliases={aliases} setAliases={setAliases} />
 
@@ -81,7 +78,7 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                 profile={profile}
                 profileExists={profileExists}
                 profileLoaded={profileLoaded}
-                loadError={profileError}
+                loadError={accountError}
                 setProfile={setProfile}
                 setProfileExists={setProfileExists}
             />
@@ -90,13 +87,13 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                 profile={profile}
                 profileExists={profileExists}
                 aliases={aliases}
-                aliasError={aliasError}
+                aliasError={accountError}
                 setProfile={setProfile}
                 setProfileExists={setProfileExists}
                 setAliases={setAliases}
             />
 
-            <SecretsCard />
+            <SecretsCard secrets={secrets} secretsError={accountError} setSecrets={setSecrets} />
         </AuthShell>
     );
 }

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { ApiRequestError, deleteSecret, listSecrets, SecretSummary, SecretType } from "../../../lib/api.js";
+import React, { Dispatch, SetStateAction, useState } from "react";
+import { ApiRequestError, deleteSecret, SecretSummary, SecretType } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
 import AddSecretModal, { AddMethodType } from "./AddSecretModal.js";
@@ -20,18 +20,18 @@ function formatDate(iso: string | undefined): string {
     }
 }
 
-export default function SecretsCard() {
-    const [secrets, setSecrets] = useState<SecretSummary[] | null>(null);
+export interface SecretsCardProps {
+    secrets: SecretSummary[] | null;
+    /** Load error from the account page's initial fetch (as opposed to `secretError`, set locally on a failed delete). */
+    secretsError: string | null;
+    setSecrets: Dispatch<SetStateAction<SecretSummary[] | null>>;
+}
+
+export default function SecretsCard({ secrets, secretsError, setSecrets }: SecretsCardProps) {
     const [secretError, setSecretError] = useState<string | null>(null);
 
     const [addMethodModalOpen, setAddMethodModalOpen] = useState(false);
     const [addMethodType, setAddMethodType] = useState<AddMethodType>(null);
-
-    useEffect(() => {
-        listSecrets()
-            .then(setSecrets)
-            .catch((err) => setSecretError(err instanceof ApiRequestError ? err.message : "Could not load your sign-in methods."));
-    }, []);
 
     function closeAddMethodModal() {
         setAddMethodModalOpen(false);
@@ -64,6 +64,7 @@ export default function SecretsCard() {
                     +
                 </Button>
             </div>
+            {secretsError && <Alert>{secretsError}</Alert>}
             {secretError && <Alert>{secretError}</Alert>}
             {secrets !== null && secrets.length === 0 && <p className="rr-hint">No sign-in methods added yet.</p>}
             {secrets && secrets.length > 0 && (

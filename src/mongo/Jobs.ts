@@ -4,4 +4,4 @@
 
 // The following re-exports needed model classes so that they are properly picked up by
 // the ClassLoader (and ObjectFactory) during server startup
-export { UserMongo, AliasMongo, ProfileMongo, SecretMongo } from "@rapidrest/auth/mongo";
+export { DefaultAccountsMongo } from "@rapidrest/auth/mongo";

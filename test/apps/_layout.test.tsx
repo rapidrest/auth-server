@@ -19,7 +19,7 @@ describe("Layout", () => {
             </Layout>,
         );
 
-        expect(html).toContain("<title>RapidREST Auth</title>");
+        expect(html).toContain("<title>RapidREST</title>");
         expect(html).toContain('charSet="utf-8"');
         expect(html).toContain('href="/favicon.ico"');
         expect(html).toContain('href="/styles/globals.css"');

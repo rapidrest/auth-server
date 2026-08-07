@@ -4,7 +4,15 @@ import { resolve } from 'path';
 
 export default defineConfig({
     ssr: {
-        noExternal: ['@rapidrest/service-core', '@rapidrest/core'],
+        // `@rapidrest/auth` exports classes (e.g. `DefaultAccounts`, extending `BackgroundService`) that
+        // are only usable via `instanceof` checks against `@rapidrest/service-core`'s own classes if both
+        // packages are resolved through the same module graph. Left external, Vite's SSR loader gives
+        // `@rapidrest/auth` a *different* copy of `@rapidrest/service-core than the one `noExternal` below
+        // forces everything else through, so e.g. `class.prototype instanceof BackgroundService` silently
+        // comes back false and `Server.start()` never schedules the job — even though the exact same code
+        // works correctly outside Vite (the real, non-test `node dist/src/server.js` runtime has only one
+        // module cache to begin with).
+        noExternal: ['@rapidrest/auth', '@rapidrest/service-core', '@rapidrest/core'],
     },
     plugins: [
         swc.vite({

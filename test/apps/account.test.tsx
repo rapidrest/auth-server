@@ -27,15 +27,13 @@ vi.mock("../../apps/shared/lib/api.js", async (importOriginal) => {
         createProfile: vi.fn(),
         createTotpSecret: vi.fn(),
         createUsernameAlias: vi.fn(),
+        deleteAccount: vi.fn(),
         deleteAlias: vi.fn(),
         deleteSecret: vi.fn(),
-        getCurrentUser: vi.fn(),
+        getAccount: vi.fn(),
         getFido2RegistrationOptions: vi.fn(),
         getPasskeyRegistrationOptions: vi.fn(),
         getPasswordRequirements: vi.fn(),
-        getProfile: vi.fn(),
-        listAliases: vi.fn(),
-        listSecrets: vi.fn(),
         registerFido2: vi.fn(),
         registerPasskey: vi.fn(),
         resendContactVerificationCode: vi.fn(),
@@ -48,6 +46,7 @@ vi.mock("../../apps/shared/lib/api.js", async (importOriginal) => {
 import { startRegistration } from "@simplewebauthn/browser";
 import QRCode from "qrcode";
 import {
+    AccountData,
     ApiRequestError,
     Alias,
     Contact,
@@ -58,15 +57,13 @@ import {
     createProfile,
     createTotpSecret,
     createUsernameAlias,
+    deleteAccount,
     deleteAlias,
     deleteSecret,
-    getCurrentUser,
+    getAccount,
     getFido2RegistrationOptions,
     getPasskeyRegistrationOptions,
     getPasswordRequirements,
-    getProfile,
-    listAliases,
-    listSecrets,
     logout,
     registerFido2,
     registerPasskey,
@@ -85,15 +82,13 @@ const mockedCreatePasswordSecret = vi.mocked(createPasswordSecret);
 const mockedCreateProfile = vi.mocked(createProfile);
 const mockedCreateTotpSecret = vi.mocked(createTotpSecret);
 const mockedCreateUsernameAlias = vi.mocked(createUsernameAlias);
+const mockedDeleteAccount = vi.mocked(deleteAccount);
 const mockedDeleteAlias = vi.mocked(deleteAlias);
 const mockedDeleteSecret = vi.mocked(deleteSecret);
-const mockedGetCurrentUser = vi.mocked(getCurrentUser);
+const mockedGetAccount = vi.mocked(getAccount);
 const mockedGetFido2RegistrationOptions = vi.mocked(getFido2RegistrationOptions);
 const mockedGetPasskeyRegistrationOptions = vi.mocked(getPasskeyRegistrationOptions);
 const mockedGetPasswordRequirements = vi.mocked(getPasswordRequirements);
-const mockedGetProfile = vi.mocked(getProfile);
-const mockedListAliases = vi.mocked(listAliases);
-const mockedListSecrets = vi.mocked(listSecrets);
 const mockedRegisterFido2 = vi.mocked(registerFido2);
 const mockedRegisterPasskey = vi.mocked(registerPasskey);
 const mockedUpdateProfile = vi.mocked(updateProfile);
@@ -132,8 +127,26 @@ function profileObj(overrides: Partial<Profile> = {}): Profile {
     return { uid: "u1", version: 0, contacts: [], ...overrides };
 }
 
-// The Contacts and Sign-in methods cards each have their own "+ Add" button — scope queries to the right
-// card's container to disambiguate. Both card titles are static markup, present immediately after render.
+/**
+ * Default shape of `GET /accounts/me` — no profile yet, one (non-username) alias, no secrets, a plain
+ * non-admin user. Individual tests override only the fields they care about.
+ */
+function accountData(overrides: Partial<AccountData> = {}): AccountData {
+    return {
+        user: { uid: "u1", roles: [], scopes: [] },
+        profile: undefined,
+        aliases: [alias()],
+        secrets: [],
+        ...overrides,
+    };
+}
+
+// The Profile, Contacts, and Sign-in methods cards each render their own copy of `accountError` (all three
+// are seeded by the same GET /accounts/me call) — scope queries to a single card's container to disambiguate.
+// All three card titles are static markup, present immediately after render.
+function profileCard(): HTMLElement {
+    return screen.getByText("Profile").closest(".rr-card") as HTMLElement;
+}
 function contactsCard(): HTMLElement {
     return screen.getByText("Contacts").closest(".rr-card") as HTMLElement;
 }
@@ -142,11 +155,8 @@ function secretsCard(): HTMLElement {
 }
 
 beforeEach(() => {
-    mockedGetProfile.mockRejectedValue(new ApiRequestError("not found", 404));
-    mockedListAliases.mockResolvedValue([alias()]);
-    mockedListSecrets.mockResolvedValue([]);
+    mockedGetAccount.mockResolvedValue(accountData());
     mockedGetPasswordRequirements.mockResolvedValue(FALLBACK_PASSWORD_REQUIREMENTS);
-    mockedGetCurrentUser.mockResolvedValue({ uid: "u1", roles: [], scopes: [] });
     window.confirm = vi.fn(() => true);
 });
 
@@ -160,52 +170,56 @@ describe("AccountPage — auth guard", () => {
 });
 
 describe("AccountPage — profile loading", () => {
-    it("shows 'there' and no email when no profile exists yet (404)", async () => {
+    it("shows 'there' and no email when no profile exists yet", async () => {
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Save profile");
         expect(screen.getByText("Welcome, there")).toBeInTheDocument();
     });
 
     it("populates the form and header from an existing profile", async () => {
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(
-            profileObj({
-                version: 2,
-                givenName: "Ada",
-                familyName: "Lovelace",
-                birthdate: "1990-01-01T08:00:00.000Z",
-                contacts: [contact()],
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                profile: profileObj({
+                    version: 2,
+                    givenName: "Ada",
+                    familyName: "Lovelace",
+                    birthdate: "1990-01-01T08:00:00.000Z",
+                    contacts: [contact()],
+                }),
             }),
         );
         render(<AccountPage userUid="u1" />);
 
         expect(await screen.findByText("Welcome, Ada Lovelace")).toBeInTheDocument();
         expect(screen.getAllByText("ada@example.com").length).toBeGreaterThan(0);
-        expect(screen.getByLabelText("Given name")).toHaveValue("Ada");
+        // ProfileCard's form-seeding effect runs after AccountHeader's text commits (a separate component's
+        // effect, same render but flushed on its own), so wait for it rather than asserting synchronously.
+        await waitFor(() => expect(screen.getByLabelText("Given name")).toHaveValue("Ada"));
         expect(screen.getByLabelText("Family name")).toHaveValue("Lovelace");
         expect(screen.getByLabelText("Birthdate")).toHaveValue("1990-01-01");
     });
 
     it("falls back to the e-mail contact and its initial when there is no name", async () => {
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact()] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact()] }) }));
         render(<AccountPage userUid="u1" />);
         expect(await screen.findByText("Welcome, ada@example.com")).toBeInTheDocument();
         expect(screen.getByText("A")).toBeInTheDocument();
     });
 
     it("shows an error message for a non-404 profile load failure (ApiRequestError)", async () => {
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockRejectedValueOnce(new ApiRequestError("server exploded", 500));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockRejectedValueOnce(new ApiRequestError("server exploded", 500));
         render(<AccountPage userUid="u1" />);
-        expect(await screen.findByText("server exploded")).toBeInTheDocument();
+        expect(await within(profileCard()).findByText("server exploded")).toBeInTheDocument();
     });
 
-    it("shows a generic error message for a non-API profile load failure", async () => {
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockRejectedValueOnce(new TypeError("boom"));
+    it("shows a generic message for a non-API profile load failure", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockRejectedValueOnce(new TypeError("boom"));
         render(<AccountPage userUid="u1" />);
-        expect(await screen.findByText("Could not load your profile.")).toBeInTheDocument();
+        expect(await within(profileCard()).findByText("Could not load your account.")).toBeInTheDocument();
     });
 });
 
@@ -227,8 +241,8 @@ describe("AccountPage — profile saving", () => {
 
     it("updates the profile (PUT) with uid/version when one already exists", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ version: 3, givenName: "Ada" }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ version: 3, givenName: "Ada" }) }));
         render(<AccountPage userUid="u1" />);
         await screen.findByDisplayValue("Ada");
         mockedUpdateProfile.mockResolvedValueOnce(profileObj({ version: 4, givenName: "Ada B." }));
@@ -326,8 +340,8 @@ describe("AccountPage — username", () => {
     });
 
     it("shows the existing username read-only with a Change button", async () => {
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([alias({ uid: "n1", type: "name", alias: "coolname", verified: true })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ aliases: [alias({ uid: "n1", type: "name", alias: "coolname", verified: true })] }));
         render(<AccountPage userUid="u1" />);
         expect(await screen.findByText("coolname")).toBeInTheDocument();
         expect(screen.queryByPlaceholderText("username")).toBeNull();
@@ -335,8 +349,8 @@ describe("AccountPage — username", () => {
 
     it("changes the username via the modal, replacing the old alias with the new one", async () => {
         const user = userEvent.setup();
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([alias({ uid: "n1", type: "name", alias: "oldname", verified: true })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ aliases: [alias({ uid: "n1", type: "name", alias: "oldname", verified: true })] }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Change" }));
 
@@ -355,8 +369,8 @@ describe("AccountPage — username", () => {
 
     it("shows the ApiRequestError message when changing the username fails, without closing the modal", async () => {
         const user = userEvent.setup();
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([alias({ uid: "n1", type: "name", alias: "oldname", verified: true })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ aliases: [alias({ uid: "n1", type: "name", alias: "oldname", verified: true })] }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Change" }));
         mockedUpdateUsernameAlias.mockRejectedValueOnce(new ApiRequestError("taken", 409));
@@ -371,8 +385,8 @@ describe("AccountPage — username", () => {
 
     it("shows a generic message when changing the username fails with a non-API error", async () => {
         const user = userEvent.setup();
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([alias({ uid: "n1", type: "name", alias: "oldname", verified: true })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ aliases: [alias({ uid: "n1", type: "name", alias: "oldname", verified: true })] }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Change" }));
         mockedUpdateUsernameAlias.mockRejectedValueOnce(new TypeError("boom"));
@@ -386,8 +400,8 @@ describe("AccountPage — username", () => {
 
     it("clears the error and value when the change-username modal is closed and reopened", async () => {
         const user = userEvent.setup();
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([alias({ uid: "n1", type: "name", alias: "oldname", verified: true })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ aliases: [alias({ uid: "n1", type: "name", alias: "oldname", verified: true })] }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Change" }));
         mockedUpdateUsernameAlias.mockRejectedValueOnce(new ApiRequestError("taken", 409));
@@ -407,17 +421,17 @@ describe("AccountPage — username", () => {
 
 describe("AccountPage — contacts loading", () => {
     it("shows the ApiRequestError message on alias load failure", async () => {
-        mockedListAliases.mockReset();
-        mockedListAliases.mockRejectedValueOnce(new ApiRequestError("nope", 500));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockRejectedValueOnce(new ApiRequestError("nope", 500));
         render(<AccountPage userUid="u1" />);
-        expect(await screen.findByText("nope")).toBeInTheDocument();
+        expect(await within(contactsCard()).findByText("nope")).toBeInTheDocument();
     });
 
     it("shows a generic message when listing aliases fails with a non-API error", async () => {
-        mockedListAliases.mockReset();
-        mockedListAliases.mockRejectedValueOnce(new TypeError("boom"));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockRejectedValueOnce(new TypeError("boom"));
         render(<AccountPage userUid="u1" />);
-        expect(await screen.findByText("Could not load your aliases.")).toBeInTheDocument();
+        expect(await within(contactsCard()).findByText("Could not load your account.")).toBeInTheDocument();
     });
 
     it("renders no table when there are no contacts", async () => {
@@ -429,8 +443,8 @@ describe("AccountPage — contacts loading", () => {
 
 describe("AccountPage — contacts table", () => {
     it("renders an unverified contact with a Verify action", async () => {
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: false })] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact({ verified: false })] }) }));
         render(<AccountPage userUid="u1" />);
         const table = await screen.findByRole("table");
         const row = within(table).getByText("ada@example.com").closest("tr")!;
@@ -439,10 +453,10 @@ describe("AccountPage — contacts table", () => {
     });
 
     it("renders a verified contact with no matching alias as 'Enable'", async () => {
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ profile: profileObj({ contacts: [contact({ verified: true })] }), aliases: [] }),
+        );
         render(<AccountPage userUid="u1" />);
         const table = await screen.findByRole("table");
         const row = within(table).getByText("ada@example.com").closest("tr")!;
@@ -451,10 +465,13 @@ describe("AccountPage — contacts table", () => {
     });
 
     it("renders a verified contact with a matching alias as 'Disable'", async () => {
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([alias({ alias: "ada@example.com", type: "email" })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                profile: profileObj({ contacts: [contact({ verified: true })] }),
+                aliases: [alias({ alias: "ada@example.com", type: "email" })],
+            }),
+        );
         render(<AccountPage userUid="u1" />);
         const table = await screen.findByRole("table");
         const row = within(table).getByText("ada@example.com").closest("tr")!;
@@ -463,7 +480,7 @@ describe("AccountPage — contacts table", () => {
 
     async function openAddContactModal(user: ReturnType<typeof userEvent.setup>) {
         await screen.findByText("Contacts");
-        await user.click(within(contactsCard()).getByRole("button", { name: "+ Add" }));
+        await user.click(within(contactsCard()).getByRole("button", { name: "+" }));
         return screen.getByRole("dialog", { name: "Add a contact" });
     }
 
@@ -485,8 +502,8 @@ describe("AccountPage — contacts table", () => {
 
     it("adds a phone contact via the type selector to an existing profile", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ version: 1, contacts: [contact()] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ version: 1, contacts: [contact()] }) }));
         render(<AccountPage userUid="u1" />);
         const dialog = await openAddContactModal(user);
         mockedUpdateProfile.mockResolvedValueOnce(
@@ -554,8 +571,8 @@ describe("AccountPage — contacts table", () => {
 
     it("verifies a contact successfully, updating the profile and closing the modal", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: false })] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact({ verified: false })] }) }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Verify" }));
         const dialog = screen.getByRole("dialog");
@@ -572,8 +589,8 @@ describe("AccountPage — contacts table", () => {
 
     it("shows a fixed message on an invalid verification code", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: false })] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact({ verified: false })] }) }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Verify" }));
         const dialog = screen.getByRole("dialog");
@@ -587,8 +604,8 @@ describe("AccountPage — contacts table", () => {
 
     it("shows a generic message when verification fails with a non-API error", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: false })] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact({ verified: false })] }) }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Verify" }));
         const dialog = screen.getByRole("dialog");
@@ -602,8 +619,8 @@ describe("AccountPage — contacts table", () => {
 
     it("resends a verification code and shows a confirmation", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: false })] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact({ verified: false })] }) }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Verify" }));
         const dialog = screen.getByRole("dialog");
@@ -617,8 +634,8 @@ describe("AccountPage — contacts table", () => {
 
     it("shows the ApiRequestError message when resending fails", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: false })] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact({ verified: false })] }) }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Verify" }));
         const dialog = screen.getByRole("dialog");
@@ -632,8 +649,8 @@ describe("AccountPage — contacts table", () => {
 
     it("shows a generic message when resending fails with a non-API error", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: false })] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact({ verified: false })] }) }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Verify" }));
         const dialog = screen.getByRole("dialog");
@@ -646,8 +663,8 @@ describe("AccountPage — contacts table", () => {
 
     it("clears the resend confirmation and error when the verify modal is closed and reopened", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: false })] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact({ verified: false })] }) }));
         render(<AccountPage userUid="u1" />);
         await user.click(await screen.findByRole("button", { name: "Verify" }));
         let dialog = screen.getByRole("dialog");
@@ -665,10 +682,10 @@ describe("AccountPage — contacts table", () => {
 
     it("enables sign-in for a verified contact", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ profile: profileObj({ contacts: [contact({ verified: true })] }), aliases: [] }),
+        );
         render(<AccountPage userUid="u1" />);
         mockedCreateAlias.mockResolvedValueOnce(alias({ uid: "a2", alias: "ada@example.com", type: "email", verified: true }));
 
@@ -680,15 +697,18 @@ describe("AccountPage — contacts table", () => {
 
     it("disables sign-in for a verified contact when another enabled alias remains", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(
-            profileObj({ contacts: [contact({ verified: true }), contact({ contact: "second@example.com", verified: true })] }),
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                profile: profileObj({
+                    contacts: [contact({ verified: true }), contact({ contact: "second@example.com", verified: true })],
+                }),
+                aliases: [
+                    alias({ uid: "a2", alias: "ada@example.com", type: "email" }),
+                    alias({ uid: "a3", alias: "second@example.com", type: "email" }),
+                ],
+            }),
         );
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([
-            alias({ uid: "a2", alias: "ada@example.com", type: "email" }),
-            alias({ uid: "a3", alias: "second@example.com", type: "email" }),
-        ]);
         render(<AccountPage userUid="u1" />);
         mockedDeleteAlias.mockResolvedValueOnce();
 
@@ -701,10 +721,13 @@ describe("AccountPage — contacts table", () => {
     });
 
     it("disables the Disable action when it is the only enabled sign-in method", async () => {
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([alias({ uid: "a2", alias: "ada@example.com", type: "email" })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                profile: profileObj({ contacts: [contact({ verified: true })] }),
+                aliases: [alias({ uid: "a2", alias: "ada@example.com", type: "email" })],
+            }),
+        );
         render(<AccountPage userUid="u1" />);
 
         const table = await screen.findByRole("table");
@@ -714,10 +737,10 @@ describe("AccountPage — contacts table", () => {
 
     it("shows the ApiRequestError message when toggling sign-in fails", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ profile: profileObj({ contacts: [contact({ verified: true })] }), aliases: [] }),
+        );
         render(<AccountPage userUid="u1" />);
         mockedCreateAlias.mockRejectedValueOnce(new ApiRequestError("nope", 400));
 
@@ -728,10 +751,10 @@ describe("AccountPage — contacts table", () => {
 
     it("shows a generic message when toggling sign-in fails with a non-API error", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ profile: profileObj({ contacts: [contact({ verified: true })] }), aliases: [] }),
+        );
         render(<AccountPage userUid="u1" />);
         mockedCreateAlias.mockRejectedValueOnce(new TypeError("boom"));
 
@@ -748,8 +771,8 @@ describe("AccountPage — contacts table", () => {
     it("does nothing when contact removal is declined", async () => {
         const user = userEvent.setup();
         window.confirm = vi.fn(() => false);
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact(), secondContact] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact(), secondContact] }) }));
         render(<AccountPage userUid="u1" />);
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
 
@@ -761,10 +784,10 @@ describe("AccountPage — contacts table", () => {
 
     it("removes a contact (no matching alias), updating the profile only", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ version: 5, contacts: [contact(), secondContact] }));
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ profile: profileObj({ version: 5, contacts: [contact(), secondContact] }), aliases: [] }),
+        );
         render(<AccountPage userUid="u1" />);
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
         mockedUpdateProfile.mockResolvedValueOnce(profileObj({ version: 6, contacts: [secondContact] }));
@@ -780,13 +803,16 @@ describe("AccountPage — contacts table", () => {
 
     it("removes a contact and cascades to deleting its matching alias", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ version: 5, contacts: [contact(), secondContact] }));
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([
-            alias({ uid: "a2", alias: "ada@example.com", type: "email" }),
-            alias({ uid: "a3", alias: "second@example.com", type: "email" }),
-        ]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                profile: profileObj({ version: 5, contacts: [contact(), secondContact] }),
+                aliases: [
+                    alias({ uid: "a2", alias: "ada@example.com", type: "email" }),
+                    alias({ uid: "a3", alias: "second@example.com", type: "email" }),
+                ],
+            }),
+        );
         render(<AccountPage userUid="u1" />);
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
         mockedUpdateProfile.mockResolvedValueOnce(profileObj({ version: 6, contacts: [secondContact] }));
@@ -799,8 +825,8 @@ describe("AccountPage — contacts table", () => {
 
     it("shows the ApiRequestError message when removing a contact fails", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact(), secondContact] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact(), secondContact] }) }));
         render(<AccountPage userUid="u1" />);
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
         mockedUpdateProfile.mockRejectedValueOnce(new ApiRequestError("cannot remove", 403));
@@ -811,8 +837,8 @@ describe("AccountPage — contacts table", () => {
 
     it("shows a generic message when removing a contact fails with a non-API error", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact(), secondContact] }));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact(), secondContact] }) }));
         render(<AccountPage userUid="u1" />);
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
         mockedUpdateProfile.mockRejectedValueOnce(new TypeError("boom"));
@@ -822,10 +848,10 @@ describe("AccountPage — contacts table", () => {
     });
 
     it("disables Remove when the contact is the account's last verified contact", async () => {
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ profile: profileObj({ contacts: [contact({ verified: true })] }), aliases: [] }),
+        );
         render(<AccountPage userUid="u1" />);
 
         const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
@@ -833,12 +859,15 @@ describe("AccountPage — contacts table", () => {
     });
 
     it("disables Remove when the contact is the account's last enabled sign-in alias, even if not the last verified contact", async () => {
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(
-            profileObj({ contacts: [contact({ verified: true }), contact({ contact: "unverified@example.com", verified: false })] }),
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                profile: profileObj({
+                    contacts: [contact({ verified: true }), contact({ contact: "unverified@example.com", verified: false })],
+                }),
+                aliases: [alias({ uid: "a2", alias: "ada@example.com", type: "email" })],
+            }),
         );
-        mockedListAliases.mockReset();
-        mockedListAliases.mockResolvedValueOnce([alias({ uid: "a2", alias: "ada@example.com", type: "email" })]);
         render(<AccountPage userUid="u1" />);
 
         const table = await screen.findByRole("table");
@@ -855,15 +884,17 @@ describe("AccountPage — formatDate fallback", () => {
         vi.spyOn(Date.prototype, "toLocaleDateString").mockImplementationOnce(() => {
             throw new RangeError("boom");
         });
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockResolvedValueOnce([secret({ uid: "totp1", type: "totp", dateCreated: "2026-01-01T00:00:00.000Z" })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ secrets: [secret({ uid: "totp1", type: "totp", dateCreated: "2026-01-01T00:00:00.000Z" })] }),
+        );
         render(<AccountPage userUid="u1" />);
         expect(await screen.findByText("2026-01-01T00:00:00.000Z")).toBeInTheDocument();
     });
 
     it("renders an empty date when dateCreated is missing", async () => {
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockResolvedValueOnce([secret({ uid: "totp1", type: "totp", dateCreated: "" })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "totp1", type: "totp", dateCreated: "" })] }));
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Authenticator app");
         const row = screen.getByText("Authenticator app").closest("tr")!;
@@ -873,17 +904,17 @@ describe("AccountPage — formatDate fallback", () => {
 
 describe("AccountPage — secrets loading", () => {
     it("shows the ApiRequestError message on failure", async () => {
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockRejectedValueOnce(new ApiRequestError("nope", 500));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockRejectedValueOnce(new ApiRequestError("nope", 500));
         render(<AccountPage userUid="u1" />);
-        expect(await screen.findByText("nope")).toBeInTheDocument();
+        expect(await within(secretsCard()).findByText("nope")).toBeInTheDocument();
     });
 
     it("shows a generic message when listing secrets fails with a non-API error", async () => {
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockRejectedValueOnce(new TypeError("boom"));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockRejectedValueOnce(new TypeError("boom"));
         render(<AccountPage userUid="u1" />);
-        expect(await screen.findByText("Could not load your sign-in methods.")).toBeInTheDocument();
+        expect(await within(secretsCard()).findByText("Could not load your account.")).toBeInTheDocument();
     });
 
     it("renders an empty state with no sign-in methods", async () => {
@@ -893,13 +924,17 @@ describe("AccountPage — secrets loading", () => {
     });
 
     it("renders a table row per existing secret", async () => {
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockResolvedValueOnce([
-            secret({ uid: "sp", type: "password" }),
-            secret({ uid: "st", type: "totp" }),
-            secret({ uid: "sk", type: "passkey" }),
-            secret({ uid: "sf", type: "fido2" }),
-        ]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                secrets: [
+                    secret({ uid: "sp", type: "password" }),
+                    secret({ uid: "st", type: "totp" }),
+                    secret({ uid: "sk", type: "passkey" }),
+                    secret({ uid: "sf", type: "fido2" }),
+                ],
+            }),
+        );
         render(<AccountPage userUid="u1" />);
 
         expect(await screen.findByText("Password")).toBeInTheDocument();
@@ -910,8 +945,8 @@ describe("AccountPage — secrets loading", () => {
 
     it("removes a secret after confirmation", async () => {
         const user = userEvent.setup();
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockResolvedValueOnce([secret({ uid: "totp1", type: "totp" })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "totp1", type: "totp" })] }));
         render(<AccountPage userUid="u1" />);
         const row = (await screen.findByText("Authenticator app")).closest("tr")!;
         mockedDeleteSecret.mockResolvedValueOnce();
@@ -925,8 +960,8 @@ describe("AccountPage — secrets loading", () => {
     it("does nothing to remove a secret when the confirmation is declined", async () => {
         const user = userEvent.setup();
         window.confirm = vi.fn(() => false);
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockResolvedValueOnce([secret({ uid: "totp1", type: "totp" })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "totp1", type: "totp" })] }));
         render(<AccountPage userUid="u1" />);
         const row = (await screen.findByText("Authenticator app")).closest("tr")!;
 
@@ -936,8 +971,8 @@ describe("AccountPage — secrets loading", () => {
 
     it("shows the ApiRequestError message when removal fails", async () => {
         const user = userEvent.setup();
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockResolvedValueOnce([secret({ uid: "totp1", type: "totp" })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "totp1", type: "totp" })] }));
         render(<AccountPage userUid="u1" />);
         const row = (await screen.findByText("Authenticator app")).closest("tr")!;
         mockedDeleteSecret.mockRejectedValueOnce(new ApiRequestError("cannot delete", 403));
@@ -948,8 +983,8 @@ describe("AccountPage — secrets loading", () => {
 
     it("shows a generic message when removal fails with a non-API error", async () => {
         const user = userEvent.setup();
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockResolvedValueOnce([secret({ uid: "totp1", type: "totp" })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "totp1", type: "totp" })] }));
         render(<AccountPage userUid="u1" />);
         const row = (await screen.findByText("Authenticator app")).closest("tr")!;
         mockedDeleteSecret.mockRejectedValueOnce(new TypeError("boom"));
@@ -963,7 +998,7 @@ describe("AccountPage — add sign-in method modal", () => {
     async function openAddModal(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
         await screen.findByRole("dialog", { name: "Add a sign-in method" });
     }
 
@@ -973,7 +1008,7 @@ describe("AccountPage — add sign-in method modal", () => {
         expect(screen.getByRole("button", { name: "Password" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Authenticator app" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Passkey" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Hardware key" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Hardware key (FIDO2, YubiKey)" })).toBeInTheDocument();
         expect(screen.queryByLabelText("New password")).toBeNull();
     });
 
@@ -986,7 +1021,7 @@ describe("AccountPage — add sign-in method modal", () => {
         await user.keyboard("{Escape}");
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
         expect(screen.getByRole("button", { name: "Password" })).toBeInTheDocument();
         expect(screen.queryByLabelText("New password")).toBeNull();
     });
@@ -996,7 +1031,7 @@ describe("AccountPage — password", () => {
     async function goToPasswordForm(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
         await user.click(screen.getByRole("button", { name: "Password" }));
     }
 
@@ -1075,8 +1110,8 @@ describe("AccountPage — password", () => {
 
     it("changes an existing password, deleting the old secret", async () => {
         const user = userEvent.setup();
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockResolvedValueOnce([secret({ uid: "oldpw", type: "password" })]);
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "oldpw", type: "password" })] }));
         await goToPasswordForm(user);
         mockedCreatePasswordSecret.mockResolvedValueOnce(secret({ uid: "newpw" }));
         mockedDeleteSecret.mockResolvedValueOnce();
@@ -1120,7 +1155,7 @@ describe("AccountPage — password requirements fetch failure", () => {
         const user = userEvent.setup();
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
         await user.click(screen.getByRole("button", { name: "Password" }));
         await user.type(screen.getByLabelText("New password"), "a");
         expect(screen.getByText("At least 8 characters")).toBeInTheDocument();
@@ -1131,7 +1166,7 @@ describe("AccountPage — authenticator app (TOTP)", () => {
     async function goToTotp(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
         await user.click(screen.getByRole("button", { name: "Authenticator app" }));
     }
 
@@ -1201,7 +1236,7 @@ describe("AccountPage — passkey", () => {
     async function goToPasskey(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
         await user.click(screen.getByRole("button", { name: "Passkey" }));
     }
 
@@ -1274,8 +1309,8 @@ describe("AccountPage — FIDO2 security key", () => {
     async function goToFido2(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
-        await user.click(screen.getByRole("button", { name: "Hardware key" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
+        await user.click(screen.getByRole("button", { name: "Hardware key (FIDO2, YubiKey)" }));
     }
 
     it("adds a security key via WebAuthn registration, closing the modal", async () => {
@@ -1342,16 +1377,16 @@ describe("AccountPage — FIDO2 security key", () => {
     });
 });
 
-describe("AccountPage — state updaters fire while the initial list is still loading", () => {
-    // aliases/secrets start out `null` until listAliases()/listSecrets() resolves, but the "add" forms
-    // and buttons are rendered unconditionally regardless — so a fast user (or a slow network) can fire
-    // these handlers before the initial load finishes. Each setter's `prev ?? []` fallback only
-    // exercises with `prev` still `null`, which requires the list request to still be pending.
+describe("AccountPage — state updaters fire while the initial account fetch is still pending", () => {
+    // aliases/secrets start out `null` until the single GET /accounts/me request resolves, but the "add"
+    // forms and buttons are rendered unconditionally regardless — so a fast user (or a slow network) can
+    // fire these handlers before the initial load finishes. Each setter's `prev ?? []` fallback only
+    // exercises with `prev` still `null`, which requires the account request to still be pending.
 
-    it("handleAddUsername seeds the list from [] when aliases hadn't loaded yet", async () => {
+    it("handleAddUsername seeds the list from [] when the account hadn't loaded yet", async () => {
         const user = userEvent.setup();
-        mockedListAliases.mockReset();
-        mockedListAliases.mockReturnValueOnce(new Promise(() => undefined));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockReturnValueOnce(new Promise(() => undefined));
         render(<AccountPage userUid="u1" />);
         await screen.findByPlaceholderText("username");
         mockedCreateUsernameAlias.mockResolvedValueOnce(alias({ uid: "n1", type: "name", alias: "coolname", verified: true }));
@@ -1362,27 +1397,13 @@ describe("AccountPage — state updaters fire while the initial list is still lo
         expect(await screen.findByText("coolname")).toBeInTheDocument();
     });
 
-    it("handleToggleContactSignIn seeds the list from [] when aliases hadn't loaded yet", async () => {
+    it("handlePasswordSubmit seeds the list from [] when the account hadn't loaded yet", async () => {
         const user = userEvent.setup();
-        mockedGetProfile.mockReset();
-        mockedGetProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
-        mockedListAliases.mockReset();
-        mockedListAliases.mockReturnValueOnce(new Promise(() => undefined));
-        render(<AccountPage userUid="u1" />);
-        mockedCreateAlias.mockResolvedValueOnce(alias({ uid: "a2", alias: "ada@example.com", type: "email", verified: true }));
-
-        await user.click(await screen.findByRole("button", { name: "Enable" }));
-
-        expect(await screen.findByRole("button", { name: "Disable" })).toBeInTheDocument();
-    });
-
-    it("handlePasswordSubmit seeds the list from [] when secrets hadn't loaded yet", async () => {
-        const user = userEvent.setup();
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockReturnValueOnce(new Promise(() => undefined));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockReturnValueOnce(new Promise(() => undefined));
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
         await user.click(screen.getByRole("button", { name: "Password" }));
         mockedCreatePasswordSecret.mockResolvedValueOnce(secret({ uid: "newpw" }));
 
@@ -1394,13 +1415,13 @@ describe("AccountPage — state updaters fire while the initial list is still lo
         expect(screen.getByText("Password")).toBeInTheDocument();
     });
 
-    it("handleAddTotp seeds the list from [] when secrets hadn't loaded yet", async () => {
+    it("handleAddTotp seeds the list from [] when the account hadn't loaded yet", async () => {
         const user = userEvent.setup();
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockReturnValueOnce(new Promise(() => undefined));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockReturnValueOnce(new Promise(() => undefined));
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
         await user.click(screen.getByRole("button", { name: "Authenticator app" }));
         mockedCreateTotpSecret.mockResolvedValueOnce({
             ...secret({ uid: "totp1", type: "totp" }),
@@ -1415,13 +1436,13 @@ describe("AccountPage — state updaters fire while the initial list is still lo
         expect(screen.getByText("Authenticator app")).toBeInTheDocument();
     });
 
-    it("handleAddPasskey seeds the list from [] when secrets hadn't loaded yet", async () => {
+    it("handleAddPasskey seeds the list from [] when the account hadn't loaded yet", async () => {
         const user = userEvent.setup();
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockReturnValueOnce(new Promise(() => undefined));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockReturnValueOnce(new Promise(() => undefined));
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
         await user.click(screen.getByRole("button", { name: "Passkey" }));
         mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({});
         mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
@@ -1433,14 +1454,14 @@ describe("AccountPage — state updaters fire while the initial list is still lo
         expect(screen.getByText("Passkey")).toBeInTheDocument();
     });
 
-    it("handleAddFido2 seeds the list from [] when secrets hadn't loaded yet", async () => {
+    it("handleAddFido2 seeds the list from [] when the account hadn't loaded yet", async () => {
         const user = userEvent.setup();
-        mockedListSecrets.mockReset();
-        mockedListSecrets.mockReturnValueOnce(new Promise(() => undefined));
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockReturnValueOnce(new Promise(() => undefined));
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
-        await user.click(within(secretsCard()).getByRole("button", { name: "+ Add" }));
-        await user.click(screen.getByRole("button", { name: "Hardware key" }));
+        await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
+        await user.click(screen.getByRole("button", { name: "Hardware key (FIDO2, YubiKey)" }));
         mockedGetFido2RegistrationOptions.mockResolvedValueOnce({});
         mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
         mockedRegisterFido2.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2" }));
@@ -1467,24 +1488,115 @@ describe("AccountPage — logout", () => {
     });
 });
 
+describe("AccountPage — delete account", () => {
+    async function openDeleteModal(user: ReturnType<typeof userEvent.setup>) {
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Save profile");
+        await user.click(screen.getByRole("button", { name: "Delete account" }));
+        return screen.getByRole("dialog", { name: "Delete account" });
+    }
+
+    it("does nothing until the deletion is confirmed", async () => {
+        const user = userEvent.setup();
+        const dialog = await openDeleteModal(user);
+        expect(within(dialog).getByText(/permanently removes your profile/)).toBeInTheDocument();
+        expect(mockedDeleteAccount).not.toHaveBeenCalled();
+    });
+
+    it("closes without deleting when cancelled", async () => {
+        const user = userEvent.setup();
+        const dialog = await openDeleteModal(user);
+        await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(mockedDeleteAccount).not.toHaveBeenCalled();
+    });
+
+    it("deletes the account, logs out, and redirects to /auth/signin on confirm", async () => {
+        const user = userEvent.setup();
+        const location = mockLocation();
+        mockedDeleteAccount.mockResolvedValueOnce();
+        mockedLogout.mockResolvedValueOnce();
+        const dialog = await openDeleteModal(user);
+
+        await user.click(within(dialog).getByRole("button", { name: "Delete my account" }));
+
+        await waitFor(() => expect(location.href).toBe("/auth/signin"));
+        expect(mockedDeleteAccount).toHaveBeenCalled();
+        expect(mockedLogout).toHaveBeenCalled();
+    });
+
+    it("shows the ApiRequestError message and keeps the modal open when deletion fails", async () => {
+        const user = userEvent.setup();
+        mockedDeleteAccount.mockRejectedValueOnce(new ApiRequestError("cannot delete", 403));
+        const dialog = await openDeleteModal(user);
+
+        await user.click(within(dialog).getByRole("button", { name: "Delete my account" }));
+
+        expect(await within(dialog).findByText("cannot delete")).toBeInTheDocument();
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+        expect(mockedLogout).not.toHaveBeenCalled();
+    });
+
+    it("shows a generic message when deletion fails with a non-API error", async () => {
+        const user = userEvent.setup();
+        mockedDeleteAccount.mockRejectedValueOnce(new TypeError("boom"));
+        const dialog = await openDeleteModal(user);
+
+        await user.click(within(dialog).getByRole("button", { name: "Delete my account" }));
+
+        expect(await within(dialog).findByText("Could not delete your account.")).toBeInTheDocument();
+    });
+
+    it("clears a previous error when the modal is closed and reopened", async () => {
+        const user = userEvent.setup();
+        mockedDeleteAccount.mockRejectedValueOnce(new ApiRequestError("cannot delete", 403));
+        let dialog = await openDeleteModal(user);
+        await user.click(within(dialog).getByRole("button", { name: "Delete my account" }));
+        await within(dialog).findByText("cannot delete");
+
+        await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "Delete account" }));
+        dialog = screen.getByRole("dialog");
+        expect(within(dialog).queryByText("cannot delete")).toBeNull();
+    });
+
+    it("ignores an Escape/backdrop close attempt while a deletion is in flight", async () => {
+        const user = userEvent.setup();
+        mockedDeleteAccount.mockReturnValueOnce(new Promise(() => undefined));
+        const dialog = await openDeleteModal(user);
+
+        await user.click(within(dialog).getByRole("button", { name: "Delete my account" }));
+        await waitFor(() => expect(within(dialog).getByRole("button", { name: "Delete my account" })).toBeDisabled());
+
+        await user.keyboard("{Escape}");
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+});
+
 describe("AccountPage — admin console link", () => {
     it("does not show an admin console link for a non-admin account", async () => {
-        mockedGetCurrentUser.mockResolvedValueOnce({ uid: "u1", roles: ["user"], scopes: [] });
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ user: { uid: "u1", roles: ["user"], scopes: [] } }));
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Save profile");
         expect(screen.queryByRole("link", { name: "Admin console" })).not.toBeInTheDocument();
     });
 
     it("shows an admin console link pointing at /admin for an admin account", async () => {
-        mockedGetCurrentUser.mockResolvedValueOnce({ uid: "u1", roles: ["admin"], scopes: [] });
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ user: { uid: "u1", roles: ["admin"], scopes: [] } }));
         render(<AccountPage userUid="u1" />);
         expect(await screen.findByRole("link", { name: "Admin console" })).toHaveAttribute("href", "/admin");
     });
 
-    it("does not show an admin console link (and does not error) when the role check fails", async () => {
-        mockedGetCurrentUser.mockRejectedValueOnce(new Error("network down"));
+    it("does not show an admin console link when the account fetch fails", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockRejectedValueOnce(new Error("network down"));
         render(<AccountPage userUid="u1" />);
-        await screen.findByText("Save profile");
+        expect(await within(profileCard()).findByText("Could not load your account.")).toBeInTheDocument();
         expect(screen.queryByRole("link", { name: "Admin console" })).not.toBeInTheDocument();
     });
 });

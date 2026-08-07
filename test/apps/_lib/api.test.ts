@@ -14,9 +14,11 @@ import {
     createProfile,
     createTotpSecret,
     createUsernameAlias,
+    deleteAccount,
     deleteAlias,
     deleteSecret,
     discoverAuthMethods,
+    getAccount,
     getAuthToken,
     getCurrentUser,
     getFido2Challenge,
@@ -585,5 +587,33 @@ describe("secrets", () => {
             "/api/secrets",
             expect.objectContaining({ body: JSON.stringify({ type: "fido2", data: response, hint: "YubiKey" }) }),
         );
+    });
+});
+
+describe("account", () => {
+    it("getAccount defaults to fetching /accounts/me", async () => {
+        const data = { user: { uid: "u1", roles: [], scopes: [] }, aliases: [], secrets: [] };
+        const fetchMock = mockFetch(() => jsonResponse(200, data));
+        const result = await getAccount();
+        expect(fetchMock).toHaveBeenCalledWith("/api/accounts/me", expect.anything());
+        expect(result).toEqual(data);
+    });
+
+    it("getAccount fetches the encoded uid when one is given", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { user: { uid: "u/2", roles: [], scopes: [] }, aliases: [], secrets: [] }));
+        await getAccount("u/2");
+        expect(fetchMock).toHaveBeenCalledWith("/api/accounts/u%2F2", expect.anything());
+    });
+
+    it("deleteAccount defaults to DELETEing /accounts/me", async () => {
+        const fetchMock = mockFetch(() => emptyResponse(200));
+        await deleteAccount();
+        expect(fetchMock).toHaveBeenCalledWith("/api/accounts/me", expect.objectContaining({ method: "DELETE" }));
+    });
+
+    it("deleteAccount DELETEs the encoded uid when one is given", async () => {
+        const fetchMock = mockFetch(() => emptyResponse(200));
+        await deleteAccount("u/2");
+        expect(fetchMock).toHaveBeenCalledWith("/api/accounts/u%2F2", expect.objectContaining({ method: "DELETE" }));
     });
 });
