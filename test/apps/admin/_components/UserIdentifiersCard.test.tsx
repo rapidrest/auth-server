@@ -71,6 +71,27 @@ describe("UserIdentifiersCard", () => {
         expect(mockedCreateUserAlias).not.toHaveBeenCalled();
     });
 
+    it("seeds the list from [] when adding before the initial load has finished", async () => {
+        // The add form isn't gated on the initial listUserAliases() load finishing, so a fast submit can
+        // fire while `aliases` is still null — exercises the `prev ?? []` fallback.
+        const user = userEvent.setup();
+        mockedListUserAliases.mockReturnValue(new Promise(() => undefined));
+        mockedCreateUserAlias.mockResolvedValue({
+            uid: "a1",
+            version: 0,
+            alias: "newadmin",
+            type: "name",
+            userUid: "u1",
+            verified: true,
+        });
+        render(<UserIdentifiersCard uid="u1" />);
+        await user.selectOptions(screen.getByLabelText("Type"), "name");
+        await user.type(screen.getByLabelText("Value"), "newadmin");
+        await user.click(screen.getByRole("button", { name: "Add" }));
+        expect(mockedCreateUserAlias).toHaveBeenCalledWith("u1", "name", "newadmin");
+        expect(await screen.findByText("newadmin")).toBeInTheDocument();
+    });
+
     it("adds an identifier and appends it to the list", async () => {
         const user = userEvent.setup();
         mockedListUserAliases.mockResolvedValue([]);

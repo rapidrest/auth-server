@@ -53,12 +53,13 @@ export default function UsersListPage({ userUid }: HomePageProps) {
     }
 
     async function handleConfirmDelete(purge: boolean) {
-        if (!deleteTarget) return;
+        // Only reachable via DeleteUserModal's own confirm button, which renders (and is therefore only
+        // clickable) once `deleteTarget` is already set — DeleteUserModal returns null while `user` is null.
         setDeleting(true);
         setDeleteError(null);
         try {
-            await deleteUser(deleteTarget.uid, deleteTarget.version, purge);
-            setUsers((prev) => prev.filter((u) => u.uid !== deleteTarget.uid));
+            await deleteUser(deleteTarget!.uid, deleteTarget!.version, purge);
+            setUsers((prev) => prev.filter((u) => u.uid !== deleteTarget!.uid));
             setDeleteTarget(null);
         } catch (err) {
             setDeleteError(err instanceof ApiRequestError ? err.message : "Could not delete this account.");

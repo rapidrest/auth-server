@@ -170,13 +170,13 @@ export default function ContactsCard({
         const existingAlias = findAliasForContact(aliases, contact);
         try {
             if (existingAlias) {
-                // findAliasForContact() only found a match because `aliases` is already a loaded, non-null
-                // array — so `prev` here is guaranteed non-null too.
+                // Reachable only once `profile` and `aliases` have both loaded (they arrive together from
+                // the same `getAccount()` call) — `prev` is never null in either branch here.
                 await deleteAlias(existingAlias.uid);
                 setAliases((prev) => prev!.filter((a) => a.uid !== existingAlias.uid));
             } else {
                 const created = await createAlias(contact.type, contact.contact, true);
-                setAliases((prev) => [...(prev ?? []), created]);
+                setAliases((prev) => [...prev!, created]);
             }
         } catch (err) {
             setContactsError(

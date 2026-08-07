@@ -208,6 +208,30 @@ describe("UserSecretsCard", () => {
             expect(await screen.findByText("Could not set this account's password.")).toBeInTheDocument();
         });
 
+        it("sets a password when opened before the secret list has finished loading", async () => {
+            // "Set password" isn't gated on the initial listUserSecrets() load finishing, so a fast click
+            // can open the modal while `secrets` is still null — exercises the `secrets ?? []` fallback.
+            mockedListUserSecrets.mockReturnValue(new Promise(() => undefined));
+            mockedCreateUserPasswordSecret.mockResolvedValue({
+                uid: "new-pw",
+                version: 0,
+                type: "password",
+                userUid: "u1",
+                dateCreated: "",
+                hint: "Set by administrator",
+            });
+            const user = userEvent.setup();
+            render(<UserSecretsCard uid="u1" />);
+            await user.click(screen.getByRole("button", { name: "Set password" }));
+            await user.type(screen.getByLabelText("New password"), VALID_PASSWORD);
+            await user.type(screen.getByLabelText("Confirm new password"), VALID_PASSWORD);
+            await user.click(screen.getByRole("button", { name: "Save password" }));
+
+            expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("u1", VALID_PASSWORD, "Set by administrator");
+            expect(mockedDeleteSecret).not.toHaveBeenCalled();
+            await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        });
+
         it("closes via the modal's own close control", async () => {
             mockedListUserSecrets.mockResolvedValue([]);
             const user = userEvent.setup();

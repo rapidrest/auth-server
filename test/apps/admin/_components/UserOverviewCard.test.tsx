@@ -88,6 +88,14 @@ describe("UserOverviewCard", () => {
         expect(await screen.findByText("Could not save this account.")).toBeInTheDocument();
     });
 
+    it("renders an empty date when dateCreated/dateModified are missing", () => {
+        const user = { ...baseUser, dateCreated: "", dateModified: "" };
+        const { container } = render(<UserOverviewCard user={user} onUpdated={vi.fn()} />);
+        const dds = container.querySelectorAll("dd");
+        expect(dds[1]).toHaveTextContent("");
+        expect(dds[2]).toHaveTextContent("");
+    });
+
     it("falls back to the raw ISO string if toLocaleString throws", () => {
         const spy = vi.spyOn(Date.prototype, "toLocaleString").mockImplementation(() => {
             throw new Error("boom");
@@ -95,6 +103,16 @@ describe("UserOverviewCard", () => {
         render(<UserOverviewCard user={baseUser} onUpdated={vi.fn()} />);
         expect(screen.getByText(baseUser.dateCreated)).toBeInTheDocument();
         spy.mockRestore();
+    });
+
+    it("tolerates a malformed API response with roles/scopes/verified missing", () => {
+        // AdminUser's `roles`/`scopes` are typed as required and `verified` as boolean, but nothing at
+        // runtime guarantees the server actually sends them — the `?? []`/`!!` fallbacks below are a
+        // boundary safety net for that, hence the cast to simulate what a real malformed response looks like.
+        const malformedUser = { ...baseUser, roles: undefined, scopes: undefined, verified: undefined } as unknown as AdminUser;
+        render(<UserOverviewCard user={malformedUser} onUpdated={vi.fn()} />);
+        expect(screen.getByLabelText("Verified")).not.toBeChecked();
+        expect(screen.queryByText("admin")).not.toBeInTheDocument();
     });
 
     it("reseeds its fields when a different account is loaded", () => {

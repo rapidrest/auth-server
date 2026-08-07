@@ -134,6 +134,22 @@ describe("UserDetailPage", () => {
         expect(location.href).toBe("");
     });
 
+    it("shows a generic message in the modal when deletion fails with a non-API error", async () => {
+        mockedGetUser.mockResolvedValue(targetUser);
+        mockedDeleteUser.mockRejectedValue(new TypeError("boom"));
+        const location = stubLocation("?uid=target-1");
+        const user = userEvent.setup();
+        render(<UserDetailPage userUid="admin-1" />);
+        await screen.findByText("target-1");
+
+        await user.click(screen.getByRole("button", { name: "Delete account" }));
+        const dialog = await screen.findByRole("dialog");
+        await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+        expect(await screen.findByText("Could not delete this account.")).toBeInTheDocument();
+        expect(location.href).toBe("");
+    });
+
     it("closes the delete modal without deleting when Cancel is clicked", async () => {
         mockedGetUser.mockResolvedValue(targetUser);
         const user = userEvent.setup();

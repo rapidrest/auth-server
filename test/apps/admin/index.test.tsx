@@ -79,6 +79,26 @@ describe("UsersListPage", () => {
         await waitFor(() => expect(mockedListUsers).toHaveBeenLastCalledWith(expect.objectContaining({ page: 0 })));
     });
 
+    it("passes the role and verified filters through to listUsers", async () => {
+        mockedListUsers.mockResolvedValue([]);
+        const user = userEvent.setup();
+        render(<UsersListPage userUid="admin-1" />);
+        await screen.findByText("No accounts found.");
+
+        await user.type(screen.getByLabelText("Role"), "admin");
+        await user.selectOptions(screen.getByLabelText("Status"), "Verified");
+        await user.click(screen.getByRole("button", { name: "Search" }));
+
+        await waitFor(() =>
+            expect(mockedListUsers).toHaveBeenLastCalledWith(expect.objectContaining({ role: "admin", verified: true })),
+        );
+
+        await user.selectOptions(screen.getByLabelText("Status"), "Unverified");
+        await user.click(screen.getByRole("button", { name: "Search" }));
+
+        await waitFor(() => expect(mockedListUsers).toHaveBeenLastCalledWith(expect.objectContaining({ verified: false })));
+    });
+
     it("switches to searchUsers and hides pagination while a query is active", async () => {
         mockedListUsers.mockResolvedValue([]);
         mockedSearchUsers.mockResolvedValue([makeUser("found-1")]);
@@ -94,43 +114,45 @@ describe("UsersListPage", () => {
         expect(screen.queryByRole("button", { name: "Previous" })).not.toBeInTheDocument();
     });
 
-    it("deletes a user via the confirm modal and removes it from the list", async () => {
+    it("closes the delete modal without deleting when Cancel is clicked, then retries after a failed attempt and succeeds", async () => {
         mockedListUsers.mockResolvedValue([makeUser("u1")]);
-        mockedDeleteUser.mockResolvedValue(undefined);
         const user = userEvent.setup();
         render(<UsersListPage userUid="admin-1" />);
         await screen.findByText("u1");
 
+        // Cancel — no deletion.
         await user.click(screen.getByRole("button", { name: "Delete" }));
-        const dialog = await screen.findByRole("dialog");
-        await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+        let dialog = await screen.findByRole("dialog");
+        await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(mockedDeleteUser).not.toHaveBeenCalled();
 
-        expect(mockedDeleteUser).toHaveBeenCalledWith("u1", 0, false);
+        // A failed attempt shows the error and keeps the modal open.
+        mockedDeleteUser.mockRejectedValueOnce(new ApiRequestError("nope", 500));
+        await user.click(screen.getByRole("button", { name: "Delete" }));
+        dialog = await screen.findByRole("dialog");
+        await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+        expect(await within(dialog).findByText("nope")).toBeInTheDocument();
+
+        // Retrying the same dialog after a successful call removes the user and closes it.
+        mockedDeleteUser.mockResolvedValueOnce(undefined);
+        await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+        expect(mockedDeleteUser).toHaveBeenLastCalledWith("u1", 0, false);
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
         expect(screen.getByText("No accounts found.")).toBeInTheDocument();
     });
 
-    it("shows an error in the modal when deletion fails", async () => {
+    it("shows a generic message in the modal when deletion fails with a non-API error", async () => {
         mockedListUsers.mockResolvedValue([makeUser("u1")]);
-        mockedDeleteUser.mockRejectedValue(new ApiRequestError("nope", 500));
+        mockedDeleteUser.mockRejectedValueOnce(new TypeError("boom"));
         const user = userEvent.setup();
         render(<UsersListPage userUid="admin-1" />);
         await screen.findByText("u1");
+
         await user.click(screen.getByRole("button", { name: "Delete" }));
         const dialog = await screen.findByRole("dialog");
         await user.click(within(dialog).getByRole("button", { name: "Delete" }));
-        expect(await screen.findByText("nope")).toBeInTheDocument();
-    });
 
-    it("closes the delete modal without deleting when Cancel is clicked", async () => {
-        mockedListUsers.mockResolvedValue([makeUser("u1")]);
-        const user = userEvent.setup();
-        render(<UsersListPage userUid="admin-1" />);
-        await screen.findByText("u1");
-        await user.click(screen.getByRole("button", { name: "Delete" }));
-        const dialog = await screen.findByRole("dialog");
-        await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-        expect(mockedDeleteUser).not.toHaveBeenCalled();
+        expect(await within(dialog).findByText("Could not delete this account.")).toBeInTheDocument();
     });
 });

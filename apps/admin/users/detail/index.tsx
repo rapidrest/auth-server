@@ -43,11 +43,12 @@ export default function UserDetailPage({ userUid }: DetailPageProps) {
     }, [targetUid]);
 
     async function handleConfirmDelete(purge: boolean) {
-        if (!user) return;
+        // Only reachable via DeleteUserModal's own confirm button, which is only rendered (and therefore
+        // only clickable) once `user` is already loaded — see the `targetUid && loaded && user` guard below.
         setDeleting(true);
         setDeleteError(null);
         try {
-            await deleteUser(user.uid, user.version, purge);
+            await deleteUser(user!.uid, user!.version, purge);
             window.location.href = "/admin";
         } catch (err) {
             setDeleteError(err instanceof ApiRequestError ? err.message : "Could not delete this account.");
