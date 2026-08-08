@@ -20,7 +20,6 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
         getFido2Challenge: vi.fn(),
         getOtpChallenge: vi.fn(),
         getPasskeyChallenge: vi.fn(),
-        setAuthToken: vi.fn(),
         signInWithOtp: vi.fn(),
         signInWithPassword: vi.fn(),
         signInWithTotp: vi.fn(),
@@ -37,7 +36,6 @@ import {
     getFido2Challenge,
     getOtpChallenge,
     getPasskeyChallenge,
-    setAuthToken,
     signInWithOtp,
     signInWithPassword,
     signInWithTotp,
@@ -51,7 +49,6 @@ const mockedDiscoverAuthMethods = vi.mocked(discoverAuthMethods);
 const mockedGetFido2Challenge = vi.mocked(getFido2Challenge);
 const mockedGetOtpChallenge = vi.mocked(getOtpChallenge);
 const mockedGetPasskeyChallenge = vi.mocked(getPasskeyChallenge);
-const mockedSetAuthToken = vi.mocked(setAuthToken);
 const mockedSignInWithOtp = vi.mocked(signInWithOtp);
 const mockedSignInWithPassword = vi.mocked(signInWithPassword);
 const mockedSignInWithTotp = vi.mocked(signInWithTotp);
@@ -332,7 +329,6 @@ describe("SignInPage — password method", () => {
 
         await waitFor(() => expect(location.href).toBe("/account"));
         expect(mockedSignInWithPassword).toHaveBeenCalledWith("a@example.com", "hunter2");
-        expect(mockedSetAuthToken).toHaveBeenCalledWith("tok-123");
     });
 
     it("shows a fixed message on an ApiRequestError", async () => {

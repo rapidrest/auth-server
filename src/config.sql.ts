@@ -4,6 +4,7 @@
 import { createRequire } from "module";
 import nconf from "nconf";
 import { join } from "path";
+import { DEFAULT_AUTH_SECRET, DEFAULT_COOKIE_SECRET, DEFAULT_SESSION_SECRET } from "./config.defaults.js";
 
 const _require = createRequire(import.meta.url);
 const packageInfo = _require(join(process.cwd(), "package.json"));
@@ -20,7 +21,7 @@ conf.use("memory");
 conf.defaults({
     service_name: packageInfo.name,
     version: packageInfo.version,
-    cookie_secret: "f0fLSKFJLKWJFe09f32joff098u2fOFIWJ32890fnfnlak",
+    cookie_secret: DEFAULT_COOKIE_SECRET,
     cors: {
         origins: ["http://localhost:3000"],
     },
@@ -66,7 +67,7 @@ conf.defaults({
         // The default set of scopes to grant newly authenticated users
         default_scopes: ["profile:contacts", "profile:preferences"],
         // The password to be used when signing or verifying authentication tokens
-        secret: "MyPasswordIsSecure",
+        secret: DEFAULT_AUTH_SECRET,
         // Also set a Set-Cookie header (in addition to returning the token in the response body)
         // whenever a JWT is issued, so the SSR pages under apps/www can authenticate a request without
         // the client having to attach an Authorization header itself. HttpOnly (the default) so the
@@ -121,7 +122,7 @@ conf.defaults({
         enabled: true,
     },
     session: {
-        secret: "SessionsHaveSecrets",
+        secret: DEFAULT_SESSION_SECRET,
         cookieName: "rrst.sid",
         ttl: 300,
     },

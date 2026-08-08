@@ -1,10 +1,8 @@
 import React from "react";
-import { AuthResult, setAuthToken } from "../../../shared/lib/api.js";
 import AuthShell from "../../../shared/components/layout/AuthShell.js";
 import SignInFlow from "../../../shared/components/sign-in/SignInFlow.js";
 
-function completeSignIn(result: AuthResult) {
-    setAuthToken(result.token);
+function completeSignIn() {
     window.location.href = "/account";
 }
 

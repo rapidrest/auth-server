@@ -2,9 +2,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyResponse, jsonResponse, mockFetch } from "../../testUtils.js";
-import { setAuthToken } from "../../../../apps/shared/lib/api.js";
 import {
     createUser,
     createUserAlias,
@@ -20,11 +19,6 @@ import {
     updateUser,
     upsertUserProfile,
 } from "../../../../apps/shared/lib/adminApi.js";
-
-beforeEach(() => {
-    window.localStorage.clear();
-    setAuthToken("tok");
-});
 
 afterEach(() => {
     vi.unstubAllGlobals();

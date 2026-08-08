@@ -1,10 +1,14 @@
 /**
  * Minimal client-side helpers shared by the auth pages: a `fetch` wrapper that talks to the same-origin
- * RapidREST API and attaches the JWT, plus small helpers for storing/clearing that token. There is no
- * client router or HTTP client shipped by `@rapidrest/react`, so this is deliberately small and framework-free.
+ * RapidREST API. There is no client router or HTTP client shipped by `@rapidrest/react`, so this is
+ * deliberately small and framework-free.
+ *
+ * Authentication is handled entirely via the `jwt` HttpOnly cookie the server sets on every successful
+ * sign-in/sign-up (see `auth:cookie` config / `TokenUtils`) — the browser attaches it automatically to
+ * every same-origin `fetch()` call (the default `credentials: "same-origin"` mode), and the server's
+ * `JWTStrategy` accepts it as a credential for every authenticated request, not just SSR page loads. No
+ * token is ever held in JS-accessible storage, so it can't be read or exfiltrated via XSS.
  */
-
-const TOKEN_STORAGE_KEY = "rrst.jwt";
 
 export interface ApiUser {
     uid: string;
@@ -30,75 +34,32 @@ export class ApiRequestError extends Error {
     }
 }
 
-/** Reads the stored JWT, if any. Client-side only. */
-export function getAuthToken(): string | null {
-    if (typeof window === "undefined") return null;
-    try {
-        return window.localStorage.getItem(TOKEN_STORAGE_KEY);
-    } catch {
-        return null;
-    }
-}
-
 /**
- * Persists the JWT for subsequent client-side `fetch()` calls (localStorage). SSR page renders (e.g.
- * navigating to `/`) are authenticated separately, via the `jwt` HttpOnly cookie the server itself sets
- * (`Set-Cookie`, see `auth:cookie` config / `TokenUtils`) on the same response this token came from — the
- * browser stores that automatically, nothing to do here for it.
- */
-export function setAuthToken(token: string): void {
-    if (typeof window === "undefined") return;
-    try {
-        window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    } catch {
-        // Ignore storage failures (e.g. private browsing quota) — the HttpOnly cookie still works for SSR.
-    }
-}
-
-/**
- * Clears the locally-stored JWT. Does NOT clear the server-set `jwt` cookie — being `HttpOnly`, that
- * cookie isn't visible to (or clearable by) JavaScript at all. Call `logout()` instead of this directly
- * when signing a user out, so the cookie is cleared too via `POST /auth/logout`.
- */
-export function clearAuthToken(): void {
-    if (typeof window === "undefined") return;
-    try {
-        window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-    } catch {
-        // Ignore.
-    }
-}
-
-/**
- * Signs the current user out: clears the server-set `jwt` cookie (an `HttpOnly` cookie can only be
- * cleared by the server writing a new `Set-Cookie`, never by client JavaScript) and the locally-stored
- * token. Safe to call even if the caller was never issued a cookie (e.g. cookie issuance is disabled
- * server-side) — `POST /auth/logout` always succeeds.
+ * Signs the current user out by clearing the server-set `jwt` cookie (an `HttpOnly` cookie can only be
+ * cleared by the server writing a new `Set-Cookie`, never by client JavaScript) via `POST /auth/logout`.
+ * Callers redirect unconditionally right after awaiting this (see `account`/`AdminShell`), so a failed
+ * network request is swallowed rather than thrown — better to navigate the user away from the
+ * authenticated page than strand them on it because the logout call itself didn't reach the server.
  */
 export async function logout(): Promise<void> {
     try {
         await apiFetch("/auth/logout", { method: "POST" });
     } catch {
-        // Still clear local state even if the network call failed — don't leave the user stuck signed in
-        // on this device just because the logout request didn't reach the server.
+        // Best-effort — see doc comment above.
     }
-    clearAuthToken();
 }
 
 /**
- * `fetch()` against the same-origin API, attaching the stored JWT and decoding RapidREST-shaped errors.
- * `path` is the route as declared by `@ApiRoute` (e.g. `/register/start`) — the `/api` prefix that
- * decorator always adds is applied here, in one place, rather than repeated at every call site.
+ * `fetch()` against the same-origin API, decoding RapidREST-shaped errors. `path` is the route as
+ * declared by `@ApiRoute` (e.g. `/register/start`) — the `/api` prefix that decorator always adds is
+ * applied here, in one place, rather than repeated at every call site. Authentication rides along
+ * automatically via the `jwt` HttpOnly cookie (browsers attach cookies to same-origin `fetch()` calls by
+ * default); callers that need a different credential (e.g. password sign-in's `Authorization: Basic`)
+ * set their own header, which is left untouched here.
  */
 export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
-    const token = getAuthToken();
     const headers = new Headers(init.headers);
     headers.set("Content-Type", "application/json");
-    // Only fall back to the stored Bearer token if the caller didn't already set their own Authorization
-    // header (e.g. password sign-in's `Basic <credentials>`, sent before any token exists anyway).
-    if (token && !headers.has("Authorization")) {
-        headers.set("Authorization", `Bearer ${token}`);
-    }
 
     const res = await fetch(`/api${path}`, { ...init, headers });
     const contentType = res.headers.get("content-type") ?? "";

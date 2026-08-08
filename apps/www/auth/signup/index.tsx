@@ -6,7 +6,6 @@ import {
     createProfile,
     createUsernameAlias,
     RegistrationIdentifierType,
-    setAuthToken,
     verifyRegistration,
 } from "../../../shared/lib/api.js";
 import { isPasswordValid, usePasswordRequirements } from "../../../shared/lib/passwordCriteria.js";
@@ -109,10 +108,10 @@ export default function SignUpPage({ initialIdentifierType, initialIdentifier, a
         setError(null);
         setLoading(true);
         try {
-            // Verifying the code creates the account (User + verified Alias) and logs it in immediately —
-            // the profile/password steps that follow are separate authenticated calls, not part of this one.
-            const result = await verifyRegistration(identifierType, identifier.trim(), code.trim());
-            setAuthToken(result.token);
+            // Verifying the code creates the account (User + verified Alias) and logs it in immediately
+            // (the server sets the `jwt` HttpOnly cookie on this response) — the profile/password steps
+            // that follow are separate authenticated calls, not part of this one.
+            await verifyRegistration(identifierType, identifier.trim(), code.trim());
             setStep("profile");
         } catch (err) {
             setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");

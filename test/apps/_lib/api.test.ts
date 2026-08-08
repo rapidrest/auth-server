@@ -2,13 +2,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyResponse, jsonResponse, mockFetch } from "../testUtils.js";
 import {
     ApiRequestError,
     apiFetch,
     beginRegistration,
-    clearAuthToken,
     createAlias,
     createPasswordSecret,
     createProfile,
@@ -19,7 +18,6 @@ import {
     deleteSecret,
     discoverAuthMethods,
     getAccount,
-    getAuthToken,
     getCurrentUser,
     getFido2Challenge,
     getFido2RegistrationOptions,
@@ -34,7 +32,6 @@ import {
     registerFido2,
     registerPasskey,
     resendContactVerificationCode,
-    setAuthToken,
     signInWithOtp,
     signInWithPassword,
     signInWithTotp,
@@ -45,10 +42,6 @@ import {
     verifyPasskeySignIn,
     verifyRegistration,
 } from "../../../apps/shared/lib/api.js";
-
-beforeEach(() => {
-    window.localStorage.clear();
-});
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -70,60 +63,18 @@ describe("ApiRequestError", () => {
     });
 });
 
-describe("token storage", () => {
-    it("getAuthToken returns null when nothing stored", () => {
-        expect(getAuthToken()).toBeNull();
-    });
-
-    it("setAuthToken persists to localStorage, getAuthToken reads it back", () => {
-        setAuthToken("tok-123");
-        expect(getAuthToken()).toBe("tok-123");
-    });
-
-    it("clearAuthToken removes the stored token", () => {
-        setAuthToken("tok-123");
-        clearAuthToken();
-        expect(getAuthToken()).toBeNull();
-    });
-
-    it("getAuthToken swallows a storage read failure and returns null", () => {
-        vi.spyOn(Storage.prototype, "getItem").mockImplementationOnce(() => {
-            throw new Error("boom");
-        });
-        expect(getAuthToken()).toBeNull();
-    });
-
-    it("setAuthToken swallows a storage write failure", () => {
-        vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
-            throw new Error("quota exceeded");
-        });
-        expect(() => setAuthToken("tok-123")).not.toThrow();
-    });
-
-    it("clearAuthToken swallows a storage removal failure", () => {
-        vi.spyOn(Storage.prototype, "removeItem").mockImplementationOnce(() => {
-            throw new Error("boom");
-        });
-        expect(() => clearAuthToken()).not.toThrow();
-    });
-});
-
 describe("logout", () => {
-    it("posts to /auth/logout and clears the local token", async () => {
-        setAuthToken("tok-123");
+    it("posts to /auth/logout, which clears the server-set jwt cookie", async () => {
         const fetchMock = mockFetch(() => emptyResponse(200));
         await logout();
         expect(fetchMock).toHaveBeenCalledWith("/api/auth/logout", expect.objectContaining({ method: "POST" }));
-        expect(getAuthToken()).toBeNull();
     });
 
-    it("still clears the local token if the network call fails", async () => {
-        setAuthToken("tok-123");
+    it("does not throw if the network call fails, so callers can still redirect", async () => {
         mockFetch(() => {
             throw new TypeError("network down");
         });
-        await logout();
-        expect(getAuthToken()).toBeNull();
+        await expect(logout()).resolves.toBeUndefined();
     });
 });
 
@@ -135,17 +86,7 @@ describe("apiFetch", () => {
         expect(result).toEqual({ ok: true });
     });
 
-    it("attaches a Bearer token from storage when no Authorization header is set", async () => {
-        setAuthToken("tok-abc");
-        const fetchMock = mockFetch(() => jsonResponse(200, {}));
-        await apiFetch("/secrets");
-        const init = fetchMock.mock.calls[0][1] as RequestInit;
-        const headers = init.headers as Headers;
-        expect(headers.get("Authorization")).toBe("Bearer tok-abc");
-    });
-
-    it("does not overwrite a caller-supplied Authorization header", async () => {
-        setAuthToken("tok-abc");
+    it("leaves a caller-supplied Authorization header untouched", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, {}));
         await apiFetch("/auth/password", { headers: { Authorization: "Basic xyz" } });
         const init = fetchMock.mock.calls[0][1] as RequestInit;
@@ -153,7 +94,7 @@ describe("apiFetch", () => {
         expect(headers.get("Authorization")).toBe("Basic xyz");
     });
 
-    it("sends no Authorization header when there is no stored token", async () => {
+    it("sends no Authorization header by default (auth rides the jwt cookie instead)", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, {}));
         await apiFetch("/secrets/password");
         const init = fetchMock.mock.calls[0][1] as RequestInit;

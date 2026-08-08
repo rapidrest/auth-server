@@ -19,7 +19,6 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
         createPasswordSecret: vi.fn(),
         createUsernameAlias: vi.fn(),
         getPasswordRequirements: vi.fn(),
-        setAuthToken: vi.fn(),
     };
 });
 
@@ -30,7 +29,6 @@ import {
     createProfile,
     createUsernameAlias,
     getPasswordRequirements,
-    setAuthToken,
     verifyRegistration,
 } from "../../../apps/shared/lib/api.js";
 import SignUpPage, { fetchProps } from "../../../apps/www/auth/signup/index.js";
@@ -41,7 +39,6 @@ const mockedCreateProfile = vi.mocked(createProfile);
 const mockedCreatePasswordSecret = vi.mocked(createPasswordSecret);
 const mockedCreateUsernameAlias = vi.mocked(createUsernameAlias);
 const mockedGetPasswordRequirements = vi.mocked(getPasswordRequirements);
-const mockedSetAuthToken = vi.mocked(setAuthToken);
 
 beforeEach(() => {
     mockedGetPasswordRequirements.mockResolvedValue(FALLBACK_PASSWORD_REQUIREMENTS);
@@ -164,7 +161,7 @@ describe("SignUpPage — code step", () => {
         expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
     });
 
-    it("verifies the code, stores the token, and advances to the profile step", async () => {
+    it("verifies the code and advances to the profile step", async () => {
         const user = userEvent.setup();
         await advanceToCodeStep(user);
         mockedVerifyRegistration.mockResolvedValueOnce({ token: "tok-123", user: { uid: "u1", roles: [], scopes: [] } });
@@ -174,7 +171,6 @@ describe("SignUpPage — code step", () => {
 
         await screen.findByText("Tell us about yourself");
         expect(mockedVerifyRegistration).toHaveBeenCalledWith("email", "a@example.com", "123456");
-        expect(mockedSetAuthToken).toHaveBeenCalledWith("tok-123");
     });
 
     it("shows the ApiRequestError message when verification fails", async () => {

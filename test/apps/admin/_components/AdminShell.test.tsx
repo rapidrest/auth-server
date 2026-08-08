@@ -7,12 +7,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyResponse, jsonResponse, mockFetch, mockLocation } from "../../testUtils.js";
-import { setAuthToken } from "../../../../apps/shared/lib/api.js";
 import AdminShell from "../../../../apps/shared/components/admin/layout/AdminShell.js";
 
 afterEach(() => {
     vi.unstubAllGlobals();
-    window.localStorage.clear();
 });
 
 describe("AdminShell", () => {
@@ -54,7 +52,6 @@ describe("AdminShell", () => {
             }
             throw new Error(`unexpected ${init?.method ?? "GET"} ${url}`);
         });
-        setAuthToken("tok");
         const location = mockLocation();
         const user = userEvent.setup();
         render(<AdminShell userUid="admin-1">content</AdminShell>);

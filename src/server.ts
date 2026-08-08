@@ -11,12 +11,15 @@ import * as fs from "fs";
 import { readFile } from "fs/promises";
 import * as os from "os";
 import * as path from "path";
+import { assertProductionSecretsAreSet } from "./config.defaults.js";
 
 const _filename = fileURLToPath(import.meta.url);
 const _dirname = dirname(_filename);
 
 const isSQL: boolean = !!process.env.datastores__sql__url;
 const config:any = (isSQL ? await import("./config.sql.js") : await import("./config.mongo.js")).default;
+
+assertProductionSecretsAreSet(config, process.env.environment);
 
 const logLevel: string = config.get("logger:level") || (process.env.environment === "production" ? "info" : "debug");
 const logger = Logger(logLevel, config.get("logger:file"));
