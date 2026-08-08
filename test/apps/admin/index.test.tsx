@@ -48,7 +48,7 @@ describe("UsersListPage", () => {
     it("loads and renders the first page of users", async () => {
         mockedListUsers.mockResolvedValue([makeUser("u1")]);
         render(<UsersListPage userUid="admin-1" />);
-        expect(await screen.findByText("u1")).toBeInTheDocument();
+        expect(await screen.findByRole("link", { name: "View" })).toHaveAttribute("href", "/admin/users/detail?uid=u1");
         expect(mockedListUsers).toHaveBeenCalledWith({ page: 0, limit: 25, role: undefined, verified: undefined });
         expect(screen.getByRole("link", { name: "+ New user" })).toHaveAttribute("href", "/admin/users/new");
         expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
@@ -81,8 +81,7 @@ describe("UsersListPage", () => {
         mockedListUsers.mockResolvedValue(Array.from({ length: 25 }, (_, i) => makeUser(`u${i}`)));
         const user = userEvent.setup();
         render(<UsersListPage userUid="admin-1" />);
-        await screen.findByText("u0");
-        expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+        await waitFor(() => expect(screen.getByRole("button", { name: "Next" })).toBeEnabled());
 
         await user.click(screen.getByRole("button", { name: "Next" }));
         await waitFor(() => expect(mockedListUsers).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 })));
@@ -122,7 +121,10 @@ describe("UsersListPage", () => {
         await user.type(screen.getByLabelText("Search"), "found");
         await user.click(screen.getByRole("button", { name: "Search" }));
 
-        expect(await screen.findByText("found-1")).toBeInTheDocument();
+        expect(await screen.findByRole("link", { name: "View" })).toHaveAttribute(
+            "href",
+            "/admin/users/detail?uid=found-1",
+        );
         expect(mockedSearchUsers).toHaveBeenCalledWith("found", expect.objectContaining({ page: 0 }));
         expect(screen.queryByRole("button", { name: "Previous" })).not.toBeInTheDocument();
     });
@@ -131,7 +133,7 @@ describe("UsersListPage", () => {
         mockedListUsers.mockResolvedValue([makeUser("u1")]);
         const user = userEvent.setup();
         render(<UsersListPage userUid="admin-1" />);
-        await screen.findByText("u1");
+        await screen.findByRole("link", { name: "View" });
 
         // Cancel — no deletion.
         await user.click(screen.getByRole("button", { name: "Delete" }));
@@ -160,7 +162,7 @@ describe("UsersListPage", () => {
         mockedDeleteUser.mockRejectedValueOnce(new TypeError("boom"));
         const user = userEvent.setup();
         render(<UsersListPage userUid="admin-1" />);
-        await screen.findByText("u1");
+        await screen.findByRole("link", { name: "View" });
 
         await user.click(screen.getByRole("button", { name: "Delete" }));
         const dialog = await screen.findByRole("dialog");

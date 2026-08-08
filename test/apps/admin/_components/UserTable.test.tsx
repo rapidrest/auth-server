@@ -37,7 +37,6 @@ describe("UserTable", () => {
 
     it("renders a row per user with aliases, roles, scopes, status, and a formatted date", () => {
         render(<UserTable users={[baseUser]} aliasesByUid={{ u1: [baseAlias] }} onDelete={vi.fn()} />);
-        expect(screen.getByText("u1")).toBeInTheDocument();
         expect(screen.getByText("jane@example.com")).toBeInTheDocument();
         expect(screen.getByText("admin")).toBeInTheDocument();
         expect(screen.getByText("profile:contacts")).toBeInTheDocument();
@@ -70,8 +69,8 @@ describe("UserTable", () => {
 
     it("renders an empty date cell when dateCreated is missing", () => {
         render(<UserTable users={[{ ...baseUser, dateCreated: "" }]} aliasesByUid={{}} onDelete={vi.fn()} />);
-        const row = screen.getByText("u1").closest("tr")!;
-        expect(row.querySelectorAll("td")[5].textContent).toBe("");
+        const row = screen.getByRole("link", { name: "View" }).closest("tr")!;
+        expect(row.querySelectorAll("td")[4].textContent).toBe("");
     });
 
     it("calls onDelete with the user when Delete is clicked", async () => {
