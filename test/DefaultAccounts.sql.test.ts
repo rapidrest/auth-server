@@ -11,8 +11,16 @@ import { Logger, sleep } from "@rapidrest/core";
 import { ObjectFactory, RepoUtils, Server } from "@rapidrest/service-core";
 import { importArgon2 } from "@rapidrest/auth";
 import { AliasSQL, SecretSQL, UserSQL } from "@rapidrest/auth/sql";
+import * as fs from "fs";
 import * as sqlite3 from "sqlite3";
 
+// A `:memory:` sqlite database only lives as long as the connection that opened it — `server.stop()`
+// destroys that connection (via `ConnectionManager.disconnect()`), so a subsequent `server.start()`
+// reconnects to a brand-new, empty database. That defeats the "does not recreate the account on a
+// second startup" test below, which depends on data surviving a stop/start cycle (as it would for a
+// real sqlite deployment, and as mongodb-memory-server's out-of-process mongod already does for the
+// mongo equivalent of this test). Use a file-backed database instead so the data actually persists.
+const DB_FILE = "rrst-test-default-accounts";
 const sqlite: sqlite3.Database = new sqlite3.Database(":memory:");
 
 /** Finds the one-time password `DefaultAccounts` logs after creating a new account, if any. */
@@ -31,13 +39,13 @@ describe("DefaultAccounts Tests (sql)", () => {
         config.set("datastores:acl", {
             type: "sqlite",
             host: "localhost",
-            database: ":memory:",
+            database: DB_FILE,
             synchronize: true,
         });
         config.set("datastores:sql", {
             type: "sqlite",
             host: "localhost",
-            database: ":memory:",
+            database: DB_FILE,
             synchronize: true,
         });
     });
@@ -51,6 +59,7 @@ describe("DefaultAccounts Tests (sql)", () => {
                 resolve();
             });
         });
+        await fs.promises.rm(DB_FILE, { force: true });
     });
 
     afterEach(async () => {
