@@ -12,6 +12,7 @@ import {
     deleteUser,
     getUser,
     getUserProfile,
+    listAliasesForUsers,
     listUserAliases,
     listUsers,
     listUserSecrets,
@@ -179,6 +180,22 @@ describe("aliases", () => {
         const fetchMock = mockFetch(() => jsonResponse(200, []));
         await listUserAliases("u1");
         expect(fetchMock).toHaveBeenCalledWith("/api/aliases?userUid=u1", expect.anything());
+    });
+
+    it("listAliasesForUsers filters by an in() list of userUids", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, []));
+        await listAliasesForUsers(["u1", "u2"]);
+        expect(fetchMock).toHaveBeenCalledWith(
+            `/api/aliases?userUid=${encodeURIComponent("in(u1,u2)")}&limit=1000`,
+            expect.anything(),
+        );
+    });
+
+    it("listAliasesForUsers skips the request entirely for an empty list", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, []));
+        const result = await listAliasesForUsers([]);
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(result).toEqual([]);
     });
 
     it("createUserAlias posts type/alias/userUid", async () => {

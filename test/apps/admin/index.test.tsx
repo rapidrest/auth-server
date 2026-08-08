@@ -14,17 +14,18 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
 
 vi.mock("../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../apps/shared/lib/adminApi.js")>();
-    return { ...actual, listUsers: vi.fn(), searchUsers: vi.fn(), deleteUser: vi.fn() };
+    return { ...actual, listUsers: vi.fn(), searchUsers: vi.fn(), deleteUser: vi.fn(), listAliasesForUsers: vi.fn() };
 });
 
 import { ApiRequestError, getCurrentUser } from "../../../apps/shared/lib/api.js";
-import { AdminUser, deleteUser, listUsers, searchUsers } from "../../../apps/shared/lib/adminApi.js";
+import { AdminUser, deleteUser, listAliasesForUsers, listUsers, searchUsers } from "../../../apps/shared/lib/adminApi.js";
 import UsersListPage from "../../../apps/admin/index.js";
 
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedListUsers = vi.mocked(listUsers);
 const mockedSearchUsers = vi.mocked(searchUsers);
 const mockedDeleteUser = vi.mocked(deleteUser);
+const mockedListAliasesForUsers = vi.mocked(listAliasesForUsers);
 
 const adminSelf = { uid: "admin-1", roles: ["admin"], scopes: [] };
 
@@ -37,7 +38,9 @@ beforeEach(() => {
     mockedListUsers.mockReset();
     mockedSearchUsers.mockReset();
     mockedDeleteUser.mockReset();
+    mockedListAliasesForUsers.mockReset();
     mockedGetCurrentUser.mockResolvedValue(adminSelf);
+    mockedListAliasesForUsers.mockResolvedValue([]);
     window.confirm = vi.fn(() => true);
 });
 
@@ -50,6 +53,16 @@ describe("UsersListPage", () => {
         expect(screen.getByRole("link", { name: "+ New user" })).toHaveAttribute("href", "/admin/users/new");
         expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
         expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    });
+
+    it("fetches and renders aliases for the loaded page of users", async () => {
+        mockedListUsers.mockResolvedValue([makeUser("u1")]);
+        mockedListAliasesForUsers.mockResolvedValue([
+            { uid: "a1", version: 0, alias: "jane@example.com", type: "email", userUid: "u1", verified: true },
+        ]);
+        render(<UsersListPage userUid="admin-1" />);
+        expect(await screen.findByText("jane@example.com")).toBeInTheDocument();
+        expect(mockedListAliasesForUsers).toHaveBeenCalledWith(["u1"]);
     });
 
     it("shows a load error", async () => {

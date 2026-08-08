@@ -1498,9 +1498,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/auth@npm:^1.0.0-rc.15":
-  version: 1.0.0-rc.15
-  resolution: "@rapidrest/auth@npm:1.0.0-rc.15"
+"@rapidrest/auth@npm:^1.0.0-rc.16":
+  version: 1.0.0-rc.16
+  resolution: "@rapidrest/auth@npm:1.0.0-rc.16"
   dependencies:
     cross-spawn: "npm:^7.0.5"
   peerDependencies:
@@ -1532,7 +1532,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/50a034d14ce26ac360ad98977c9b4f35be133086a511280426673625d95e9667161ac23e004a05eaad3d70f02f45e9f0238a999ef6e77d5d2ca0d6cf09c09326
+  checksum: 10c0/24ddd224fde4ffd4890c771ac4bc91c8c5b4a2094d675819ffde53ccbdbf43c782e797a03e57efa5e23a2427e600c9007963f7d4392a4aa70004c011d471c73a
   languageName: node
   linkType: hard
 
@@ -1582,9 +1582,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/react@npm:^0.10.1":
-  version: 0.10.1
-  resolution: "@rapidrest/react@npm:0.10.1"
+"@rapidrest/react@npm:^0.11.0":
+  version: 0.11.0
+  resolution: "@rapidrest/react@npm:0.11.0"
   dependencies:
     cross-spawn: "npm:^7.0.5"
   peerDependencies:
@@ -1607,7 +1607,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/5b60440a19513ed06c626de63981c06b5b270ca8ceb345e95cf99d57fa626d4207a3afa388b01e7cdf09945617b9c464b5d10da740d3664196c23de2e5eef917
+  checksum: 10c0/a74d32c253be86f6a642b3c521970f63f7a77aa97c34f625e5d16b49fd4f037474c31cee9a2c6c6d41f2c4c2b8ecc8d16da685e22162bc521ee36ce81335b9cc
   languageName: node
   linkType: hard
 
@@ -2977,10 +2977,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "auth-server@workspace:."
   dependencies:
-    "@rapidrest/auth": "npm:^1.0.0-rc.15"
+    "@rapidrest/auth": "npm:^1.0.0-rc.16"
     "@rapidrest/cli": "npm:^0.18.0"
     "@rapidrest/core": "npm:^1.12.0"
-    "@rapidrest/react": "npm:^0.10.1"
+    "@rapidrest/react": "npm:^0.11.0"
     "@rapidrest/service-core": "npm:^1.0.0-rc.32"
     "@simplewebauthn/browser": "npm:^13.1.2"
     "@simplewebauthn/server": "npm:^13.3.2"

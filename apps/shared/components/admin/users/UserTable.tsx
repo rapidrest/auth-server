@@ -1,10 +1,13 @@
 import React from "react";
+import { Alias } from "../../../lib/api.js";
 import { AdminUser } from "../../../lib/adminApi.js";
 import Button from "../../buttons/Button.js";
 import UserStatusBadge from "./UserStatusBadge.js";
 
 export interface UserTableProps {
     users: AdminUser[];
+    /** This account's registered identifiers (email/phone/username/oauth), keyed by `uid`. */
+    aliasesByUid: Record<string, Alias[]>;
     onDelete: (user: AdminUser) => void;
 }
 
@@ -32,7 +35,7 @@ function ChipList({ values }: { values: string[] }) {
     );
 }
 
-export default function UserTable({ users, onDelete }: UserTableProps) {
+export default function UserTable({ users, aliasesByUid, onDelete }: UserTableProps) {
     if (users.length === 0) {
         return <p className="rr-hint">No accounts found.</p>;
     }
@@ -42,7 +45,7 @@ export default function UserTable({ users, onDelete }: UserTableProps) {
             <table className="rr-table">
                 <thead>
                     <tr>
-                        <th>UID</th>
+                        <th>Aliases</th>
                         <th>Roles</th>
                         <th>Scopes</th>
                         <th>Status</th>
@@ -53,7 +56,9 @@ export default function UserTable({ users, onDelete }: UserTableProps) {
                 <tbody>
                     {users.map((user) => (
                         <tr key={user.uid}>
-                            <td style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>{user.uid}</td>
+                            <td>
+                                <ChipList values={(aliasesByUid[user.uid] ?? []).map((a) => a.alias)} />
+                            </td>
                             <td>
                                 <ChipList values={user.roles ?? []} />
                             </td>

@@ -127,6 +127,15 @@ export function listUserAliases(userUid: string): Promise<Alias[]> {
     return apiFetch(`/aliases?userUid=${encodeURIComponent(userUid)}`);
 }
 
+/** Lists the identifiers (aliases) registered to any of the given accounts, e.g. for a table of users. */
+export function listAliasesForUsers(userUids: string[]): Promise<Alias[]> {
+    if (userUids.length === 0) {
+        return Promise.resolve([]);
+    }
+    const filter = encodeURIComponent(`in(${userUids.join(",")})`);
+    return apiFetch(`/aliases?userUid=${filter}&limit=1000`);
+}
+
 /**
  * Registers a new identifier for the given account. Note: per `BaseAliasRoute`, only `name` (username)
  * aliases are auto-verified on creation — an admin-added `email`/`phone` alias stays unverified until the

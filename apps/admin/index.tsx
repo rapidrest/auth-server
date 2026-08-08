@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ApiRequestError } from "../shared/lib/api.js";
-import { AdminUser, deleteUser, listUsers, searchUsers } from "../shared/lib/adminApi.js";
+import { Alias, ApiRequestError } from "../shared/lib/api.js";
+import { AdminUser, deleteUser, listAliasesForUsers, listUsers, searchUsers } from "../shared/lib/adminApi.js";
 import AdminShell from "../shared/components/admin/layout/AdminShell.js";
 import UserSearchBar, { DEFAULT_USER_FILTERS, UserFilters } from "../shared/components/admin/users/UserSearchBar.js";
 import UserTable from "../shared/components/admin/users/UserTable.js";
@@ -19,6 +19,7 @@ export default function UsersListPage({ userUid }: HomePageProps) {
     const [filters, setFilters] = useState<UserFilters>(DEFAULT_USER_FILTERS);
     const [page, setPage] = useState(0);
     const [users, setUsers] = useState<AdminUser[]>([]);
+    const [aliasesByUid, setAliasesByUid] = useState<Record<string, Alias[]>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +38,15 @@ export default function UsersListPage({ userUid }: HomePageProps) {
         };
         const request = filters.query.trim() ? searchUsers(filters.query, listParams) : listUsers(listParams);
         request
-            .then(setUsers)
+            .then(async (result) => {
+                setUsers(result);
+                const aliases = await listAliasesForUsers(result.map((u) => u.uid));
+                const byUid: Record<string, Alias[]> = {};
+                for (const alias of aliases) {
+                    (byUid[alias.userUid] ??= []).push(alias);
+                }
+                setAliasesByUid(byUid);
+            })
             .catch((err) => setError(err instanceof ApiRequestError ? err.message : "Could not load accounts."))
             .finally(() => setLoading(false));
     }, [filters, page]);
@@ -88,7 +97,11 @@ export default function UsersListPage({ userUid }: HomePageProps) {
 
             {error && <Alert>{error}</Alert>}
 
-            {loading ? <p className="rr-hint">Loading&hellip;</p> : <UserTable users={users} onDelete={openDeleteModal} />}
+            {loading ? (
+                <p className="rr-hint">Loading&hellip;</p>
+            ) : (
+                <UserTable users={users} aliasesByUid={aliasesByUid} onDelete={openDeleteModal} />
+            )}
 
             {!isSearch && (
                 <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "1rem" }}>
