@@ -5,10 +5,9 @@
  * the `admin` trusted role (see `BaseUserRoute`/`BaseAliasRoute`/`BaseSecretRoute`/`BaseProfileRoute`).
  */
 
-import { Alias, AliasType, apiFetch, ApiRequestError, ApiUser, Profile } from "./api.js";
+import { Alias, AliasType, apiFetch, ApiRequestError, ApiUser, AuthResult, Profile } from "./api.js";
 
 export interface AdminUser extends ApiUser {
-    version: number;
     dateCreated: string;
     dateModified: string;
 }
@@ -59,11 +58,18 @@ export interface CreateUserInput {
     roles: string[];
     scopes: string[];
     verified: boolean;
+    requireMFA?: boolean;
 }
 
-/** Provisions a bare account (no identifier/credential yet — see `createUserAlias`/`createUserPasswordSecret`). */
-export function createUser(input: CreateUserInput): Promise<AdminUser> {
-    return apiFetch("/users", { method: "POST", body: JSON.stringify(input) });
+/**
+ * Provisions a bare account (no identifier/credential yet — see `createUserAlias`/`createUserPasswordSecret`).
+ * `POST /users` now returns a full `AuthResult` (it doubles as an alternate self-registration flow when
+ * called anonymously) rather than the bare created `User` — the admin caller is already authenticated, so
+ * the token/cookie half of that result is a no-op here; only the `user` is relevant.
+ */
+export async function createUser(input: CreateUserInput): Promise<AdminUser> {
+    const result = await apiFetch<AuthResult>("/users", { method: "POST", body: JSON.stringify(input) });
+    return result.user as AdminUser;
 }
 
 export interface UpdateUserInput {
@@ -73,6 +79,7 @@ export interface UpdateUserInput {
     roles?: string[];
     scopes?: string[];
     verified?: boolean;
+    requireMFA?: boolean;
 }
 
 export function updateUser(input: UpdateUserInput): Promise<AdminUser> {

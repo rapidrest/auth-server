@@ -47,7 +47,7 @@ beforeEach(() => {
 /** Advances a freshly-rendered SignUpPage from the identifier step through to the profile step. */
 async function advanceToProfileStep(user: ReturnType<typeof userEvent.setup>) {
     mockedBeginRegistration.mockResolvedValueOnce({});
-    mockedVerifyRegistration.mockResolvedValueOnce({ token: "tok-123", user: { uid: "u1", roles: [], scopes: [] } });
+    mockedVerifyRegistration.mockResolvedValueOnce({ token: "tok-123", user: { uid: "u1", version: 1, roles: [], scopes: [] } });
 
     render(<SignUpPage />);
     await user.type(screen.getByLabelText("E-mail address"), "a@example.com");
@@ -164,7 +164,7 @@ describe("SignUpPage — code step", () => {
     it("verifies the code and advances to the profile step", async () => {
         const user = userEvent.setup();
         await advanceToCodeStep(user);
-        mockedVerifyRegistration.mockResolvedValueOnce({ token: "tok-123", user: { uid: "u1", roles: [], scopes: [] } });
+        mockedVerifyRegistration.mockResolvedValueOnce({ token: "tok-123", user: { uid: "u1", version: 1, roles: [], scopes: [] } });
 
         await user.type(screen.getByLabelText("Verification code"), "123456");
         await user.click(screen.getByRole("button", { name: "Verify" }));

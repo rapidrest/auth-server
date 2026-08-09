@@ -16,6 +16,7 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../apps/shared/lib/api.js")>();
     return {
         ...actual,
+        beginMfaChallenge: vi.fn(),
         discoverAuthMethods: vi.fn(),
         getFido2Challenge: vi.fn(),
         getOtpChallenge: vi.fn(),
@@ -24,6 +25,8 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
         signInWithPassword: vi.fn(),
         signInWithTotp: vi.fn(),
         verifyFido2SignIn: vi.fn(),
+        verifyMfaCode: vi.fn(),
+        verifyMfaFido2: vi.fn(),
         verifyPasskeySignIn: vi.fn(),
     };
 });
@@ -31,20 +34,25 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
 import { startAuthentication } from "@simplewebauthn/browser";
 import {
     ApiRequestError,
+    beginMfaChallenge,
     DiscoverResult,
     discoverAuthMethods,
     getFido2Challenge,
     getOtpChallenge,
     getPasskeyChallenge,
+    MfaMethod,
     signInWithOtp,
     signInWithPassword,
     signInWithTotp,
     verifyFido2SignIn,
+    verifyMfaCode,
+    verifyMfaFido2,
     verifyPasskeySignIn,
 } from "../../../apps/shared/lib/api.js";
 import SignInPage from "../../../apps/www/auth/signin/index.js";
 
 const mockedStartAuthentication = vi.mocked(startAuthentication);
+const mockedBeginMfaChallenge = vi.mocked(beginMfaChallenge);
 const mockedDiscoverAuthMethods = vi.mocked(discoverAuthMethods);
 const mockedGetFido2Challenge = vi.mocked(getFido2Challenge);
 const mockedGetOtpChallenge = vi.mocked(getOtpChallenge);
@@ -53,9 +61,11 @@ const mockedSignInWithOtp = vi.mocked(signInWithOtp);
 const mockedSignInWithPassword = vi.mocked(signInWithPassword);
 const mockedSignInWithTotp = vi.mocked(signInWithTotp);
 const mockedVerifyFido2SignIn = vi.mocked(verifyFido2SignIn);
+const mockedVerifyMfaCode = vi.mocked(verifyMfaCode);
+const mockedVerifyMfaFido2 = vi.mocked(verifyMfaFido2);
 const mockedVerifyPasskeySignIn = vi.mocked(verifyPasskeySignIn);
 
-const AUTH_RESULT = { token: "tok-123", user: { uid: "u1", roles: [], scopes: [] } };
+const AUTH_RESULT = { token: "tok-123", user: { uid: "u1", version: 1, roles: [], scopes: [] } };
 
 const EMAIL_HINT = { contact: "j***n@example.com", type: "email" as const };
 const PHONE_HINT = { contact: "***1234", type: "phone" as const };
@@ -574,6 +584,212 @@ describe("SignInPage — passkey method", () => {
         await user.click(screen.getByRole("button", { name: "Continue with passkey" }));
 
         expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    });
+});
+
+const TOTP_METHOD: MfaMethod = { id: "secret-totp-1", type: "totp", data: {} };
+const FIDO2_METHOD: MfaMethod = { id: "secret-fido2-1", type: "fido2", data: {} };
+const OTP_METHOD: MfaMethod = {
+    id: "alias-otp-1",
+    type: "otp",
+    data: { contact: "j***n@example.com", type: "email", verified: true },
+};
+
+/**
+ * Drives the password challenge to completion with a phase-1 `/auth/mfa` response of `{uid, methods}`
+ * (rather than a completed `AuthResult`) — i.e. the account has a second factor to complete — landing on
+ * the second-factor method-list screen.
+ */
+async function goToMfaChallenge(
+    user: ReturnType<typeof userEvent.setup>,
+    methods: MfaMethod[],
+    identifier = "a@example.com",
+) {
+    await goToChallenge(user, "Password", ALL_METHODS, identifier);
+    mockedSignInWithPassword.mockResolvedValueOnce({ uid: "u1", methods });
+    await user.type(screen.getByLabelText("Password"), "hunter2");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByText(/Verify it.s you/);
+}
+
+describe("SignInPage — password method requiring a second factor (/auth/mfa)", () => {
+    it("shows the account's registered second-factor methods instead of signing in directly", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [TOTP_METHOD, FIDO2_METHOD]);
+
+        expect(screen.getByRole("button", { name: /^Authenticator app/ })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /^Hardware key/ })).toBeInTheDocument();
+    });
+
+    it("completes sign-in via an authenticator app second factor", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [TOTP_METHOD]);
+        mockedBeginMfaChallenge.mockResolvedValueOnce({});
+
+        await user.click(screen.getByRole("button", { name: /^Authenticator app/ }));
+        expect(mockedBeginMfaChallenge).toHaveBeenCalledWith("u1", TOTP_METHOD.id);
+
+        mockedVerifyMfaCode.mockResolvedValueOnce(AUTH_RESULT);
+        await user.type(await screen.findByLabelText("Authenticator code"), "654321");
+        await user.click(screen.getByRole("button", { name: "Verify" }));
+
+        await waitFor(() => expect(location.href).toBe("/account"));
+        expect(mockedVerifyMfaCode).toHaveBeenCalledWith("u1", "654321");
+    });
+
+    it("completes sign-in via an OTP second factor, sending the code immediately on selection", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [OTP_METHOD]);
+        mockedBeginMfaChallenge.mockResolvedValueOnce({});
+
+        await user.click(
+            screen.getByRole("button", { name: new RegExp(`^Code to ${escapeRegExp(OTP_METHOD.data.contact)}`) }),
+        );
+        expect(mockedBeginMfaChallenge).toHaveBeenCalledWith("u1", OTP_METHOD.id);
+
+        mockedVerifyMfaCode.mockResolvedValueOnce(AUTH_RESULT);
+        await user.type(await screen.findByLabelText("One-time code"), "123456");
+        await user.click(screen.getByRole("button", { name: "Verify" }));
+
+        await waitFor(() => expect(location.href).toBe("/account"));
+        expect(mockedVerifyMfaCode).toHaveBeenCalledWith("u1", "123456");
+    });
+
+    it("labels an OTP method generically when the server didn't include its contact", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [{ id: "alias-otp-2", type: "otp", data: {} }]);
+
+        expect(screen.getByRole("button", { name: "One-time code" })).toBeInTheDocument();
+    });
+
+    it("completes sign-in via a hardware key second factor", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [FIDO2_METHOD]);
+        const options = { challenge: "c" };
+        const response = { id: "cred1" };
+        mockedBeginMfaChallenge.mockResolvedValueOnce(options);
+
+        await user.click(screen.getByRole("button", { name: /^Hardware key/ }));
+        expect(mockedBeginMfaChallenge).toHaveBeenCalledWith("u1", FIDO2_METHOD.id);
+
+        mockedStartAuthentication.mockResolvedValueOnce(response as any);
+        mockedVerifyMfaFido2.mockResolvedValueOnce(AUTH_RESULT);
+        await user.click(await screen.findByRole("button", { name: "Continue with security key" }));
+
+        await waitFor(() => expect(location.href).toBe("/account"));
+        expect(mockedStartAuthentication).toHaveBeenCalledWith({ optionsJSON: options });
+        expect(mockedVerifyMfaFido2).toHaveBeenCalledWith(response);
+    });
+
+    it("'Choose a different method' returns to the second-factor list without a new challenge request", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [TOTP_METHOD, FIDO2_METHOD]);
+        mockedBeginMfaChallenge.mockResolvedValueOnce({});
+        await user.click(screen.getByRole("button", { name: /^Authenticator app/ }));
+        await screen.findByLabelText("Authenticator code");
+
+        await user.click(screen.getByRole("button", { name: "Choose a different method" }));
+
+        expect(screen.getByRole("button", { name: /^Authenticator app/ })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /^Hardware key/ })).toBeInTheDocument();
+        expect(mockedBeginMfaChallenge).toHaveBeenCalledTimes(1);
+    });
+
+    it("'Use a different account' from the second-factor list returns to the identifier step", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [TOTP_METHOD]);
+
+        await user.click(screen.getByRole("button", { name: "Use a different account" }));
+
+        expect(screen.getByLabelText("Account ID, e-mail, or phone")).toBeInTheDocument();
+    });
+
+    it("shows an error message when starting the second-factor challenge fails", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [TOTP_METHOD]);
+        mockedBeginMfaChallenge.mockRejectedValueOnce(new ApiRequestError("Too many requests.", 429));
+
+        await user.click(screen.getByRole("button", { name: /^Authenticator app/ }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Too many requests.");
+    });
+
+    it("shows a generic message when starting the second-factor challenge fails with a non-API error", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [TOTP_METHOD]);
+        mockedBeginMfaChallenge.mockRejectedValueOnce(new TypeError("boom"));
+
+        await user.click(screen.getByRole("button", { name: /^Authenticator app/ }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    });
+
+    it("shows a fixed message on an invalid second-factor code", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [TOTP_METHOD]);
+        mockedBeginMfaChallenge.mockResolvedValueOnce({});
+        await user.click(screen.getByRole("button", { name: /^Authenticator app/ }));
+        mockedVerifyMfaCode.mockRejectedValueOnce(new ApiRequestError("nope", 401));
+
+        await user.type(await screen.findByLabelText("Authenticator code"), "000000");
+        await user.click(screen.getByRole("button", { name: "Verify" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Invalid or expired code.");
+    });
+
+    it("shows a generic message when verifying the second-factor code fails with a non-API error", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [TOTP_METHOD]);
+        mockedBeginMfaChallenge.mockResolvedValueOnce({});
+        await user.click(screen.getByRole("button", { name: /^Authenticator app/ }));
+        mockedVerifyMfaCode.mockRejectedValueOnce(new TypeError("boom"));
+
+        await user.type(await screen.findByLabelText("Authenticator code"), "000000");
+        await user.click(screen.getByRole("button", { name: "Verify" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    });
+
+    it("shows a cancellation message when the hardware key second-factor ceremony is cancelled", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [FIDO2_METHOD]);
+        mockedBeginMfaChallenge.mockResolvedValueOnce({ challenge: "c" });
+        await user.click(screen.getByRole("button", { name: /^Hardware key/ }));
+        const cancelled = new Error("cancelled");
+        cancelled.name = "NotAllowedError";
+        mockedStartAuthentication.mockRejectedValueOnce(cancelled);
+
+        await user.click(await screen.findByRole("button", { name: "Continue with security key" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Hardware key sign-in was cancelled.");
+    });
+
+    it("shows a generic message when the hardware key second-factor ceremony fails with a non-API error", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [FIDO2_METHOD]);
+        mockedBeginMfaChallenge.mockResolvedValueOnce({ challenge: "c" });
+        await user.click(screen.getByRole("button", { name: /^Hardware key/ }));
+        mockedStartAuthentication.mockRejectedValueOnce(new TypeError("boom"));
+
+        await user.click(await screen.findByRole("button", { name: "Continue with security key" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    });
+
+    it("shows a fixed message when the hardware key second-factor verification fails with an ApiRequestError", async () => {
+        const user = userEvent.setup();
+        await goToMfaChallenge(user, [FIDO2_METHOD]);
+        mockedBeginMfaChallenge.mockResolvedValueOnce({ challenge: "c" });
+        await user.click(screen.getByRole("button", { name: /^Hardware key/ }));
+        mockedStartAuthentication.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedVerifyMfaFido2.mockRejectedValueOnce(new ApiRequestError("nope", 401));
+
+        await user.click(await screen.findByRole("button", { name: "Continue with security key" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Hardware key sign-in failed.");
     });
 });
 

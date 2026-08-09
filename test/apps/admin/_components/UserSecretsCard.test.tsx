@@ -10,7 +10,7 @@ import { FALLBACK_PASSWORD_REQUIREMENTS } from "../../../../apps/shared/lib/pass
 
 vi.mock("../../../../apps/shared/lib/api.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../../apps/shared/lib/api.js")>();
-    return { ...actual, deleteSecret: vi.fn(), getPasswordRequirements: vi.fn() };
+    return { ...actual, deleteSecret: vi.fn(), getPasswordRequirements: vi.fn(), updateSecret: vi.fn() };
 });
 
 vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
@@ -18,13 +18,14 @@ vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
     return { ...actual, listUserSecrets: vi.fn(), createUserPasswordSecret: vi.fn() };
 });
 
-import { ApiRequestError, deleteSecret, getPasswordRequirements } from "../../../../apps/shared/lib/api.js";
+import { ApiRequestError, deleteSecret, getPasswordRequirements, updateSecret } from "../../../../apps/shared/lib/api.js";
 import { createUserPasswordSecret, listUserSecrets } from "../../../../apps/shared/lib/adminApi.js";
 import UserSecretsCard from "../../../../apps/shared/components/admin/users/detail/UserSecretsCard.js";
 
 const mockedListUserSecrets = vi.mocked(listUserSecrets);
 const mockedCreateUserPasswordSecret = vi.mocked(createUserPasswordSecret);
 const mockedDeleteSecret = vi.mocked(deleteSecret);
+const mockedUpdateSecret = vi.mocked(updateSecret);
 const mockedGetPasswordRequirements = vi.mocked(getPasswordRequirements);
 
 const VALID_PASSWORD = "Abcdef1!";
@@ -33,6 +34,7 @@ beforeEach(() => {
     mockedListUserSecrets.mockReset();
     mockedCreateUserPasswordSecret.mockReset();
     mockedDeleteSecret.mockReset();
+    mockedUpdateSecret.mockReset();
     mockedGetPasswordRequirements.mockReset();
     mockedGetPasswordRequirements.mockResolvedValue(FALLBACK_PASSWORD_REQUIREMENTS);
     window.confirm = vi.fn(() => true);
@@ -155,9 +157,28 @@ describe("UserSecretsCard", () => {
             expect(mockedCreateUserPasswordSecret).not.toHaveBeenCalled();
         });
 
-        it("sets a password, removing any prior password secret", async () => {
+        it("updates the existing password secret in place, without creating or deleting anything", async () => {
             mockedListUserSecrets.mockResolvedValue([
                 { uid: "old-pw", version: 0, type: "password", userUid: "u1", dateCreated: "" },
+                { uid: "totp1", version: 0, type: "totp", userUid: "u1", dateCreated: "" },
+            ]);
+            mockedUpdateSecret.mockResolvedValue({ uid: "old-pw", version: 1, type: "password", userUid: "u1", dateCreated: "" });
+            const user = userEvent.setup();
+            render(<UserSecretsCard uid="u1" />);
+            await screen.findByText("Authenticator app");
+            await user.click(screen.getByRole("button", { name: "Set password" }));
+            await user.type(screen.getByLabelText("New password"), VALID_PASSWORD);
+            await user.type(screen.getByLabelText("Confirm new password"), VALID_PASSWORD);
+            await user.click(screen.getByRole("button", { name: "Save password" }));
+
+            expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "old-pw", version: 0, data: VALID_PASSWORD });
+            expect(mockedCreateUserPasswordSecret).not.toHaveBeenCalled();
+            expect(mockedDeleteSecret).not.toHaveBeenCalled();
+            await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        });
+
+        it("creates a new password secret when the account has none yet", async () => {
+            mockedListUserSecrets.mockResolvedValue([
                 { uid: "totp1", version: 0, type: "totp", userUid: "u1", dateCreated: "" },
             ]);
             mockedCreateUserPasswordSecret.mockResolvedValue({
@@ -168,7 +189,6 @@ describe("UserSecretsCard", () => {
                 dateCreated: "",
                 hint: "Set by administrator",
             });
-            mockedDeleteSecret.mockResolvedValue(undefined);
             const user = userEvent.setup();
             render(<UserSecretsCard uid="u1" />);
             await screen.findByText("Authenticator app");
@@ -178,7 +198,7 @@ describe("UserSecretsCard", () => {
             await user.click(screen.getByRole("button", { name: "Save password" }));
 
             expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("u1", VALID_PASSWORD, "Set by administrator");
-            await waitFor(() => expect(mockedDeleteSecret).toHaveBeenCalledWith("old-pw"));
+            expect(mockedUpdateSecret).not.toHaveBeenCalled();
             await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
         });
 

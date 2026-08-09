@@ -3,21 +3,28 @@ import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from 
 import {
     ApiRequestError,
     AuthResult,
+    beginMfaChallenge,
     DiscoverResult,
     discoverAuthMethods,
     getFido2Challenge,
     getOtpChallenge,
     getPasskeyChallenge,
+    isMfaChallenge,
+    MfaChallenge,
+    MfaMethod,
     signInWithOtp,
     signInWithPassword,
     signInWithTotp,
     verifyFido2SignIn,
+    verifyMfaCode,
+    verifyMfaFido2,
     verifyPasskeySignIn,
 } from "../../lib/api.js";
 import { guessIdentifierType } from "../../lib/identifier.js";
 import IdentifierStep from "./steps/IdentifierStep.js";
 import MethodListStep from "./steps/MethodListStep.js";
 import ChallengeStep from "./steps/ChallengeStep.js";
+import MfaStep from "./steps/MfaStep.js";
 import { buildMethodList, EMPTY_DISCOVER, FixedMethod, Method, OtpHint, Step } from "./types.js";
 
 export interface SignInFlowProps {
@@ -46,6 +53,13 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
     const [otpStep, setOtpStep] = useState<"contact" | "code">("contact");
     const [otpContact, setOtpContact] = useState("");
     const [otpCode, setOtpCode] = useState("");
+
+    // Populated when signInWithPassword() resolves an MfaChallenge instead of a completed AuthResult —
+    // see handlePasswordSubmit.
+    const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
+    const [mfaSelectedMethod, setMfaSelectedMethod] = useState<MfaMethod | null>(null);
+    const [mfaFido2Options, setMfaFido2Options] = useState<PublicKeyCredentialRequestOptionsJSON | null>(null);
+    const [mfaCode, setMfaCode] = useState("");
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -102,6 +116,10 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
         setOtpStep("contact");
         setOtpContact("");
         setOtpCode("");
+        setMfaChallenge(null);
+        setMfaSelectedMethod(null);
+        setMfaFido2Options(null);
+        setMfaCode("");
     }
 
     function goToMethods() {
@@ -114,6 +132,13 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
         setOtpStep("contact");
         setOtpContact("");
         setOtpCode("");
+    }
+
+    function backToMfaMethods() {
+        setError(null);
+        setMfaSelectedMethod(null);
+        setMfaFido2Options(null);
+        setMfaCode("");
     }
 
     function selectFixedMethod(m: FixedMethod) {
@@ -136,11 +161,72 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
         setLoading(true);
         try {
             const result = await signInWithPassword(identifier.trim(), password);
-            onSuccess(result);
+            if (isMfaChallenge(result)) {
+                setMfaChallenge(result);
+                setStep("mfa");
+                setLoading(false);
+            } else {
+                onSuccess(result);
+            }
         } catch (err) {
             setError(
                 err instanceof ApiRequestError ? "Incorrect account ID or password." : "Something went wrong. Please try again.",
             );
+            setLoading(false);
+        }
+    }
+
+    async function handleSelectMfaMethod(selected: MfaMethod) {
+        // Only reachable via MfaStep's onSelectMethod, which only renders once mfaChallenge is set.
+        const { uid } = mfaChallenge!;
+        setError(null);
+        setLoading(true);
+        try {
+            const challengeResult = await beginMfaChallenge(uid, selected.id);
+            setMfaSelectedMethod(selected);
+            if (selected.type === "fido2") {
+                setMfaFido2Options(challengeResult);
+            }
+        } catch (err) {
+            setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleMfaCodeSubmit(e: FormEvent) {
+        e.preventDefault();
+        // Only reachable via MfaStep's onCodeSubmit, which only renders once mfaChallenge is set.
+        const { uid } = mfaChallenge!;
+        setError(null);
+        setLoading(true);
+        try {
+            const result = await verifyMfaCode(uid, mfaCode.trim());
+            onSuccess(result);
+        } catch (err) {
+            setError(err instanceof ApiRequestError ? "Invalid or expired code." : "Something went wrong. Please try again.");
+            setLoading(false);
+        }
+    }
+
+    async function handleMfaFido2SignIn() {
+        // Only reachable via MfaStep's onFido2SignIn, which only renders once mfaFido2Options is set
+        // (handleSelectMfaMethod sets it before the fido2 challenge UI ever appears).
+        const optionsJSON = mfaFido2Options!;
+        setError(null);
+        setLoading(true);
+        try {
+            const response = await startAuthentication({ optionsJSON });
+            const result = await verifyMfaFido2(response);
+            onSuccess(result);
+        } catch (err) {
+            if (err instanceof Error && err.name === "NotAllowedError") {
+                setError("Hardware key sign-in was cancelled.");
+            } else {
+                setError(
+                    err instanceof ApiRequestError ? "Hardware key sign-in failed." : "Something went wrong. Please try again.",
+                );
+            }
             setLoading(false);
         }
     }
@@ -274,6 +360,22 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
                     }}
                     onPasskeySignIn={handlePasskeySignIn}
                     onFido2SignIn={handleFido2SignIn}
+                />
+            )}
+
+            {step === "mfa" && mfaChallenge && (
+                <MfaStep
+                    methods={mfaChallenge.methods}
+                    selectedMethod={mfaSelectedMethod}
+                    onSelectMethod={handleSelectMfaMethod}
+                    onBackToMethods={backToMfaMethods}
+                    onBack={goToIdentifier}
+                    code={mfaCode}
+                    setCode={setMfaCode}
+                    onCodeSubmit={handleMfaCodeSubmit}
+                    onFido2SignIn={handleMfaFido2SignIn}
+                    loading={loading}
+                    error={error}
                 />
             )}
         </div>

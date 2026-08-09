@@ -63,21 +63,31 @@ conf.defaults({
         default_scopes: ["profile:contacts", "profile:preferences"],
         // The password to be used when signing or verifying authentication tokens
         secret: DEFAULT_AUTH_SECRET,
+        // Set to `true` to force multi-factor authentication for every account regardless of its own
+        // `requireMFA` value (see `BaseUserRoute.validateCreate`/`validateUpdate` and `AuthMFARoute`,
+        // which drives `MFAStrategyOptions.require2FA` from this same flag).
+        require_mfa: false,
         // Also set a Set-Cookie header (in addition to returning the token in the response body)
         // whenever a JWT is issued, so the SSR pages under apps/www can authenticate a request without
         // the client having to attach an Authorization header itself. HttpOnly (the default) so the
-        // token isn't reachable from JavaScript. maxAge matches options.expiresIn below (7 days, in
-        // seconds). NOTE: secure is left false for local http://localhost development — a production
-        // deployment served over HTTPS should set this to true.
+        // token isn't reachable from JavaScript. `access.maxAge`/`refresh.maxAge` match
+        // `options.expiresIn`/`refresh.expiresIn` below. NOTE: secure is left false for local
+        // http://localhost development — a production deployment served over HTTPS should set this to true.
         cookie: {
             enabled: true,
-            maxAge: 60 * 60 * 24 * 7,
+            access: { name: "jwt", maxAge: 60 * 60 },
+            refresh: { name: "refresh", maxAge: 60 * 60 * 24 * 14 },
         },
         options: {
             // "algorithm": "HS256",
-            expiresIn: "7 days",
+            expiresIn: "1 hour",
             audience: "mydomain.com",
             issuer: "api.mydomain.com",
+        },
+        // Refresh tokens are long-lived — a client exchanges one (via `POST /auth/refresh`) for a fresh
+        // access/refresh pair before the short-lived access token above expires.
+        refresh: {
+            expiresIn: "14 days",
         },
         oidc: {
             name: "test",
@@ -125,7 +135,12 @@ conf.defaults({
     session: {
         secret: DEFAULT_SESSION_SECRET,
         cookieName: "rrst.sid",
-        ttl: 300,
+        // Must cover the refresh token's lifetime (`auth:refresh:expiresIn` above): `BaseAuthRefreshRoute`
+        // validates a refresh token against `req.session.refreshUid`, and `MFAStrategy` similarly keys
+        // its challenge/verify phases off session state. The store's TTL is refreshed (rolling) on every
+        // request that touches the session, but a value shorter than the refresh token's own lifetime
+        // would let the session (and so the refresh token's ability to be redeemed) expire first.
+        ttl: 60 * 60 * 24 * 14,
     },
     cluster_url: "http://localhost",
     metrics: {

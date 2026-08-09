@@ -59,21 +59,32 @@ describe("getUser / createUser / updateUser / deleteUser", () => {
         expect(fetchMock).toHaveBeenCalledWith("/api/users/u1", expect.anything());
     });
 
-    it("createUser posts roles/scopes/verified", async () => {
-        const fetchMock = mockFetch(() => jsonResponse(200, adminUser));
-        await createUser({ roles: ["admin"], scopes: [], verified: true });
+    it("createUser posts roles/scopes/verified/requireMFA and unwraps the returned AuthResult's user", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { token: "tok", refresh: "rtok", user: adminUser }));
+        const result = await createUser({ roles: ["admin"], scopes: [], verified: true, requireMFA: false });
         expect(fetchMock).toHaveBeenCalledWith(
             "/api/users",
             expect.objectContaining({
                 method: "POST",
-                body: JSON.stringify({ roles: ["admin"], scopes: [], verified: true }),
+                body: JSON.stringify({ roles: ["admin"], scopes: [], verified: true, requireMFA: false }),
             }),
         );
+        expect(result).toEqual(adminUser);
     });
 
     it("updateUser PUTs to /users/:uid with the input", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, adminUser));
         const input = { uid: "u1", version: 1, roles: ["admin"] };
+        await updateUser(input);
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/users/u1",
+            expect.objectContaining({ method: "PUT", body: JSON.stringify(input) }),
+        );
+    });
+
+    it("updateUser includes requireMFA when provided", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { ...adminUser, requireMFA: true }));
+        const input = { uid: "u1", version: 1, requireMFA: true };
         await updateUser(input);
         expect(fetchMock).toHaveBeenCalledWith(
             "/api/users/u1",

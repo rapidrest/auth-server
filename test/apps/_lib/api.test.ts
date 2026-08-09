@@ -7,6 +7,7 @@ import { emptyResponse, jsonResponse, mockFetch } from "../testUtils.js";
 import {
     ApiRequestError,
     apiFetch,
+    beginMfaChallenge,
     beginRegistration,
     createAlias,
     createPasswordSecret,
@@ -26,9 +27,12 @@ import {
     getPasskeyRegistrationOptions,
     getPasswordRequirements,
     getProfile,
+    hasSecondFactor,
+    isMfaChallenge,
     listAliases,
     listSecrets,
     logout,
+    refreshAccessToken,
     registerFido2,
     registerPasskey,
     resendContactVerificationCode,
@@ -36,9 +40,13 @@ import {
     signInWithPassword,
     signInWithTotp,
     updateProfile,
+    updateSecret,
+    updateSelfUser,
     updateUsernameAlias,
     verifyContact,
     verifyFido2SignIn,
+    verifyMfaCode,
+    verifyMfaFido2,
     verifyPasskeySignIn,
     verifyRegistration,
 } from "../../../apps/shared/lib/api.js";
@@ -181,6 +189,30 @@ describe("getCurrentUser", () => {
     });
 });
 
+describe("refreshAccessToken", () => {
+    it("posts to /auth/refresh with no body — the server reads the refresh cookie itself", async () => {
+        const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
+        const fetchMock = mockFetch(() => jsonResponse(200, authResult));
+        const result = await refreshAccessToken();
+        expect(fetchMock).toHaveBeenCalledWith("/api/auth/refresh", expect.objectContaining({ method: "POST" }));
+        expect(fetchMock.mock.calls[0][1]).not.toHaveProperty("body");
+        expect(result).toEqual(authResult);
+    });
+});
+
+describe("updateSelfUser", () => {
+    it("PUTs the input to /users/me", async () => {
+        const updated = { uid: "u1", version: 1, roles: [], scopes: [], requireMFA: true };
+        const fetchMock = mockFetch(() => jsonResponse(200, updated));
+        const result = await updateSelfUser({ uid: "u1", version: 0, requireMFA: true });
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/users/me",
+            expect.objectContaining({ method: "PUT", body: JSON.stringify({ uid: "u1", version: 0, requireMFA: true }) }),
+        );
+        expect(result).toEqual(updated);
+    });
+});
+
 describe("profile", () => {
     it("createProfile posts the input", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, { uid: "u1" }));
@@ -242,16 +274,69 @@ describe("password", () => {
         expect(result).toEqual(requirements);
     });
 
-    it("signInWithPassword sends Basic auth built from id:password, UTF-8 safe", async () => {
+    it("signInWithPassword posts id/password as JSON to /auth/mfa", async () => {
         const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
         const fetchMock = mockFetch(() => jsonResponse(200, authResult));
-        await signInWithPassword("a@example.com", "pässwörd");
-        const init = fetchMock.mock.calls[0][1] as RequestInit;
-        const headers = init.headers as Headers;
-        const authHeader = headers.get("Authorization") as string;
-        expect(authHeader.startsWith("Basic ")).toBe(true);
-        const decoded = Buffer.from(authHeader.slice("Basic ".length), "base64").toString("utf-8");
-        expect(decoded).toBe("a@example.com:pässwörd");
+        const result = await signInWithPassword("a@example.com", "pässwörd");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/mfa",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({ id: "a@example.com", password: "pässwörd" }),
+            }),
+        );
+        expect(result).toEqual(authResult);
+    });
+
+    it("signInWithPassword resolves an MfaChallenge instead when the account has a second factor", async () => {
+        const challenge = { uid: "u1", methods: [{ id: "s1", type: "totp", data: {} }] };
+        mockFetch(() => jsonResponse(200, challenge));
+        const result = await signInWithPassword("a@example.com", "hunter2");
+        expect(result).toEqual(challenge);
+    });
+});
+
+describe("isMfaChallenge", () => {
+    it("is true for a {uid, methods} phase-1 response", () => {
+        expect(isMfaChallenge({ uid: "u1", methods: [] })).toBe(true);
+    });
+
+    it("is false for a completed AuthResult", () => {
+        expect(isMfaChallenge({ token: "tok", user: { uid: "u1", version: 1, roles: [], scopes: [] } })).toBe(false);
+    });
+});
+
+describe("mfa second-factor challenge", () => {
+    it("beginMfaChallenge posts id/methodId to /auth/mfa", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, {}));
+        await beginMfaChallenge("u1", "s1");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/mfa",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ id: "u1", methodId: "s1" }) }),
+        );
+    });
+
+    it("verifyMfaCode posts id/token to /auth/mfa", async () => {
+        const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
+        const fetchMock = mockFetch(() => jsonResponse(200, authResult));
+        const result = await verifyMfaCode("u1", "654321");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/mfa",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ id: "u1", token: "654321" }) }),
+        );
+        expect(result).toEqual(authResult);
+    });
+
+    it("verifyMfaFido2 posts the assertion response directly to /auth/mfa", async () => {
+        const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
+        const fetchMock = mockFetch(() => jsonResponse(200, authResult));
+        const response = { id: "cred1" };
+        const result = await verifyMfaFido2(response);
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/mfa",
+            expect.objectContaining({ method: "POST", body: JSON.stringify(response) }),
+        );
+        expect(result).toEqual(authResult);
     });
 });
 
@@ -451,6 +536,29 @@ describe("secrets", () => {
         expect(fetchMock).toHaveBeenCalledWith("/api/secrets/s%2F1", expect.objectContaining({ method: "DELETE" }));
     });
 
+    it("updateSecret PUTs the encoded uid with data/hint", async () => {
+        const updated = { uid: "s1", version: 1, type: "password", userUid: "u1", dateCreated: "2026-01-01T00:00:00.000Z" };
+        const fetchMock = mockFetch(() => jsonResponse(200, updated));
+        const result = await updateSecret({ uid: "s/1", version: 0, data: "newpass", hint: "Work" });
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/secrets/s%2F1",
+            expect.objectContaining({
+                method: "PUT",
+                body: JSON.stringify({ uid: "s/1", version: 0, data: "newpass", hint: "Work" }),
+            }),
+        );
+        expect(result).toEqual(updated);
+    });
+
+    it("updateSecret can update just the hint, with no data", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "s1", version: 1 }));
+        await updateSecret({ uid: "s1", version: 0, hint: "New label" });
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/secrets/s1",
+            expect.objectContaining({ body: JSON.stringify({ uid: "s1", version: 0, hint: "New label" }) }),
+        );
+    });
+
     it("createTotpSecret posts a totp-type secret with no data", async () => {
         const created = {
             uid: "s1",
@@ -528,6 +636,54 @@ describe("secrets", () => {
             "/api/secrets",
             expect.objectContaining({ body: JSON.stringify({ type: "fido2", data: response, hint: "YubiKey" }) }),
         );
+    });
+});
+
+describe("hasSecondFactor", () => {
+    const totpSecret = { uid: "s1", version: 0, type: "totp" as const, userUid: "u1", dateCreated: "" };
+    const fido2Secret = { uid: "s2", version: 0, type: "fido2" as const, userUid: "u1", dateCreated: "" };
+    const passwordSecret = { uid: "s3", version: 0, type: "password" as const, userUid: "u1", dateCreated: "" };
+    const passkeySecret = { uid: "s4", version: 0, type: "passkey" as const, userUid: "u1", dateCreated: "" };
+    const verifiedEmailAlias = {
+        uid: "a1",
+        version: 0,
+        alias: "a@example.com",
+        type: "email" as const,
+        userUid: "u1",
+        verified: true,
+    };
+    const usernameAlias = { uid: "a2", version: 0, alias: "coolname", type: "name" as const, userUid: "u1", verified: true };
+
+    it("is true when a totp secret is registered", () => {
+        expect(hasSecondFactor([totpSecret], [])).toBe(true);
+    });
+
+    it("is true when a fido2 secret is registered", () => {
+        expect(hasSecondFactor([fido2Secret], [])).toBe(true);
+    });
+
+    it("is true when a verified email/phone alias exists (OTP-eligible)", () => {
+        expect(hasSecondFactor([], [verifiedEmailAlias])).toBe(true);
+    });
+
+    it("is false for a password secret alone", () => {
+        expect(hasSecondFactor([passwordSecret], [])).toBe(false);
+    });
+
+    it("is false for a passkey secret alone — not accepted as a /auth/mfa second factor", () => {
+        expect(hasSecondFactor([passkeySecret], [])).toBe(false);
+    });
+
+    it("is false for an unverified email alias", () => {
+        expect(hasSecondFactor([], [{ ...verifiedEmailAlias, verified: false }])).toBe(false);
+    });
+
+    it("is false for a verified username alias (not OTP-eligible)", () => {
+        expect(hasSecondFactor([], [usernameAlias])).toBe(false);
+    });
+
+    it("is false for null secrets/aliases", () => {
+        expect(hasSecondFactor(null, null)).toBe(false);
     });
 });
 

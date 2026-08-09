@@ -34,10 +34,13 @@ vi.mock("../../apps/shared/lib/api.js", async (importOriginal) => {
         getFido2RegistrationOptions: vi.fn(),
         getPasskeyRegistrationOptions: vi.fn(),
         getPasswordRequirements: vi.fn(),
+        refreshAccessToken: vi.fn(),
         registerFido2: vi.fn(),
         registerPasskey: vi.fn(),
         resendContactVerificationCode: vi.fn(),
         updateProfile: vi.fn(),
+        updateSecret: vi.fn(),
+        updateSelfUser: vi.fn(),
         updateUsernameAlias: vi.fn(),
         verifyContact: vi.fn(),
     };
@@ -48,6 +51,7 @@ import QRCode from "qrcode";
 import {
     AccountData,
     ApiRequestError,
+    ApiUser,
     Alias,
     Contact,
     Profile,
@@ -65,10 +69,13 @@ import {
     getPasskeyRegistrationOptions,
     getPasswordRequirements,
     logout,
+    refreshAccessToken,
     registerFido2,
     registerPasskey,
     resendContactVerificationCode,
     updateProfile,
+    updateSecret,
+    updateSelfUser,
     updateUsernameAlias,
     verifyContact,
 } from "../../apps/shared/lib/api.js";
@@ -89,9 +96,12 @@ const mockedGetAccount = vi.mocked(getAccount);
 const mockedGetFido2RegistrationOptions = vi.mocked(getFido2RegistrationOptions);
 const mockedGetPasskeyRegistrationOptions = vi.mocked(getPasskeyRegistrationOptions);
 const mockedGetPasswordRequirements = vi.mocked(getPasswordRequirements);
+const mockedRefreshAccessToken = vi.mocked(refreshAccessToken);
 const mockedRegisterFido2 = vi.mocked(registerFido2);
 const mockedRegisterPasskey = vi.mocked(registerPasskey);
 const mockedUpdateProfile = vi.mocked(updateProfile);
+const mockedUpdateSecret = vi.mocked(updateSecret);
+const mockedUpdateSelfUser = vi.mocked(updateSelfUser);
 const mockedUpdateUsernameAlias = vi.mocked(updateUsernameAlias);
 const mockedVerifyContact = vi.mocked(verifyContact);
 const mockedResendContactVerificationCode = vi.mocked(resendContactVerificationCode);
@@ -133,7 +143,7 @@ function profileObj(overrides: Partial<Profile> = {}): Profile {
  */
 function accountData(overrides: Partial<AccountData> = {}): AccountData {
     return {
-        user: { uid: "u1", roles: [], scopes: [] },
+        user: { uid: "u1", version: 1, roles: [], scopes: [] },
         profile: undefined,
         aliases: [alias()],
         secrets: [],
@@ -161,11 +171,21 @@ beforeEach(() => {
 });
 
 describe("AccountPage — auth guard", () => {
-    it("redirects to /auth/signin and renders nothing when there is no userUid", () => {
+    it("attempts a silent refresh when there is no userUid, redirecting to /auth/signin when it fails", async () => {
         const location = mockLocation();
+        mockedRefreshAccessToken.mockRejectedValueOnce(new Error("no refresh token"));
         const { container } = render(<AccountPage />);
-        expect(location.replace).toHaveBeenCalledWith("/auth/signin");
+        await waitFor(() => expect(location.replace).toHaveBeenCalledWith("/auth/signin"));
         expect(container.querySelector(".rr-card")).toBeNull();
+        expect(mockedGetAccount).not.toHaveBeenCalled();
+    });
+
+    it("reloads the page when a silent refresh succeeds with no userUid", async () => {
+        const location = mockLocation();
+        mockedRefreshAccessToken.mockResolvedValueOnce({ token: "tok", user: { uid: "u1", version: 1, roles: [], scopes: [] } });
+        render(<AccountPage />);
+        await waitFor(() => expect(location.reload).toHaveBeenCalled());
+        expect(location.replace).not.toHaveBeenCalled();
     });
 });
 
@@ -360,7 +380,7 @@ describe("AccountPage — username", () => {
         await user.type(input, "newname");
         mockedUpdateUsernameAlias.mockResolvedValueOnce(alias({ uid: "n2", type: "name", alias: "newname", verified: true }));
 
-        await user.click(screen.getByRole("button", { name: "Save" }));
+        await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
 
         expect(mockedUpdateUsernameAlias).toHaveBeenCalledWith("n1", "newname");
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -377,7 +397,7 @@ describe("AccountPage — username", () => {
 
         await user.clear(screen.getByLabelText("Username"));
         await user.type(screen.getByLabelText("Username"), "newname");
-        await user.click(screen.getByRole("button", { name: "Save" }));
+        await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
 
         expect(await screen.findByText("taken")).toBeInTheDocument();
         expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -393,7 +413,7 @@ describe("AccountPage — username", () => {
 
         await user.clear(screen.getByLabelText("Username"));
         await user.type(screen.getByLabelText("Username"), "newname");
-        await user.click(screen.getByRole("button", { name: "Save" }));
+        await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
 
         expect(await screen.findByText("Could not change your username.")).toBeInTheDocument();
     });
@@ -407,7 +427,7 @@ describe("AccountPage — username", () => {
         mockedUpdateUsernameAlias.mockRejectedValueOnce(new ApiRequestError("taken", 409));
         await user.clear(screen.getByLabelText("Username"));
         await user.type(screen.getByLabelText("Username"), "newname");
-        await user.click(screen.getByRole("button", { name: "Save" }));
+        await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
         await screen.findByText("taken");
 
         await user.keyboard("{Escape}");
@@ -1108,19 +1128,22 @@ describe("AccountPage — password", () => {
         expect(screen.getByText("(LastPass)")).toBeInTheDocument();
     });
 
-    it("changes an existing password, deleting the old secret", async () => {
+    it("changes an existing password by updating it in place, without creating or deleting anything", async () => {
         const user = userEvent.setup();
         mockedGetAccount.mockReset();
         mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "oldpw", type: "password" })] }));
         await goToPasswordForm(user);
-        mockedCreatePasswordSecret.mockResolvedValueOnce(secret({ uid: "newpw" }));
-        mockedDeleteSecret.mockResolvedValueOnce();
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "oldpw", type: "password", version: 1 }));
 
         await user.type(screen.getByLabelText("New password"), "Sup3r$ecret1");
         await user.type(screen.getByLabelText("Confirm new password"), "Sup3r$ecret1");
         await user.click(screen.getByRole("button", { name: "Save password" }));
 
-        await waitFor(() => expect(mockedDeleteSecret).toHaveBeenCalledWith("oldpw"));
+        await waitFor(() =>
+            expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "oldpw", version: 0, data: "Sup3r$ecret1", hint: undefined }),
+        );
+        expect(mockedCreatePasswordSecret).not.toHaveBeenCalled();
+        expect(mockedDeleteSecret).not.toHaveBeenCalled();
     });
 
     it("shows the ApiRequestError message when saving the password fails", async () => {
@@ -1170,9 +1193,11 @@ describe("AccountPage — authenticator app (TOTP)", () => {
         await user.click(screen.getByRole("button", { name: "Authenticator app" }));
     }
 
-    it("adds one, renders the QR code, and appends it to the list on Done", async () => {
+    it("adds one immediately (no label field first), renders the QR code, and appends it to the list on Confirm", async () => {
         const user = userEvent.setup();
         await goToTotp(user);
+        // No label field before creation — the ceremony starts right away.
+        expect(screen.queryByLabelText("Label (optional)")).toBeNull();
         mockedCreateTotpSecret.mockResolvedValueOnce({
             ...secret({ uid: "totp1", type: "totp" }),
             data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
@@ -1182,35 +1207,52 @@ describe("AccountPage — authenticator app (TOTP)", () => {
         await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
 
         expect(await screen.findByText("ABCD1234")).toBeInTheDocument();
-        expect(mockedCreateTotpSecret).toHaveBeenCalledWith(undefined);
+        expect(mockedCreateTotpSecret).toHaveBeenCalledWith();
         expect(mockedToDataURL).toHaveBeenCalledWith("otpauth://totp/x", { width: 220, margin: 1 });
         expect(screen.getByAltText("Authenticator app QR code")).toHaveAttribute("src", "data:image/png;base64,xyz");
 
-        await user.click(screen.getByRole("button", { name: "Done" }));
+        // No label entered — Confirm just closes, with no update call.
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(mockedUpdateSecret).not.toHaveBeenCalled();
         expect(screen.getByText("Authenticator app")).toBeInTheDocument();
     });
 
-    it("goes straight to secret creation with no intermediate confirm step, and passes a trimmed label as the hint", async () => {
+    it("lets the label be entered after creation, in the same confirm step as the QR code, saving it via updateSecret", async () => {
         const user = userEvent.setup();
         await goToTotp(user);
-        // No "Add an authenticator app to continue"-only screen — the very first thing shown after picking
-        // "Authenticator app" is already the hint form whose submit performs the creation directly.
-        expect(screen.getByLabelText("Label (optional)")).toBeInTheDocument();
         mockedCreateTotpSecret.mockResolvedValueOnce({
-            ...secret({ uid: "totp1", type: "totp", hint: "LastPass" }),
+            ...secret({ uid: "totp1", type: "totp", version: 0 }),
             data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
         });
         mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
-
-        await user.type(screen.getByLabelText("Label (optional)"), "  LastPass  ");
         await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
+        await screen.findByText("ABCD1234");
 
-        expect(await screen.findByText("ABCD1234")).toBeInTheDocument();
-        expect(mockedCreateTotpSecret).toHaveBeenCalledWith("LastPass");
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "totp1", type: "totp", version: 1, hint: "LastPass" }));
+        await user.type(screen.getByLabelText("Label (optional)"), "  LastPass  ");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
 
-        await user.click(screen.getByRole("button", { name: "Done" }));
+        await waitFor(() => expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "totp1", version: 0, hint: "LastPass" }));
         expect(screen.getByText("(LastPass)")).toBeInTheDocument();
+    });
+
+    it("shows the ApiRequestError message when saving the label on Confirm fails", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        mockedCreateTotpSecret.mockResolvedValueOnce({
+            ...secret({ uid: "totp1", type: "totp", version: 0 }),
+            data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
+        });
+        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
+        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
+        await screen.findByText("ABCD1234");
+
+        mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("label taken", 400));
+        await user.type(screen.getByLabelText("Label (optional)"), "LastPass");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        expect(await screen.findByText("label taken")).toBeInTheDocument();
     });
 
     it("shows the ApiRequestError message when adding fails", async () => {
@@ -1240,9 +1282,10 @@ describe("AccountPage — passkey", () => {
         await user.click(screen.getByRole("button", { name: "Passkey" }));
     }
 
-    it("adds a passkey via WebAuthn registration, closing the modal", async () => {
+    it("adds a passkey via WebAuthn registration immediately (no label field first)", async () => {
         const user = userEvent.setup();
         await goToPasskey(user);
+        expect(screen.queryByLabelText("Label (optional)")).toBeNull();
         const options = { challenge: "c" };
         const response = { id: "cred1" };
         mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce(options);
@@ -1251,27 +1294,50 @@ describe("AccountPage — passkey", () => {
 
         await user.click(screen.getByRole("button", { name: "Add passkey" }));
 
-        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(await screen.findByText("Passkey added.")).toBeInTheDocument();
         expect(mockedStartRegistration).toHaveBeenCalledWith({ optionsJSON: options });
-        expect(mockedRegisterPasskey).toHaveBeenCalledWith(response, undefined);
+        expect(mockedRegisterPasskey).toHaveBeenCalledWith(response);
+
+        // No label entered — Confirm just closes, with no update call.
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(mockedUpdateSecret).not.toHaveBeenCalled();
         expect(screen.getByText("Passkey")).toBeInTheDocument();
     });
 
-    it("passes a trimmed label through as the hint when one is entered", async () => {
+    it("lets the label be entered after registration, in the same confirm step, saving it via updateSecret", async () => {
         const user = userEvent.setup();
         await goToPasskey(user);
         const options = { challenge: "c" };
         const response = { id: "cred1" };
         mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce(options);
         mockedStartRegistration.mockResolvedValueOnce(response as any);
-        mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", hint: "iPhone" }));
-
-        await user.type(screen.getByLabelText("Label (optional)"), "  iPhone  ");
+        mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 0 }));
         await user.click(screen.getByRole("button", { name: "Add passkey" }));
+        await screen.findByText("Passkey added.");
 
-        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-        expect(mockedRegisterPasskey).toHaveBeenCalledWith(response, "iPhone");
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 1, hint: "iPhone" }));
+        await user.type(screen.getByLabelText("Label (optional)"), "  iPhone  ");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        await waitFor(() => expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "cred1", version: 0, hint: "iPhone" }));
         expect(screen.getByText("(iPhone)")).toBeInTheDocument();
+    });
+
+    it("shows the ApiRequestError message when saving the label on Confirm fails", async () => {
+        const user = userEvent.setup();
+        await goToPasskey(user);
+        mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({ challenge: "c" });
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 0 }));
+        await user.click(screen.getByRole("button", { name: "Add passkey" }));
+        await screen.findByText("Passkey added.");
+
+        mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("label taken", 400));
+        await user.type(screen.getByLabelText("Label (optional)"), "iPhone");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        expect(await screen.findByText("label taken")).toBeInTheDocument();
     });
 
     it("shows a cancellation message on NotAllowedError", async () => {
@@ -1313,9 +1379,10 @@ describe("AccountPage — FIDO2 security key", () => {
         await user.click(screen.getByRole("button", { name: "Hardware key (FIDO2, YubiKey)" }));
     }
 
-    it("adds a security key via WebAuthn registration, closing the modal", async () => {
+    it("adds a security key via WebAuthn registration immediately (no label field first)", async () => {
         const user = userEvent.setup();
         await goToFido2(user);
+        expect(screen.queryByLabelText("Label (optional)")).toBeNull();
         const options = { challenge: "c" };
         const response = { id: "cred1" };
         mockedGetFido2RegistrationOptions.mockResolvedValueOnce(options);
@@ -1324,26 +1391,49 @@ describe("AccountPage — FIDO2 security key", () => {
 
         await user.click(screen.getByRole("button", { name: "Add security key" }));
 
+        expect(await screen.findByText("Security key added.")).toBeInTheDocument();
+        expect(mockedRegisterFido2).toHaveBeenCalledWith(response);
+
+        // No label entered — Confirm just closes, with no update call.
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-        expect(mockedRegisterFido2).toHaveBeenCalledWith(response, undefined);
+        expect(mockedUpdateSecret).not.toHaveBeenCalled();
         expect(screen.getByText("Hardware key")).toBeInTheDocument();
     });
 
-    it("passes a trimmed label through as the hint when one is entered", async () => {
+    it("lets the label be entered after registration, in the same confirm step, saving it via updateSecret", async () => {
         const user = userEvent.setup();
         await goToFido2(user);
         const options = { challenge: "c" };
         const response = { id: "cred1" };
         mockedGetFido2RegistrationOptions.mockResolvedValueOnce(options);
         mockedStartRegistration.mockResolvedValueOnce(response as any);
-        mockedRegisterFido2.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2", hint: "YubiKey" }));
-
-        await user.type(screen.getByLabelText("Label (optional)"), "  YubiKey  ");
+        mockedRegisterFido2.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2", version: 0 }));
         await user.click(screen.getByRole("button", { name: "Add security key" }));
+        await screen.findByText("Security key added.");
 
-        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-        expect(mockedRegisterFido2).toHaveBeenCalledWith(response, "YubiKey");
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2", version: 1, hint: "YubiKey" }));
+        await user.type(screen.getByLabelText("Label (optional)"), "  YubiKey  ");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        await waitFor(() => expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "cred1", version: 0, hint: "YubiKey" }));
         expect(screen.getByText("(YubiKey)")).toBeInTheDocument();
+    });
+
+    it("shows the ApiRequestError message when saving the label on Confirm fails", async () => {
+        const user = userEvent.setup();
+        await goToFido2(user);
+        mockedGetFido2RegistrationOptions.mockResolvedValueOnce({ challenge: "c" });
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedRegisterFido2.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2", version: 0 }));
+        await user.click(screen.getByRole("button", { name: "Add security key" }));
+        await screen.findByText("Security key added.");
+
+        mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("label taken", 400));
+        await user.type(screen.getByLabelText("Label (optional)"), "YubiKey");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        expect(await screen.findByText("label taken")).toBeInTheDocument();
     });
 
     it("shows a cancellation message on NotAllowedError", async () => {
@@ -1431,9 +1521,14 @@ describe("AccountPage — state updaters fire while the initial account fetch is
 
         await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
         await screen.findByText("ABCD1234");
-        await user.click(screen.getByRole("button", { name: "Done" }));
+        // Also enters a label so the Confirm handler's `setSecrets((prev) => (prev ?? []).map(...))` path
+        // (distinct from the create handler's `[...(prev ?? []), created]` path above) gets exercised with
+        // `prev` still null too.
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "totp1", type: "totp", version: 1, hint: "LastPass" }));
+        await user.type(screen.getByLabelText("Label (optional)"), "LastPass");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
 
-        expect(screen.getByText("Authenticator app")).toBeInTheDocument();
+        expect(await screen.findByText("Authenticator app")).toBeInTheDocument();
     });
 
     it("handleAddPasskey seeds the list from [] when the account hadn't loaded yet", async () => {
@@ -1449,6 +1544,10 @@ describe("AccountPage — state updaters fire while the initial account fetch is
         mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey" }));
 
         await user.click(screen.getByRole("button", { name: "Add passkey" }));
+        await screen.findByText("Passkey added.");
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 1, hint: "iPhone" }));
+        await user.type(screen.getByLabelText("Label (optional)"), "iPhone");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
 
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
         expect(screen.getByText("Passkey")).toBeInTheDocument();
@@ -1467,9 +1566,147 @@ describe("AccountPage — state updaters fire while the initial account fetch is
         mockedRegisterFido2.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2" }));
 
         await user.click(screen.getByRole("button", { name: "Add security key" }));
+        await screen.findByText("Security key added.");
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2", version: 1, hint: "YubiKey" }));
+        await user.type(screen.getByLabelText("Label (optional)"), "YubiKey");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
 
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
         expect(screen.getByText("Hardware key")).toBeInTheDocument();
+    });
+});
+
+describe("AccountPage — security (requireMFA)", () => {
+    it("renders the current requireMFA state and saves a toggle", async () => {
+        const user = userEvent.setup();
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ user: { uid: "u1", version: 1, roles: [], scopes: [], requireMFA: false } }),
+        );
+        mockedUpdateSelfUser.mockResolvedValueOnce({ uid: "u1", version: 2, roles: [], scopes: [], requireMFA: true });
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Security");
+
+        expect(screen.getByLabelText("Require multi-factor authentication to sign in")).not.toBeChecked();
+        await user.click(screen.getByLabelText("Require multi-factor authentication to sign in"));
+        await user.click(screen.getByRole("button", { name: "Save" }));
+
+        expect(mockedUpdateSelfUser).toHaveBeenCalledWith({ uid: "u1", version: 1, requireMFA: true });
+        expect(await screen.findByText("Saved.")).toBeInTheDocument();
+    });
+
+    it("shows the ApiRequestError message when saving fails", async () => {
+        const user = userEvent.setup();
+        mockedUpdateSelfUser.mockRejectedValueOnce(new ApiRequestError("nope", 500));
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Security");
+        await user.click(screen.getByRole("button", { name: "Save" }));
+        expect(await screen.findByText("nope")).toBeInTheDocument();
+    });
+
+    it("shows a generic message when saving fails with a non-API error", async () => {
+        const user = userEvent.setup();
+        mockedUpdateSelfUser.mockRejectedValueOnce(new Error("network down"));
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Security");
+        await user.click(screen.getByRole("button", { name: "Save" }));
+        expect(await screen.findByText("Could not save your security settings.")).toBeInTheDocument();
+    });
+});
+
+describe("AccountPage — mandatory second-factor setup prompt", () => {
+    it("shows a mandatory setup prompt when requireMFA is true and no second factor exists", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ user: { uid: "u1", version: 1, roles: [], scopes: [], requireMFA: true }, aliases: [] }),
+        );
+        render(<AccountPage userUid="u1" />);
+        expect(await screen.findByText("Two-factor authentication required")).toBeInTheDocument();
+    });
+
+    it("does not show the prompt when a qualifying second factor already exists", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                user: { uid: "u1", version: 1, roles: [], scopes: [], requireMFA: true },
+                aliases: [],
+                secrets: [secret({ uid: "totp1", type: "totp" })],
+            }),
+        );
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Sign-in methods");
+        expect(screen.queryByText("Two-factor authentication required")).not.toBeInTheDocument();
+    });
+
+    it("does not show the prompt when requireMFA is false, regardless of registered methods", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ user: { uid: "u1", version: 1, roles: [], scopes: [], requireMFA: false }, aliases: [] }),
+        );
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Sign-in methods");
+        expect(screen.queryByText("Two-factor authentication required")).not.toBeInTheDocument();
+    });
+
+    it("is not dismissable via the modal's own close control", async () => {
+        const user = userEvent.setup();
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ user: { uid: "u1", version: 1, roles: [], scopes: [], requireMFA: true }, aliases: [] }),
+        );
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Two-factor authentication required");
+
+        await user.click(screen.getByRole("button", { name: "Close" }));
+        expect(screen.getByText("Two-factor authentication required")).toBeInTheDocument();
+    });
+
+    it("stays open through the QR reveal step and only closes once the authenticator app setup is confirmed", async () => {
+        const user = userEvent.setup();
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ user: { uid: "u1", version: 1, roles: [], scopes: [], requireMFA: true }, aliases: [] }),
+        );
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Two-factor authentication required");
+
+        await user.click(screen.getByRole("button", { name: "Authenticator app" }));
+        mockedCreateTotpSecret.mockResolvedValueOnce({
+            ...secret({ uid: "totp1", type: "totp" }),
+            data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
+        });
+        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
+        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
+
+        // The secret already satisfies hasSecondFactor at this point, but the dialog — and its QR code —
+        // must still be visible: the user hasn't confirmed yet.
+        expect(await screen.findByText("ABCD1234")).toBeInTheDocument();
+        expect(screen.getByText("Two-factor authentication required")).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+        await waitFor(() => expect(screen.queryByText("Two-factor authentication required")).not.toBeInTheDocument());
+    });
+
+    it("also offers a hardware key, closing once registration is confirmed", async () => {
+        const user = userEvent.setup();
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ user: { uid: "u1", version: 1, roles: [], scopes: [], requireMFA: true }, aliases: [] }),
+        );
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Two-factor authentication required");
+
+        await user.click(screen.getByRole("button", { name: "Hardware key (FIDO2, YubiKey)" }));
+        mockedGetFido2RegistrationOptions.mockResolvedValueOnce({ challenge: "c" });
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedRegisterFido2.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2" }));
+        await user.click(screen.getByRole("button", { name: "Add security key" }));
+
+        expect(await screen.findByText("Security key added.")).toBeInTheDocument();
+        expect(screen.getByText("Two-factor authentication required")).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+        await waitFor(() => expect(screen.queryByText("Two-factor authentication required")).not.toBeInTheDocument());
     });
 });
 
@@ -1579,7 +1816,7 @@ describe("AccountPage — delete account", () => {
 describe("AccountPage — admin console link", () => {
     it("does not show an admin console link for a non-admin account", async () => {
         mockedGetAccount.mockReset();
-        mockedGetAccount.mockResolvedValueOnce(accountData({ user: { uid: "u1", roles: ["user"], scopes: [] } }));
+        mockedGetAccount.mockResolvedValueOnce(accountData({ user: { uid: "u1", version: 1, roles: ["user"], scopes: [] } }));
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Save profile");
         expect(screen.queryByRole("link", { name: "Admin console" })).not.toBeInTheDocument();
@@ -1587,7 +1824,7 @@ describe("AccountPage — admin console link", () => {
 
     it("shows an admin console link pointing at /admin for an admin account", async () => {
         mockedGetAccount.mockReset();
-        mockedGetAccount.mockResolvedValueOnce(accountData({ user: { uid: "u1", roles: ["admin"], scopes: [] } }));
+        mockedGetAccount.mockResolvedValueOnce(accountData({ user: { uid: "u1", version: 1, roles: ["admin"], scopes: [] } }));
         render(<AccountPage userUid="u1" />);
         expect(await screen.findByRole("link", { name: "Admin console" })).toHaveAttribute("href", "/admin");
     });

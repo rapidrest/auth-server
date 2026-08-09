@@ -1,6 +1,6 @@
 import React, { FormEvent, useState } from "react";
 import Modal from "../../../../lib/Modal.js";
-import { ApiRequestError, deleteSecret } from "../../../../lib/api.js";
+import { ApiRequestError, updateSecret } from "../../../../lib/api.js";
 import { AdminSecretSummary, createUserPasswordSecret } from "../../../../lib/adminApi.js";
 import { isPasswordValid, usePasswordRequirements } from "../../../../lib/passwordCriteria.js";
 import Alert from "../../../feedback/Alert.js";
@@ -37,14 +37,11 @@ export default function SetUserPasswordModal({ open, onClose, uid, secrets, onSa
 
         setSaving(true);
         try {
-            const created = await createUserPasswordSecret(uid, password, "Set by administrator");
-            // Secrets have no update endpoint — "changing" a password means creating the new one, then
-            // removing any old password secret(s) (mirrors PasswordSecretForm's self-service flow).
-            const oldPasswords = (secrets ?? []).filter((s) => s.type === "password");
-            for (const old of oldPasswords) {
-                await deleteSecret(old.uid);
-            }
-            onSaved([...(secrets ?? []).filter((s) => s.type !== "password"), created]);
+            const existing = (secrets ?? []).find((s) => s.type === "password");
+            const saved = existing
+                ? await updateSecret({ uid: existing.uid, version: existing.version, data: password })
+                : await createUserPasswordSecret(uid, password, "Set by administrator");
+            onSaved([...(secrets ?? []).filter((s) => s.type !== "password"), saved]);
             setPassword("");
             setConfirmPassword("");
             onClose();

@@ -1,5 +1,6 @@
 import React, { PropsWithChildren, useEffect, useState } from "react";
 import { ApiRequestError, ApiUser, getCurrentUser, logout } from "../../../lib/api.js";
+import { useSessionRefresh } from "../../../lib/useSessionRefresh.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
 
@@ -19,9 +20,13 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
     const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    // Keeps the access token alive (and this shell usable) for as long as the refresh token is valid —
+    // see useSessionRefresh's doc comment. Handles redirecting to sign-in itself when no session can be
+    // recovered, so the effect below no longer needs to.
+    useSessionRefresh(userUid);
+
     useEffect(() => {
         if (!userUid) {
-            window.location.replace("/auth/signin");
             return;
         }
 

@@ -42,7 +42,7 @@ const mockedGetUserProfile = vi.mocked(getUserProfile);
 const mockedListUserAliases = vi.mocked(listUserAliases);
 const mockedListUserSecrets = vi.mocked(listUserSecrets);
 
-const adminSelf = { uid: "admin-1", roles: ["admin"], scopes: [] };
+const adminSelf = { uid: "admin-1", version: 1, roles: ["admin"], scopes: [] };
 const targetUser: AdminUser = {
     uid: "target-1",
     roles: ["editor"],

@@ -1498,11 +1498,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/auth@npm:^1.0.0-rc.16":
-  version: 1.0.0-rc.16
-  resolution: "@rapidrest/auth@npm:1.0.0-rc.16"
+"@rapidrest/auth@npm:^1.0.0-rc.17":
+  version: 1.0.0-rc.17
+  resolution: "@rapidrest/auth@npm:1.0.0-rc.17"
   dependencies:
     cross-spawn: "npm:^7.0.5"
+    parse-duration: "npm:^2.1.8"
   peerDependencies:
     "@rapidrest/core": 1.x
     "@rapidrest/service-core": 1.x
@@ -1532,7 +1533,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/24ddd224fde4ffd4890c771ac4bc91c8c5b4a2094d675819ffde53ccbdbf43c782e797a03e57efa5e23a2427e600c9007963f7d4392a4aa70004c011d471c73a
+  checksum: 10c0/941609853417f523b5e81ed65969c1368ad9b414d5bfd8339007ab24e181c2ad774715e3234220148eaea3d7df4ef99ab187670d25d3320bf3c6dc25ee64a1d7
   languageName: node
   linkType: hard
 
@@ -2977,7 +2978,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "auth-server@workspace:."
   dependencies:
-    "@rapidrest/auth": "npm:^1.0.0-rc.16"
+    "@rapidrest/auth": "npm:^1.0.0-rc.17"
     "@rapidrest/cli": "npm:^0.18.0"
     "@rapidrest/core": "npm:^1.12.0"
     "@rapidrest/react": "npm:^0.11.0"
@@ -7588,6 +7589,13 @@ __metadata:
     just-diff: "npm:^6.0.0"
     just-diff-apply: "npm:^5.2.0"
   checksum: 10c0/9478c015d138b4ad1538296fc50316f7341d909d4d1a66561abe4e0c9975ff5485f62ac423b52cd4b63aa37ef8e83efe536f544c2cc13b07b61104480f3c8be2
+  languageName: node
+  linkType: hard
+
+"parse-duration@npm:^2.1.8":
+  version: 2.1.8
+  resolution: "parse-duration@npm:2.1.8"
+  checksum: 10c0/9d376d6942fcd40057db0dca733e4429ce09eb98f07169f610c80fc2df9082ee078f75381174e92a22cf5bc82f9828ceaa02b2b1dfc4a3dab2a70b13f0f9a8ee
   languageName: node
   linkType: hard
 

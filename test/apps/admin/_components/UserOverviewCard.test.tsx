@@ -33,22 +33,24 @@ beforeEach(() => {
 });
 
 describe("UserOverviewCard", () => {
-    it("renders the account's uid, dates, roles, scopes, and verified state", () => {
+    it("renders the account's uid, dates, roles, scopes, verified, and requireMFA state", () => {
         render(<UserOverviewCard user={baseUser} onUpdated={vi.fn()} />);
         expect(screen.getByText("u1")).toBeInTheDocument();
         expect(screen.getByText("admin")).toBeInTheDocument();
         expect(screen.getByLabelText("Verified")).not.toBeChecked();
+        expect(screen.getByLabelText("Require multi-factor authentication to sign in")).not.toBeChecked();
     });
 
-    it("saves roles/scopes/verified edits and reports the updated user", async () => {
+    it("saves roles/scopes/verified/requireMFA edits and reports the updated user", async () => {
         const user = userEvent.setup();
         const onUpdated = vi.fn();
-        const updated = { ...baseUser, roles: ["admin", "editor"], verified: true, version: 2 };
+        const updated = { ...baseUser, roles: ["admin", "editor"], verified: true, requireMFA: true, version: 2 };
         mockedUpdateUser.mockResolvedValue(updated);
 
         render(<UserOverviewCard user={baseUser} onUpdated={onUpdated} />);
         await user.type(screen.getByPlaceholderText("e.g. admin"), "editor{Enter}");
         await user.click(screen.getByLabelText("Verified"));
+        await user.click(screen.getByLabelText("Require multi-factor authentication to sign in"));
         await user.click(screen.getByRole("button", { name: "Save" }));
 
         expect(mockedUpdateUser).toHaveBeenCalledWith({
@@ -57,6 +59,7 @@ describe("UserOverviewCard", () => {
             roles: ["admin", "editor"],
             scopes: [],
             verified: true,
+            requireMFA: true,
         });
         expect(await screen.findByText("Saved.")).toBeInTheDocument();
         expect(onUpdated).toHaveBeenCalledWith(updated);

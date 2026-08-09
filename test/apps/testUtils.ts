@@ -31,12 +31,12 @@ export function mockFetch(
 }
 
 /**
- * Replaces `window.location` with a plain, fully-writable stub so `window.location.href = "..."` and
- * `window.location.replace(...)` can be asserted on directly — jsdom's real `Location` either throws
- * "Not implemented: navigation" or actually attempts to navigate when touched.
+ * Replaces `window.location` with a plain, fully-writable stub so `window.location.href = "..."`,
+ * `window.location.replace(...)`, and `window.location.reload()` can be asserted on directly — jsdom's
+ * real `Location` either throws "Not implemented: navigation" or actually attempts to navigate when touched.
  */
-export function mockLocation(): { href: string; replace: ReturnType<typeof vi.fn> } {
-    const location = { href: "", replace: vi.fn() };
+export function mockLocation(): { href: string; replace: ReturnType<typeof vi.fn>; reload: ReturnType<typeof vi.fn> } {
+    const location = { href: "", replace: vi.fn(), reload: vi.fn() };
     Object.defineProperty(window, "location", {
         configurable: true,
         writable: true,

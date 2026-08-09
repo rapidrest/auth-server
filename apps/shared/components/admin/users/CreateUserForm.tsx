@@ -27,6 +27,7 @@ export default function CreateUserForm({ onCreated }: CreateUserFormProps) {
     const [roles, setRoles] = useState<string[]>([]);
     const [scopes, setScopes] = useState<string[]>([]);
     const [verified, setVerified] = useState(false);
+    const [requireMFA, setRequireMFA] = useState(false);
 
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -58,7 +59,7 @@ export default function CreateUserForm({ onCreated }: CreateUserFormProps) {
             // optional credential) — the underlying REST resources are separate and there's no transaction
             // spanning them. If a later step fails (e.g. the identifier is already taken), the User record
             // still exists; the admin can finish setup from the account's detail page.
-            const user = await createUser({ roles, scopes, verified });
+            const user = await createUser({ roles, scopes, verified, requireMFA });
             await createUserAlias(user.uid, identifierType, identifierValue.trim());
             if (passwordProvided) {
                 await createUserPasswordSecret(user.uid, password, "Set by administrator");
@@ -129,6 +130,18 @@ export default function CreateUserForm({ onCreated }: CreateUserFormProps) {
                         onChange={(e) => setVerified(e.target.checked)}
                     />
                     Verified
+                </label>
+            </div>
+
+            <div className="rr-field">
+                <label htmlFor="newUserRequireMFA" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <input
+                        id="newUserRequireMFA"
+                        type="checkbox"
+                        checked={requireMFA}
+                        onChange={(e) => setRequireMFA(e.target.checked)}
+                    />
+                    Require multi-factor authentication to sign in
                 </label>
             </div>
 

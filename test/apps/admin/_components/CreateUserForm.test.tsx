@@ -84,7 +84,7 @@ describe("CreateUserForm", () => {
         await user.click(screen.getByRole("button", { name: "Create account" }));
 
         await waitFor(() => expect(onCreated).toHaveBeenCalled());
-        expect(mockedCreateUser).toHaveBeenCalledWith({ roles: [], scopes: [], verified: false });
+        expect(mockedCreateUser).toHaveBeenCalledWith({ roles: [], scopes: [], verified: false, requireMFA: false });
         expect(mockedCreateUserAlias).toHaveBeenCalledWith("new-1", "email", "ada@example.com");
         expect(mockedCreateUserPasswordSecret).not.toHaveBeenCalled();
         expect(onCreated).toHaveBeenCalledWith("new-1");
@@ -105,9 +105,15 @@ describe("CreateUserForm", () => {
         await user.type(screen.getByPlaceholderText("e.g. admin"), "admin{Enter}");
         await user.type(screen.getByPlaceholderText("e.g. profile:contacts"), "profile:contacts{Enter}");
         await user.click(screen.getByLabelText("Verified"));
+        await user.click(screen.getByLabelText("Require multi-factor authentication to sign in"));
         await user.click(screen.getByRole("button", { name: "Create account" }));
 
-        expect(mockedCreateUser).toHaveBeenCalledWith({ roles: ["admin"], scopes: ["profile:contacts"], verified: true });
+        expect(mockedCreateUser).toHaveBeenCalledWith({
+            roles: ["admin"],
+            scopes: ["profile:contacts"],
+            verified: true,
+            requireMFA: true,
+        });
         expect(mockedCreateUserAlias).toHaveBeenCalledWith("new-2", "name", "newadmin");
         expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("new-2", VALID_PASSWORD, "Set by administrator");
         expect(onCreated).toHaveBeenCalledWith("new-2");

@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Alias, ApiRequestError, getAccount, logout, Profile, SecretSummary } from "../../shared/lib/api.js";
+import { Alias, ApiRequestError, ApiUser, getAccount, hasSecondFactor, logout, Profile, SecretSummary } from "../../shared/lib/api.js";
+import { useSessionRefresh } from "../../shared/lib/useSessionRefresh.js";
 import AuthShell from "../../shared/components/layout/AuthShell.js";
 import AccountHeader from "../../shared/components/account/header/AccountHeader.js";
 import UsernameCard from "../../shared/components/account/username/UsernameCard.js";
 import ProfileCard from "../../shared/components/account/profile/ProfileCard.js";
 import ContactsCard from "../../shared/components/account/contacts/ContactsCard.js";
 import SecretsCard from "../../shared/components/account/secrets/SecretsCard.js";
+import SecurityCard from "../../shared/components/account/security/SecurityCard.js";
+import RequireMfaSetupModal from "../../shared/components/account/security/RequireMfaSetupModal.js";
 
 interface AccountPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
@@ -13,6 +16,7 @@ interface AccountPageProps {
 }
 
 export default function AccountPage({ userUid }: AccountPageProps) {
+    const [user, setUser] = useState<ApiUser | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [profileExists, setProfileExists] = useState(false);
     // Flips true once the initial getAccount() load settles (success or failure) — see ProfileCard,
@@ -27,14 +31,19 @@ export default function AccountPage({ userUid }: AccountPageProps) {
 
     const [isAdmin, setIsAdmin] = useState(false);
 
+    // Keeps the access token alive (and this page usable) for as long as the refresh token is valid —
+    // see useSessionRefresh's doc comment. Handles redirecting to sign-in itself when no session can be
+    // recovered, so the effect below no longer needs to.
+    useSessionRefresh(userUid);
+
     useEffect(() => {
         if (!userUid) {
-            window.location.replace("/auth/signin");
             return;
         }
 
         getAccount("me")
             .then((data) => {
+                setUser(data.user);
                 setIsAdmin(!!data.user.roles?.includes("admin"));
                 setProfile(data.profile ?? null);
                 setProfileExists(!!data.profile);
@@ -94,6 +103,13 @@ export default function AccountPage({ userUid }: AccountPageProps) {
             />
 
             <SecretsCard secrets={secrets} secretsError={accountError} setSecrets={setSecrets} />
+
+            <SecurityCard user={user} setUser={setUser} />
+
+            <RequireMfaSetupModal
+                open={!!user?.requireMFA && !hasSecondFactor(secrets, aliases)}
+                setSecrets={setSecrets}
+            />
         </AuthShell>
     );
 }

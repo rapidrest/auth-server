@@ -12,9 +12,12 @@
 
 export interface ApiUser {
     uid: string;
+    version: number;
     roles: string[];
     scopes: string[];
     verified?: boolean;
+    /** When `true`, this account must complete a second factor to sign in (see `signInWithPassword`/MFA sign-in). */
+    requireMFA?: boolean;
 }
 
 export interface AuthResult {
@@ -76,6 +79,32 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
 /** Fetches the authenticated caller's own `User` record (roles, scopes, verified) — used e.g. to check for admin access. */
 export function getCurrentUser(): Promise<ApiUser> {
     return apiFetch("/users/me");
+}
+
+export interface UpdateSelfUserInput {
+    uid: string;
+    /** Must be the `version` from the most recently fetched copy of this account (optimistic concurrency). */
+    version: number;
+    requireMFA?: boolean;
+}
+
+/**
+ * Updates the authenticated caller's own `User` record (e.g. toggling `requireMFA`) — self-service, no
+ * admin role needed: `BaseUserRoute.create()` grants a new account's own uid full CRUD on its own record,
+ * and `id === "me"` is special-cased server-side to resolve to the caller.
+ */
+export function updateSelfUser(input: UpdateSelfUserInput): Promise<ApiUser> {
+    return apiFetch("/users/me", { method: "PUT", body: JSON.stringify(input) });
+}
+
+/**
+ * Exchanges the `refresh` HttpOnly cookie set on sign-in for a fresh access/refresh token pair — no body
+ * needed, the server reads the refresh cookie (and the session it's bound to) itself. Access tokens are
+ * short-lived (1 hour); see `useSessionRefresh` for where this is called from (a recurring timer while a
+ * page is open, plus a one-time attempt before redirecting to sign-in when the access token is missing).
+ */
+export function refreshAccessToken(): Promise<AuthResult> {
+    return apiFetch("/auth/refresh", { method: "POST" });
 }
 
 export type RegistrationIdentifierType = "email" | "phone";
@@ -178,7 +207,7 @@ export function resendContactVerificationCode(contact: string): Promise<void> {
  * discrete top-level field on `Secret`, not part of `data`, so it survives the server-side scrub of `data`
  * on every later `GET`/list.
  */
-export function createPasswordSecret(password: string, hint?: string): Promise<unknown> {
+export function createPasswordSecret(password: string, hint?: string): Promise<SecretSummary> {
     return apiFetch("/secrets", {
         method: "POST",
         body: JSON.stringify({ type: "password", data: password, ...(hint ? { hint } : {}) }),
@@ -201,27 +230,55 @@ export function getPasswordRequirements(): Promise<PasswordRequirements> {
     return apiFetch("/secrets/password");
 }
 
-function toBase64(value: string): string {
-    // btoa() only accepts Latin1 — encode as UTF-8 bytes first so non-ASCII passwords survive.
-    const bytes = new TextEncoder().encode(value);
-    let binary = "";
-    for (const byte of bytes) {
-        binary += String.fromCharCode(byte);
-    }
-    return window.btoa(binary);
+/** One of an account's registered secondary (2FA) authentication methods, as returned by `/auth/mfa`. */
+export interface MfaMethod {
+    id: string;
+    type: "fido2" | "otp" | "totp";
+    data: any;
+}
+
+/** Phase-1 (`id`+`password`) response from `/auth/mfa` when the account has a second factor to complete. */
+export interface MfaChallenge {
+    uid: string;
+    methods: MfaMethod[];
+}
+
+/** Narrows a `signInWithPassword()` result: `true` when a second factor still needs to be completed. */
+export function isMfaChallenge(result: AuthResult | MfaChallenge): result is MfaChallenge {
+    return "methods" in result;
 }
 
 /**
- * Signs in with an account identifier (email, phone, or username) and password. `BasicStrategy` is only
- * registered as `GET /auth/password`, and `fetch()` refuses a body on a GET request, so credentials go in
- * an `Authorization: Basic` header instead — the same way `curl -u` or a browser's native basic-auth
- * prompt would send them.
+ * Signs in with an account identifier (email, phone, or username) and password, via `/auth/mfa` rather
+ * than the simpler `/auth/password` (`BasicStrategy`) — the latter now unconditionally refuses any account
+ * with `requireMFA: true` (see `BaseAuthBasicRoute`), and even for accounts without that flag set, it
+ * doesn't enforce an already-registered `totp`/`fido2` secret at all. `/auth/mfa` (`MFAStrategy`) does: if
+ * the account has no secondary method registered, this resolves a normal `AuthResult` exactly as
+ * `/auth/password` used to; if it does, it instead resolves `{uid, methods}` and the caller must complete
+ * the challenge via `beginMfaChallenge`/`verifyMfaCode`/`verifyMfaFido2` below.
  */
-export function signInWithPassword(id: string, password: string): Promise<AuthResult> {
-    return apiFetch("/auth/password", {
-        method: "GET",
-        headers: { Authorization: `Basic ${toBase64(`${id}:${password}`)}` },
-    });
+export function signInWithPassword(id: string, password: string): Promise<AuthResult | MfaChallenge> {
+    return apiFetch("/auth/mfa", { method: "POST", body: JSON.stringify({ id, password }) });
+}
+
+/**
+ * Begins the selected second-factor challenge (phase 2 of `/auth/mfa`) using the `uid`/`methods[].id` from
+ * `signInWithPassword()`'s `MfaChallenge` result. Resolves `{}` for `otp`/`totp` (a code was sent, or the
+ * client's authenticator app already has one) or a WebAuthn `PublicKeyCredentialRequestOptionsJSON` for
+ * `fido2`, to pass to `startAuthentication()`.
+ */
+export function beginMfaChallenge(uid: string, methodId: string): Promise<unknown> {
+    return apiFetch("/auth/mfa", { method: "POST", body: JSON.stringify({ id: uid, methodId }) });
+}
+
+/** Completes an `otp`/`totp` second-factor challenge (phase 3) with the submitted code. */
+export function verifyMfaCode(uid: string, token: string): Promise<AuthResult> {
+    return apiFetch("/auth/mfa", { method: "POST", body: JSON.stringify({ id: uid, token }) });
+}
+
+/** Completes a `fido2` second-factor challenge (phase 3) with the `AuthenticationResponseJSON` from `startAuthentication()`. */
+export function verifyMfaFido2(response: unknown): Promise<AuthResult> {
+    return apiFetch("/auth/mfa", { method: "POST", body: JSON.stringify(response) });
 }
 
 /** Signs in with a 6-digit code from an authenticator app (RFC 6238 TOTP), for a previously registered secret. */
@@ -363,6 +420,18 @@ export interface SecretSummary {
     hint?: string;
 }
 
+/**
+ * Whether the given secrets/aliases include at least one method the server's `/auth/mfa` route would
+ * accept as a second factor — mirrors `MFAStrategy.getMethods()`: a `totp`/`fido2` secret, or a verified
+ * `email`/`phone` alias (OTP-eligible). Used to decide whether a `requireMFA` account still needs to be
+ * prompted to set one up (see `RequireMfaSetupModal`).
+ */
+export function hasSecondFactor(secrets: SecretSummary[] | null, aliases: Alias[] | null): boolean {
+    const hasQualifyingSecret = (secrets ?? []).some((s) => s.type === "totp" || s.type === "fido2");
+    const hasQualifyingAlias = (aliases ?? []).some((a) => (a.type === "email" || a.type === "phone") && a.verified);
+    return hasQualifyingSecret || hasQualifyingAlias;
+}
+
 /** Lists the authenticated caller's own registered sign-in methods (secrets) — scoped server-side to the caller. */
 export function listSecrets(): Promise<SecretSummary[]> {
     return apiFetch("/secrets");
@@ -371,6 +440,24 @@ export function listSecrets(): Promise<SecretSummary[]> {
 /** Removes one of the authenticated caller's own secrets (password, authenticator app, passkey, or security key). */
 export function deleteSecret(uid: string): Promise<void> {
     return apiFetch(`/secrets/${encodeURIComponent(uid)}`, { method: "DELETE" });
+}
+
+export interface UpdateSecretInput {
+    uid: string;
+    /** Must be the `version` from the most recently fetched copy of this secret (optimistic concurrency). */
+    version: number;
+    /** A new plaintext value — only meaningful for `password`/`totp` secrets. `passkey`/`fido2` data is immutable. */
+    data?: string;
+    /** Set, change, or clear (pass `""`) this secret's label. */
+    hint?: string;
+}
+
+/**
+ * Updates one of the authenticated caller's own secrets in place — e.g. changing a password's value, or
+ * setting/editing its `hint` — instead of creating a replacement and deleting the old one.
+ */
+export function updateSecret(input: UpdateSecretInput): Promise<SecretSummary> {
+    return apiFetch(`/secrets/${encodeURIComponent(input.uid)}`, { method: "PUT", body: JSON.stringify(input) });
 }
 
 export interface TotpSecretData {

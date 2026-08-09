@@ -33,7 +33,7 @@ beforeEach(() => {
     mockedGetPasswordRequirements.mockReset();
     mockedCreateUser.mockReset();
     mockedCreateUserAlias.mockReset();
-    mockedGetCurrentUser.mockResolvedValue({ uid: "admin-1", roles: ["admin"], scopes: [] });
+    mockedGetCurrentUser.mockResolvedValue({ uid: "admin-1", version: 1, roles: ["admin"], scopes: [] });
     mockedGetPasswordRequirements.mockResolvedValue(FALLBACK_PASSWORD_REQUIREMENTS);
 });
 

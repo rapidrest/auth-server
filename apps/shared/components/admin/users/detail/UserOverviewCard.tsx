@@ -23,6 +23,7 @@ export default function UserOverviewCard({ user, onUpdated }: UserOverviewCardPr
     const [roles, setRoles] = useState<string[]>(user.roles ?? []);
     const [scopes, setScopes] = useState<string[]>(user.scopes ?? []);
     const [verified, setVerified] = useState(!!user.verified);
+    const [requireMFA, setRequireMFA] = useState(!!user.requireMFA);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
@@ -33,6 +34,7 @@ export default function UserOverviewCard({ user, onUpdated }: UserOverviewCardPr
         setRoles(user.roles ?? []);
         setScopes(user.scopes ?? []);
         setVerified(!!user.verified);
+        setRequireMFA(!!user.requireMFA);
         setSaved(false);
     }, [user.uid]);
 
@@ -41,7 +43,7 @@ export default function UserOverviewCard({ user, onUpdated }: UserOverviewCardPr
         setSaved(false);
         setSaving(true);
         try {
-            const updated = await updateUser({ uid: user.uid, version: user.version, roles, scopes, verified });
+            const updated = await updateUser({ uid: user.uid, version: user.version, roles, scopes, verified, requireMFA });
             onUpdated(updated);
             setSaved(true);
         } catch (err) {
@@ -81,6 +83,21 @@ export default function UserOverviewCard({ user, onUpdated }: UserOverviewCardPr
                         }}
                     />
                     Verified
+                </label>
+            </div>
+
+            <div className="rr-field">
+                <label htmlFor="overviewRequireMFA" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <input
+                        id="overviewRequireMFA"
+                        type="checkbox"
+                        checked={requireMFA}
+                        onChange={(e) => {
+                            setRequireMFA(e.target.checked);
+                            setSaved(false);
+                        }}
+                    />
+                    Require multi-factor authentication to sign in
                 </label>
             </div>
 

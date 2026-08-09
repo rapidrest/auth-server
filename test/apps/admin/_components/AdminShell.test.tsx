@@ -3,7 +3,7 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyResponse, jsonResponse, mockFetch, mockLocation } from "../../testUtils.js";
@@ -14,11 +14,20 @@ afterEach(() => {
 });
 
 describe("AdminShell", () => {
-    it("redirects to /auth/signin and renders nothing when there is no userUid", () => {
+    it("attempts a silent refresh when there is no userUid, redirecting to /auth/signin when it fails", async () => {
         const location = mockLocation();
+        mockFetch(() => jsonResponse(401, { message: "no session" }));
         render(<AdminShell>content</AdminShell>);
-        expect(location.replace).toHaveBeenCalledWith("/auth/signin");
+        await waitFor(() => expect(location.replace).toHaveBeenCalledWith("/auth/signin"));
         expect(screen.queryByText("content")).not.toBeInTheDocument();
+    });
+
+    it("reloads the page when a silent refresh succeeds with no userUid", async () => {
+        const location = mockLocation();
+        mockFetch(() => jsonResponse(200, { token: "tok", user: { uid: "u1", roles: [], scopes: [] } }));
+        render(<AdminShell>content</AdminShell>);
+        await waitFor(() => expect(location.reload).toHaveBeenCalled());
+        expect(location.replace).not.toHaveBeenCalled();
     });
 
     it("shows an access-denied message when the current user lacks the admin role", async () => {

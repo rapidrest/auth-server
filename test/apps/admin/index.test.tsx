@@ -27,7 +27,7 @@ const mockedSearchUsers = vi.mocked(searchUsers);
 const mockedDeleteUser = vi.mocked(deleteUser);
 const mockedListAliasesForUsers = vi.mocked(listAliasesForUsers);
 
-const adminSelf = { uid: "admin-1", roles: ["admin"], scopes: [] };
+const adminSelf = { uid: "admin-1", version: 1, roles: ["admin"], scopes: [] };
 
 function makeUser(uid: string): AdminUser {
     return { uid, roles: [], scopes: [], verified: false, version: 0, dateCreated: "", dateModified: "" };

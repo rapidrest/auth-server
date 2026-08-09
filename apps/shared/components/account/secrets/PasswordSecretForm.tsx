@@ -1,5 +1,5 @@
 import React, { Dispatch, FormEvent, SetStateAction, useState } from "react";
-import { ApiRequestError, createPasswordSecret, deleteSecret, SecretSummary } from "../../../lib/api.js";
+import { ApiRequestError, createPasswordSecret, SecretSummary, updateSecret } from "../../../lib/api.js";
 import { isPasswordValid, usePasswordRequirements } from "../../../lib/passwordCriteria.js";
 import Alert from "../../feedback/Alert.js";
 import FormField from "../../forms/FormField.js";
@@ -35,14 +35,11 @@ export default function PasswordSecretForm({ secrets, setSecrets, onClose }: Pas
 
         setSaving(true);
         try {
-            const created = (await createPasswordSecret(newPassword, hint.trim() || undefined)) as SecretSummary;
-            // Secrets have no update endpoint — "changing" a password means creating the new one, then
-            // removing any old password secret(s), as two separate (non-atomic) requests.
-            const oldPasswords = (secrets ?? []).filter((s) => s.type === "password");
-            for (const old of oldPasswords) {
-                await deleteSecret(old.uid);
-            }
-            setSecrets((prev) => [...(prev ?? []).filter((s) => s.type !== "password"), created]);
+            const existing = (secrets ?? []).find((s) => s.type === "password");
+            const saved = existing
+                ? await updateSecret({ uid: existing.uid, version: existing.version, data: newPassword, hint: hint.trim() || undefined })
+                : await createPasswordSecret(newPassword, hint.trim() || undefined);
+            setSecrets((prev) => [...(prev ?? []).filter((s) => s.type !== "password"), saved]);
             onClose();
         } catch (err) {
             setError(err instanceof ApiRequestError ? err.message : "Could not save your password.");
