@@ -10,6 +10,8 @@
  * token is ever held in JS-accessible storage, so it can't be read or exfiltrated via XSS.
  */
 
+import { requestElevation } from "./elevation.js";
+
 export interface ApiUser {
     uid: string;
     version: number;
@@ -37,6 +39,10 @@ export class ApiRequestError extends Error {
     }
 }
 
+/** Mirrors `@rapidrest/service-core`'s `ApiErrors.AUTH_REQUIRES_ELEVATION` — kept as a local literal rather
+ * than an import since this file is deliberately dependency-free (see the module doc comment above). */
+const AUTH_REQUIRES_ELEVATION = "api-103";
+
 /**
  * Signs the current user out by clearing the server-set `jwt` cookie (an `HttpOnly` cookie can only be
  * cleared by the server writing a new `Set-Cookie`, never by client JavaScript) via `POST /auth/logout`.
@@ -59,8 +65,16 @@ export async function logout(): Promise<void> {
  * automatically via the `jwt` HttpOnly cookie (browsers attach cookies to same-origin `fetch()` calls by
  * default); callers that need a different credential (e.g. password sign-in's `Authorization: Basic`)
  * set their own header, which is left untouched here.
+ *
+ * A response carrying `AUTH_REQUIRES_ELEVATION` (`api-103` — see `@RequiresElevation` server-side) is
+ * intercepted here rather than surfaced to the caller: this hands off to `requestElevation()` (see
+ * `elevation.ts`), which resolves once `ElevationHost` has walked the user through the challenge described
+ * by `BaseAuthElevationRoute` and obtained a fresh elevated token/cookie. On success the original request
+ * is transparently retried exactly once (`retry` guards against looping if it somehow fails again); every
+ * existing call site gets this behavior for free without knowing elevation exists. On cancellation the
+ * original `api-103` error is thrown as normal.
  */
-export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set("Content-Type", "application/json");
 
@@ -69,8 +83,15 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
     const body = contentType.includes("application/json") ? await res.json().catch(() => undefined) : undefined;
 
     if (!res.ok) {
+        const code = body?.code;
+        if (code === AUTH_REQUIRES_ELEVATION && retry && path !== "/auth/elevation") {
+            const elevated = await requestElevation();
+            if (elevated) {
+                return apiFetch<T>(path, init, false);
+            }
+        }
         const message = (body && (body.message || body.error)) || res.statusText || "Request failed.";
-        throw new ApiRequestError(message, res.status, body?.code);
+        throw new ApiRequestError(message, res.status, code);
     }
 
     return body as T;
@@ -279,6 +300,51 @@ export function verifyMfaCode(uid: string, token: string): Promise<AuthResult> {
 /** Completes a `fido2` second-factor challenge (phase 3) with the `AuthenticationResponseJSON` from `startAuthentication()`. */
 export function verifyMfaFido2(response: unknown): Promise<AuthResult> {
     return apiFetch("/auth/mfa", { method: "POST", body: JSON.stringify(response) });
+}
+
+/** One of the authenticated caller's own methods for elevating (see `/auth/elevation`, `BaseAuthElevationRoute`). */
+export interface ElevationMethod {
+    id: string;
+    type: "fido2" | "otp" | "totp";
+    data: any;
+}
+
+/**
+ * Lists the authenticated caller's own available methods for elevating — an empty array means none are
+ * enrolled and `elevateWithPassword()` must be used instead (see `BaseAuthElevationRoute.listMethods`).
+ * Not normally called directly: `ElevationHost` calls this itself once `requestElevation()` (see
+ * `elevation.ts`) signals that a prompt is needed.
+ */
+export function listElevationMethods(): Promise<ElevationMethod[]> {
+    return apiFetch("/auth/elevation");
+}
+
+/**
+ * Begins an elevation challenge for one of the caller's own methods (from `listElevationMethods()`).
+ * Resolves `{}` for `otp` (a code was sent to the associated contact) or `totp` (the caller's authenticator
+ * app already has the current code), or a WebAuthn `PublicKeyCredentialRequestOptionsJSON` for `fido2`, to
+ * pass to `startAuthentication()`.
+ */
+export function beginElevationChallenge(methodId: string): Promise<unknown> {
+    return apiFetch("/auth/elevation", { method: "POST", body: JSON.stringify({ methodId }) });
+}
+
+/** Completes an `otp`/`totp` elevation challenge (begun by `beginElevationChallenge()`) with the submitted code. */
+export function completeElevationChallenge(token: string): Promise<AuthResult> {
+    return apiFetch("/auth/elevation", { method: "POST", body: JSON.stringify({ token }) });
+}
+
+/** Completes a `fido2` elevation challenge with the `AuthenticationResponseJSON` from `startAuthentication()`. */
+export function completeElevationFido2(response: unknown): Promise<AuthResult> {
+    return apiFetch("/auth/elevation", { method: "POST", body: JSON.stringify(response) });
+}
+
+/**
+ * Elevates by resubmitting the caller's password instead of a secondary method — only accepted by the
+ * server when `listElevationMethods()` returned an empty array (see `BaseAuthElevationRoute.verifyPasswordOnly`).
+ */
+export function elevateWithPassword(password: string): Promise<AuthResult> {
+    return apiFetch("/auth/elevation", { method: "POST", body: JSON.stringify({ password }) });
 }
 
 /** Signs in with a 6-digit code from an authenticator app (RFC 6238 TOTP), for a previously registered secret. */

@@ -7,8 +7,11 @@ import { emptyResponse, jsonResponse, mockFetch } from "../testUtils.js";
 import {
     ApiRequestError,
     apiFetch,
+    beginElevationChallenge,
     beginMfaChallenge,
     beginRegistration,
+    completeElevationChallenge,
+    completeElevationFido2,
     createAlias,
     createPasswordSecret,
     createProfile,
@@ -18,6 +21,7 @@ import {
     deleteAlias,
     deleteSecret,
     discoverAuthMethods,
+    elevateWithPassword,
     getAccount,
     getCurrentUser,
     getFido2Challenge,
@@ -30,6 +34,7 @@ import {
     hasSecondFactor,
     isMfaChallenge,
     listAliases,
+    listElevationMethods,
     listSecrets,
     logout,
     refreshAccessToken,
@@ -50,9 +55,14 @@ import {
     verifyPasskeySignIn,
     verifyRegistration,
 } from "../../../apps/shared/lib/api.js";
+import { isElevationRequested, resolveElevation, subscribeElevation } from "../../../apps/shared/lib/elevation.js";
 
 afterEach(() => {
     vi.unstubAllGlobals();
+    // Guard against a failed assertion leaving a prompt pending mid-test — see elevation.test.ts.
+    if (isElevationRequested()) {
+        resolveElevation(false);
+    }
 });
 
 describe("ApiRequestError", () => {
@@ -145,6 +155,126 @@ describe("apiFetch", () => {
     it("falls back to a generic message when there is no body and no statusText", async () => {
         mockFetch(() => new Response(null, { status: 500, statusText: "" }));
         await expect(apiFetch("/whatever")).rejects.toMatchObject({ message: "Request failed." });
+    });
+
+    describe("AUTH_REQUIRES_ELEVATION handling", () => {
+        it("prompts for elevation, then transparently retries the original request once it succeeds", async () => {
+            let calls = 0;
+            const fetchMock = mockFetch(() => {
+                calls += 1;
+                return calls === 1 ? jsonResponse(403, { message: "nope", code: "api-103" }) : jsonResponse(200, { ok: true });
+            });
+            // Stands in for `ElevationHost`: resolves the prompt the instant apiFetch raises it, the same
+            // way the modal would once the user completes a challenge.
+            const unsubscribe = subscribeElevation(() => {
+                if (isElevationRequested()) {
+                    resolveElevation(true);
+                }
+            });
+
+            const result = await apiFetch("/whatever");
+
+            unsubscribe();
+            expect(result).toEqual({ ok: true });
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it("throws the original error when the user cancels the elevation prompt", async () => {
+            const fetchMock = mockFetch(() => jsonResponse(403, { message: "Elevation required.", code: "api-103" }));
+            const unsubscribe = subscribeElevation(() => {
+                if (isElevationRequested()) {
+                    resolveElevation(false);
+                }
+            });
+
+            await expect(apiFetch("/whatever")).rejects.toMatchObject({
+                message: "Elevation required.",
+                status: 403,
+                code: "api-103",
+            });
+
+            unsubscribe();
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
+        it("retries at most once — a repeat AUTH_REQUIRES_ELEVATION on the retry is thrown as-is", async () => {
+            const fetchMock = mockFetch(() => jsonResponse(403, { message: "still nope", code: "api-103" }));
+            const unsubscribe = subscribeElevation(() => {
+                if (isElevationRequested()) {
+                    resolveElevation(true);
+                }
+            });
+
+            await expect(apiFetch("/whatever")).rejects.toMatchObject({ code: "api-103" });
+
+            unsubscribe();
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it("never prompts for elevation on the /auth/elevation endpoint itself, to avoid a recursive prompt", async () => {
+            const fetchMock = mockFetch(() => jsonResponse(403, { message: "nope", code: "api-103" }));
+            const listener = vi.fn();
+            const unsubscribe = subscribeElevation(listener);
+
+            await expect(apiFetch("/auth/elevation")).rejects.toMatchObject({ code: "api-103" });
+
+            unsubscribe();
+            expect(listener).not.toHaveBeenCalled();
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+    });
+});
+
+describe("elevation", () => {
+    it("listElevationMethods fetches /auth/elevation", async () => {
+        const methods = [{ id: "s1", type: "totp", data: {} }];
+        const fetchMock = mockFetch(() => jsonResponse(200, methods));
+        const result = await listElevationMethods();
+        expect(fetchMock).toHaveBeenCalledWith("/api/auth/elevation", expect.anything());
+        expect(result).toEqual(methods);
+    });
+
+    it("beginElevationChallenge posts the selected methodId", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, {}));
+        await beginElevationChallenge("s1");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/elevation",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ methodId: "s1" }) }),
+        );
+    });
+
+    it("completeElevationChallenge posts the submitted token", async () => {
+        const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
+        const fetchMock = mockFetch(() => jsonResponse(200, authResult));
+        const result = await completeElevationChallenge("654321");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/elevation",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ token: "654321" }) }),
+        );
+        expect(result).toEqual(authResult);
+    });
+
+    it("completeElevationFido2 posts the assertion response directly", async () => {
+        const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
+        const fetchMock = mockFetch(() => jsonResponse(200, authResult));
+        const response = { id: "cred1" };
+        const result = await completeElevationFido2(response);
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/elevation",
+            expect.objectContaining({ method: "POST", body: JSON.stringify(response) }),
+        );
+        expect(result).toEqual(authResult);
+    });
+
+    it("elevateWithPassword posts the resubmitted password", async () => {
+        const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
+        const fetchMock = mockFetch(() => jsonResponse(200, authResult));
+        const result = await elevateWithPassword("hunter2");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/elevation",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ password: "hunter2" }) }),
+        );
+        expect(result).toEqual(authResult);
     });
 });
 

@@ -1,4 +1,5 @@
 import React, { PropsWithChildren } from "react";
+import ElevationHost from "../shared/components/elevation/ElevationHost.js";
 
 export default function Layout({ children }: PropsWithChildren) {
     return (
@@ -10,7 +11,10 @@ export default function Layout({ children }: PropsWithChildren) {
                 <link rel="icon" href="/favicon.ico" />
                 <link rel="stylesheet" href="/styles/globals.css" />
             </head>
-            <body>{children}</body>
+            <body>
+                {children}
+                <ElevationHost />
+            </body>
         </html>
     );
 }
