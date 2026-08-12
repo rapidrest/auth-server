@@ -1498,9 +1498,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/auth@npm:^1.0.0-rc.17":
-  version: 1.0.0-rc.17
-  resolution: "@rapidrest/auth@npm:1.0.0-rc.17"
+"@rapidrest/auth@npm:^1.0.0-rc.18":
+  version: 1.0.0-rc.18
+  resolution: "@rapidrest/auth@npm:1.0.0-rc.18"
   dependencies:
     cross-spawn: "npm:^7.0.5"
     parse-duration: "npm:^2.1.8"
@@ -1533,7 +1533,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/941609853417f523b5e81ed65969c1368ad9b414d5bfd8339007ab24e181c2ad774715e3234220148eaea3d7df4ef99ab187670d25d3320bf3c6dc25ee64a1d7
+  checksum: 10c0/ac73e54a705dc0f49e15be183698c7ebf49008cf6515cad660a0146423d52e802ed7118b45805169fa562d5a260c6460eb33afab050e6778f142d4bce6180b2a
   languageName: node
   linkType: hard
 
@@ -1561,9 +1561,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/core@npm:^1.12.0":
-  version: 1.12.0
-  resolution: "@rapidrest/core@npm:1.12.0"
+"@rapidrest/core@npm:^1.15.0":
+  version: 1.15.0
+  resolution: "@rapidrest/core@npm:1.15.0"
   dependencies:
     form-data: "npm:^4.0.5"
     handlebars: "npm:^4.7.9"
@@ -1579,7 +1579,7 @@ __metadata:
     reflect-metadata: 0.2.x
     winston: 3.x
     winston-transport: 4.x
-  checksum: 10c0/6e5e23ece7b1a8a01d927ca5425cc881657337d586d36d61e0368a8ac81fa3448fdfcdb593419f231264872763cc7989ffb6642e9153387ab8d839fa105afac7
+  checksum: 10c0/6c00194347d7a8fbf1c74d5cc9bdf28f566ca971b1e6bb410455021d0b32367b8cddda6204503b3b8a3b8dacacaa2150ca2a83c44e894d71c8d69e2020cd9871
   languageName: node
   linkType: hard
 
@@ -1612,9 +1612,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/service-core@npm:^1.0.0-rc.32":
-  version: 1.0.0-rc.32
-  resolution: "@rapidrest/service-core@npm:1.0.0-rc.32"
+"@rapidrest/service-core@npm:^1.0.0-rc.35":
+  version: 1.0.0-rc.35
+  resolution: "@rapidrest/service-core@npm:1.0.0-rc.35"
   dependencies:
     axios: "npm:^1.17.0"
     dayjs: "npm:^1.11.21"
@@ -1646,7 +1646,7 @@ __metadata:
       optional: true
     uWebSockets.js:
       optional: true
-  checksum: 10c0/902a0aa4bd336a5ee7768159a0178e8e1baeaff3e7d1805eba473055fbccdb09afff01fc22a48d58909337552e561ef301c371ca1057d5a618342a8f74011551
+  checksum: 10c0/713160f614c1cb5869329dd92f8b4bd43c7009d6505e0347923f5fc6e99ca17db411cd77e2e22ff5178fb302409b9a2e25769bf19ca83b03023e8877c363b4c9
   languageName: node
   linkType: hard
 
@@ -2978,11 +2978,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "auth-server@workspace:."
   dependencies:
-    "@rapidrest/auth": "npm:^1.0.0-rc.17"
+    "@rapidrest/auth": "npm:^1.0.0-rc.18"
     "@rapidrest/cli": "npm:^0.18.0"
-    "@rapidrest/core": "npm:^1.12.0"
+    "@rapidrest/core": "npm:^1.15.0"
     "@rapidrest/react": "npm:^0.11.0"
-    "@rapidrest/service-core": "npm:^1.0.0-rc.32"
+    "@rapidrest/service-core": "npm:^1.0.0-rc.35"
     "@simplewebauthn/browser": "npm:^13.1.2"
     "@simplewebauthn/server": "npm:^13.3.2"
     "@swc/core": "npm:^1.15.41"
