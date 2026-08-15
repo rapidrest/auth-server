@@ -3,7 +3,7 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyResponse, jsonResponse, mockFetch, mockLocation } from "../../testUtils.js";
@@ -30,20 +30,28 @@ describe("AdminShell", () => {
         expect(location.replace).not.toHaveBeenCalled();
     });
 
-    it("shows an access-denied message when the current user lacks the admin role", async () => {
-        mockFetch(() => jsonResponse(200, { uid: "u1", roles: ["user"], scopes: [] }));
+    it("shows an access-denied message when ensureElevated() rejects with api-103 (AUTH_REQUIRES_TRUSTED_ROLE) — a hard denial, not something re-elevating can fix", async () => {
+        mockFetch((url) => {
+            if (url === "/api/users/me") {
+                return jsonResponse(200, { uid: "u1", roles: ["user"], scopes: [] });
+            }
+            if (url === "/api/admin/release-notes") {
+                return jsonResponse(403, { code: "api-103", message: "User does not have permission to perform this action." });
+            }
+            throw new Error(`unexpected ${url}`);
+        });
         render(<AdminShell userUid="u1">content</AdminShell>);
         expect(await screen.findByText("You do not have administrator access.")).toBeInTheDocument();
         expect(screen.queryByText("content")).not.toBeInTheDocument();
     });
 
-    it("shows an error message when checking the current user fails", async () => {
+    it("shows an error message when the authorization check fails for a reason other than api-103", async () => {
         mockFetch(() => jsonResponse(500, { message: "boom" }));
         render(<AdminShell userUid="u1">content</AdminShell>);
         expect(await screen.findByText("boom")).toBeInTheDocument();
     });
 
-    it("shows a generic error message when checking the current user fails with a non-API error", async () => {
+    it("shows a generic error message when the authorization check fails with a non-API error", async () => {
         mockFetch(() => {
             throw new TypeError("network down");
         });
@@ -51,10 +59,15 @@ describe("AdminShell", () => {
         expect(await screen.findByText("Could not verify administrator access.")).toBeInTheDocument();
     });
 
-    it("renders the nav chrome and children once an admin is verified, and signs out", async () => {
+    it("renders the nav chrome and children once elevated and authorized, and signs out", async () => {
         mockFetch((url, init) => {
             if (url === "/api/users/me") {
                 return jsonResponse(200, { uid: "admin-1", roles: ["admin"], scopes: [] });
+            }
+            if (url === "/api/admin/release-notes") {
+                // Stands in for the authorization check (ensureElevated()) — already elevated and
+                // authorized, so this succeeds on the first attempt without ElevationHost prompting.
+                return jsonResponse(200, {});
             }
             if (url === "/api/auth/logout") {
                 return emptyResponse(200);
@@ -71,5 +84,38 @@ describe("AdminShell", () => {
 
         await user.click(screen.getByRole("button", { name: "Sign out" }));
         expect(location.href).toBe("/auth/signin");
+    });
+
+    it("does not render admin content until the elevation prompt (triggered by ensureElevated()'s api-104) is satisfied", async () => {
+        let elevated = false;
+        mockFetch((url, init) => {
+            if (url === "/api/users/me") {
+                return jsonResponse(200, { uid: "admin-1", roles: ["admin"], scopes: [] });
+            }
+            if (url === "/api/admin/release-notes") {
+                return elevated
+                    ? jsonResponse(200, {})
+                    : jsonResponse(403, { code: "api-104", message: "This operation requires elevation." });
+            }
+            if (url === "/api/auth/elevation" && (init?.method ?? "GET") === "GET") {
+                // No secondary methods enrolled -> ElevationHost falls back to the password step.
+                return jsonResponse(200, []);
+            }
+            if (url === "/api/auth/elevation" && init?.method === "POST") {
+                elevated = true;
+                return jsonResponse(200, { token: "elevated-tok", refresh: "r", user: { uid: "admin-1", roles: ["admin"], scopes: [] } });
+            }
+            throw new Error(`unexpected ${init?.method ?? "GET"} ${url}`);
+        });
+        const user = userEvent.setup();
+        render(<AdminShell userUid="admin-1">content</AdminShell>);
+
+        const dialog = await screen.findByRole("dialog");
+        expect(screen.queryByText("content")).not.toBeInTheDocument();
+
+        await user.type(within(dialog).getByLabelText("Password"), "correct-password");
+        await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+
+        expect(await screen.findByText("content")).toBeInTheDocument();
     });
 });

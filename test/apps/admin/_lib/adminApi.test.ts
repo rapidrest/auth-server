@@ -9,6 +9,7 @@ import {
     createUserAlias,
     createUserPasswordSecret,
     deleteUser,
+    ensureElevated,
     getUser,
     getUserProfile,
     listAliasesForUsers,
@@ -25,6 +26,14 @@ afterEach(() => {
 });
 
 const adminUser = { uid: "u1", roles: ["admin"], scopes: [], verified: true, version: 0, dateCreated: "", dateModified: "" };
+
+describe("ensureElevated", () => {
+    it("hits the elevation- and trusted-role-gated release-notes endpoint", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, {}));
+        await ensureElevated();
+        expect(fetchMock).toHaveBeenCalledWith("/api/admin/release-notes", expect.anything());
+    });
+});
 
 describe("listUsers", () => {
     it("builds the default query (limit, page, sort)", async () => {

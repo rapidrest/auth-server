@@ -14,11 +14,25 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
 
 vi.mock("../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../apps/shared/lib/adminApi.js")>();
-    return { ...actual, listUsers: vi.fn(), searchUsers: vi.fn(), deleteUser: vi.fn(), listAliasesForUsers: vi.fn() };
+    return {
+        ...actual,
+        listUsers: vi.fn(),
+        searchUsers: vi.fn(),
+        deleteUser: vi.fn(),
+        listAliasesForUsers: vi.fn(),
+        ensureElevated: vi.fn(),
+    };
 });
 
 import { ApiRequestError, getCurrentUser } from "../../../apps/shared/lib/api.js";
-import { AdminUser, deleteUser, listAliasesForUsers, listUsers, searchUsers } from "../../../apps/shared/lib/adminApi.js";
+import {
+    AdminUser,
+    deleteUser,
+    ensureElevated,
+    listAliasesForUsers,
+    listUsers,
+    searchUsers,
+} from "../../../apps/shared/lib/adminApi.js";
 import UsersListPage from "../../../apps/admin/index.js";
 
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
@@ -26,6 +40,7 @@ const mockedListUsers = vi.mocked(listUsers);
 const mockedSearchUsers = vi.mocked(searchUsers);
 const mockedDeleteUser = vi.mocked(deleteUser);
 const mockedListAliasesForUsers = vi.mocked(listAliasesForUsers);
+const mockedEnsureElevated = vi.mocked(ensureElevated);
 
 const adminSelf = { uid: "admin-1", version: 1, roles: ["admin"], scopes: [] };
 
@@ -39,8 +54,10 @@ beforeEach(() => {
     mockedSearchUsers.mockReset();
     mockedDeleteUser.mockReset();
     mockedListAliasesForUsers.mockReset();
+    mockedEnsureElevated.mockReset();
     mockedGetCurrentUser.mockResolvedValue(adminSelf);
     mockedListAliasesForUsers.mockResolvedValue([]);
+    mockedEnsureElevated.mockResolvedValue(undefined);
     window.confirm = vi.fn(() => true);
 });
 

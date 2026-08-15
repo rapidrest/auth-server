@@ -206,3 +206,12 @@ export function upsertUserProfile(uid: string, input: UserProfileInput, existing
         body: JSON.stringify({ uid, version: existing.version, ...input }),
     });
 }
+
+/**
+ * Confirms the caller is both elevated *and* holds the `admin` trusted role before the admin console
+ * becomes interactive. `AdminShell` awaits this on load, so the caller is immediately asked to re-confirm
+ * their identity (or turned away outright) rather than only once they try a specific gated action.
+ */
+export function ensureElevated(): Promise<unknown> {
+    return apiFetch("/admin/release-notes");
+}

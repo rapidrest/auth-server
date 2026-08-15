@@ -16,6 +16,14 @@ interface HomePageProps {
 }
 
 export default function UsersListPage({ userUid }: HomePageProps) {
+    return (
+        <AdminShell userUid={userUid}>
+            <UsersListContent />
+        </AdminShell>
+    );
+}
+
+function UsersListContent() {
     const [filters, setFilters] = useState<UserFilters>(DEFAULT_USER_FILTERS);
     const [page, setPage] = useState(0);
     const [users, setUsers] = useState<AdminUser[]>([]);
@@ -81,7 +89,7 @@ export default function UsersListPage({ userUid }: HomePageProps) {
     const hasNextPage = !isSearch && users.length === PAGE_SIZE;
 
     return (
-        <AdminShell userUid={userUid}>
+        <>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
                 <div className="rr-card__title" style={{ marginBottom: 0 }}>
                     Users
@@ -135,6 +143,6 @@ export default function UsersListPage({ userUid }: HomePageProps) {
                 deleting={deleting}
                 error={deleteError}
             />
-        </AdminShell>
+        </>
     );
 }

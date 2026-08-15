@@ -162,7 +162,7 @@ describe("apiFetch", () => {
             let calls = 0;
             const fetchMock = mockFetch(() => {
                 calls += 1;
-                return calls === 1 ? jsonResponse(403, { message: "nope", code: "api-103" }) : jsonResponse(200, { ok: true });
+                return calls === 1 ? jsonResponse(403, { message: "nope", code: "api-104" }) : jsonResponse(200, { ok: true });
             });
             // Stands in for `ElevationHost`: resolves the prompt the instant apiFetch raises it, the same
             // way the modal would once the user completes a challenge.
@@ -180,7 +180,7 @@ describe("apiFetch", () => {
         });
 
         it("throws the original error when the user cancels the elevation prompt", async () => {
-            const fetchMock = mockFetch(() => jsonResponse(403, { message: "Elevation required.", code: "api-103" }));
+            const fetchMock = mockFetch(() => jsonResponse(403, { message: "Elevation required.", code: "api-104" }));
             const unsubscribe = subscribeElevation(() => {
                 if (isElevationRequested()) {
                     resolveElevation(false);
@@ -190,7 +190,7 @@ describe("apiFetch", () => {
             await expect(apiFetch("/whatever")).rejects.toMatchObject({
                 message: "Elevation required.",
                 status: 403,
-                code: "api-103",
+                code: "api-104",
             });
 
             unsubscribe();
@@ -198,25 +198,25 @@ describe("apiFetch", () => {
         });
 
         it("retries at most once — a repeat AUTH_REQUIRES_ELEVATION on the retry is thrown as-is", async () => {
-            const fetchMock = mockFetch(() => jsonResponse(403, { message: "still nope", code: "api-103" }));
+            const fetchMock = mockFetch(() => jsonResponse(403, { message: "still nope", code: "api-104" }));
             const unsubscribe = subscribeElevation(() => {
                 if (isElevationRequested()) {
                     resolveElevation(true);
                 }
             });
 
-            await expect(apiFetch("/whatever")).rejects.toMatchObject({ code: "api-103" });
+            await expect(apiFetch("/whatever")).rejects.toMatchObject({ code: "api-104" });
 
             unsubscribe();
             expect(fetchMock).toHaveBeenCalledTimes(2);
         });
 
         it("never prompts for elevation on the /auth/elevation endpoint itself, to avoid a recursive prompt", async () => {
-            const fetchMock = mockFetch(() => jsonResponse(403, { message: "nope", code: "api-103" }));
+            const fetchMock = mockFetch(() => jsonResponse(403, { message: "nope", code: "api-104" }));
             const listener = vi.fn();
             const unsubscribe = subscribeElevation(listener);
 
-            await expect(apiFetch("/auth/elevation")).rejects.toMatchObject({ code: "api-103" });
+            await expect(apiFetch("/auth/elevation")).rejects.toMatchObject({ code: "api-104" });
 
             unsubscribe();
             expect(listener).not.toHaveBeenCalled();

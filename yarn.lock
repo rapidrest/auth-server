@@ -1612,9 +1612,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/service-core@npm:^1.0.0-rc.35":
-  version: 1.0.0-rc.35
-  resolution: "@rapidrest/service-core@npm:1.0.0-rc.35"
+"@rapidrest/service-core@npm:^1.0.0-rc.36":
+  version: 1.0.0-rc.36
+  resolution: "@rapidrest/service-core@npm:1.0.0-rc.36"
   dependencies:
     axios: "npm:^1.17.0"
     dayjs: "npm:^1.11.21"
@@ -1646,7 +1646,7 @@ __metadata:
       optional: true
     uWebSockets.js:
       optional: true
-  checksum: 10c0/713160f614c1cb5869329dd92f8b4bd43c7009d6505e0347923f5fc6e99ca17db411cd77e2e22ff5178fb302409b9a2e25769bf19ca83b03023e8877c363b4c9
+  checksum: 10c0/1d7349e328a7ff6b931e2b14847fd495acb4707d55b875d150a214c02cf1ef7190fe6f7e15c91a666d374c7edb7df59486007e54f08d91dfc03c98b168773c00
   languageName: node
   linkType: hard
 
@@ -2982,7 +2982,7 @@ __metadata:
     "@rapidrest/cli": "npm:^0.18.0"
     "@rapidrest/core": "npm:^1.15.0"
     "@rapidrest/react": "npm:^0.11.0"
-    "@rapidrest/service-core": "npm:^1.0.0-rc.35"
+    "@rapidrest/service-core": "npm:^1.0.0-rc.36"
     "@simplewebauthn/browser": "npm:^13.1.2"
     "@simplewebauthn/server": "npm:^13.3.2"
     "@swc/core": "npm:^1.15.41"

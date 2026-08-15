@@ -22,6 +22,14 @@ function readTargetUid(): string | null {
 }
 
 export default function UserDetailPage({ userUid }: DetailPageProps) {
+    return (
+        <AdminShell userUid={userUid}>
+            <UserDetailContent />
+        </AdminShell>
+    );
+}
+
+function UserDetailContent() {
     const [targetUid] = useState<string | null>(readTargetUid);
     const [user, setUser] = useState<AdminUser | null>(null);
     const [loaded, setLoaded] = useState(false);
@@ -57,7 +65,7 @@ export default function UserDetailPage({ userUid }: DetailPageProps) {
     }
 
     return (
-        <AdminShell userUid={userUid}>
+        <>
             {!targetUid && <Alert>No account specified.</Alert>}
             {targetUid && !loaded && <p className="rr-hint">Loading&hellip;</p>}
             {targetUid && loaded && error && <Alert>{error}</Alert>}
@@ -90,6 +98,6 @@ export default function UserDetailPage({ userUid }: DetailPageProps) {
                     />
                 </>
             )}
-        </AdminShell>
+        </>
     );
 }

@@ -1,11 +1,11 @@
 /**
  * Global broker that lets `apiFetch` (see `api.ts`) hand off to a UI prompt whenever the backend responds
- * with `AUTH_REQUIRES_ELEVATION` (`api-103`), without either module depending on the other's internals.
+ * with `AUTH_REQUIRES_ELEVATION` (`api-104`), without either module depending on the other's internals.
  * Deliberately framework-free (no React import) so `api.ts` — used from plain functions as well as
  * components — can call `requestElevation()` directly; `ElevationHost` is the one React component that
  * subscribes to this store and actually renders the prompt.
  *
- * At most one elevation prompt is ever in flight at a time: if several API calls fail with `api-103`
+ * At most one elevation prompt is ever in flight at a time: if several API calls fail with `api-104`
  * concurrently (e.g. a page firing off a few requests at once), they all call `requestElevation()` and all
  * receive the *same* promise, so the user sees a single prompt and every waiting call resolves together
  * once it's resolved.

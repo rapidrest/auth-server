@@ -39,9 +39,11 @@ export class ApiRequestError extends Error {
     }
 }
 
-/** Mirrors `@rapidrest/service-core`'s `ApiErrors.AUTH_REQUIRES_ELEVATION` — kept as a local literal rather
- * than an import since this file is deliberately dependency-free (see the module doc comment above). */
-const AUTH_REQUIRES_ELEVATION = "api-103";
+/**
+ * Mirrors `@rapidrest/service-core`'s `ApiErrors.AUTH_REQUIRES_ELEVATION` — kept as a local literal rather
+ * than an import since this file is deliberately dependency-free (see the module doc comment above).
+ */
+const AUTH_REQUIRES_ELEVATION = "api-104";
 
 /**
  * Signs the current user out by clearing the server-set `jwt` cookie (an `HttpOnly` cookie can only be
@@ -66,13 +68,15 @@ export async function logout(): Promise<void> {
  * default); callers that need a different credential (e.g. password sign-in's `Authorization: Basic`)
  * set their own header, which is left untouched here.
  *
- * A response carrying `AUTH_REQUIRES_ELEVATION` (`api-103` — see `@RequiresElevation` server-side) is
+ * A response carrying `AUTH_REQUIRES_ELEVATION` (`api-104` — see `@RequiresElevation` server-side) is
  * intercepted here rather than surfaced to the caller: this hands off to `requestElevation()` (see
  * `elevation.ts`), which resolves once `ElevationHost` has walked the user through the challenge described
  * by `BaseAuthElevationRoute` and obtained a fresh elevated token/cookie. On success the original request
  * is transparently retried exactly once (`retry` guards against looping if it somehow fails again); every
  * existing call site gets this behavior for free without knowing elevation exists. On cancellation the
- * original `api-103` error is thrown as normal.
+ * original `api-104` error is thrown as normal. `api-103` (`AUTH_REQUIRES_TRUSTED_ROLE`) is a different,
+ * non-promptable code — the caller doesn't hold the required role at all, even once elevated — and is left
+ * to surface as a normal error.
  */
 export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
     const headers = new Headers(init.headers);

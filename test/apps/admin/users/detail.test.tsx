@@ -21,6 +21,7 @@ vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
         getUserProfile: vi.fn(),
         listUserAliases: vi.fn(),
         listUserSecrets: vi.fn(),
+        ensureElevated: vi.fn(),
     };
 });
 
@@ -28,6 +29,7 @@ import { ApiRequestError, getCurrentUser } from "../../../../apps/shared/lib/api
 import {
     AdminUser,
     deleteUser,
+    ensureElevated,
     getUser,
     getUserProfile,
     listUserAliases,
@@ -41,6 +43,7 @@ const mockedDeleteUser = vi.mocked(deleteUser);
 const mockedGetUserProfile = vi.mocked(getUserProfile);
 const mockedListUserAliases = vi.mocked(listUserAliases);
 const mockedListUserSecrets = vi.mocked(listUserSecrets);
+const mockedEnsureElevated = vi.mocked(ensureElevated);
 
 const adminSelf = { uid: "admin-1", version: 1, roles: ["admin"], scopes: [] };
 const targetUser: AdminUser = {
@@ -67,10 +70,12 @@ beforeEach(() => {
     mockedGetUserProfile.mockReset();
     mockedListUserAliases.mockReset();
     mockedListUserSecrets.mockReset();
+    mockedEnsureElevated.mockReset();
     mockedGetCurrentUser.mockResolvedValue(adminSelf);
     mockedGetUserProfile.mockResolvedValue(null);
     mockedListUserAliases.mockResolvedValue([]);
     mockedListUserSecrets.mockResolvedValue([]);
+    mockedEnsureElevated.mockResolvedValue(undefined);
     window.confirm = vi.fn(() => true);
     stubLocation("?uid=target-1");
 });

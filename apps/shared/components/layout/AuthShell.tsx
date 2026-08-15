@@ -1,4 +1,5 @@
 import React, { PropsWithChildren } from "react";
+import ElevationHost from "../elevation/ElevationHost.js";
 
 export interface AuthShellProps {
     /** Shows the RapidREST logo + wordmark above the content. Omit on pages that don't want it (e.g. account). */
@@ -7,7 +8,9 @@ export interface AuthShellProps {
     wide?: boolean;
 }
 
-/** The `.rr-page > .rr-container` chrome shared by every auth page. */
+/**
+ * The `.rr-page > .rr-container` chrome shared by every auth page.
+ */
 export default function AuthShell({ brand, wide, children }: PropsWithChildren<AuthShellProps>) {
     return (
         <div className="rr-page">
@@ -21,6 +24,7 @@ export default function AuthShell({ brand, wide, children }: PropsWithChildren<A
                 )}
                 {children}
             </div>
+            <ElevationHost />
         </div>
     );
 }

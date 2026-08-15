@@ -4,10 +4,9 @@
 import { ReactRoute } from "@rapidrest/react";
 import { RouteDecorators } from "@rapidrest/service-core";
 
-const { RequiresElevation, Route } = RouteDecorators;
+const { Route } = RouteDecorators;
 
 @Route("/admin")
-@RequiresElevation()
 export class AdminConsoleRoute extends ReactRoute {
     protected readonly appDir: string = "apps/admin";
     protected readonly hydrate: boolean = true;

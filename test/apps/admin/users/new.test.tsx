@@ -15,11 +15,11 @@ vi.mock("../../../../apps/shared/lib/api.js", async (importOriginal) => {
 
 vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../../apps/shared/lib/adminApi.js")>();
-    return { ...actual, createUser: vi.fn(), createUserAlias: vi.fn() };
+    return { ...actual, createUser: vi.fn(), createUserAlias: vi.fn(), ensureElevated: vi.fn() };
 });
 
 import { getCurrentUser, getPasswordRequirements } from "../../../../apps/shared/lib/api.js";
-import { createUser, createUserAlias } from "../../../../apps/shared/lib/adminApi.js";
+import { createUser, createUserAlias, ensureElevated } from "../../../../apps/shared/lib/adminApi.js";
 import { FALLBACK_PASSWORD_REQUIREMENTS } from "../../../../apps/shared/lib/passwordCriteria.js";
 import NewUserPage from "../../../../apps/admin/users/new/index.js";
 
@@ -27,14 +27,17 @@ const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedGetPasswordRequirements = vi.mocked(getPasswordRequirements);
 const mockedCreateUser = vi.mocked(createUser);
 const mockedCreateUserAlias = vi.mocked(createUserAlias);
+const mockedEnsureElevated = vi.mocked(ensureElevated);
 
 beforeEach(() => {
     mockedGetCurrentUser.mockReset();
     mockedGetPasswordRequirements.mockReset();
     mockedCreateUser.mockReset();
     mockedCreateUserAlias.mockReset();
+    mockedEnsureElevated.mockReset();
     mockedGetCurrentUser.mockResolvedValue({ uid: "admin-1", version: 1, roles: ["admin"], scopes: [] });
     mockedGetPasswordRequirements.mockResolvedValue(FALLBACK_PASSWORD_REQUIREMENTS);
+    mockedEnsureElevated.mockResolvedValue(undefined);
 });
 
 describe("NewUserPage", () => {

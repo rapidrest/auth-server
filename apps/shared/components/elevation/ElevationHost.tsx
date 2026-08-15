@@ -43,9 +43,9 @@ function methodIcon(type: ElevationMethod["type"]) {
 
 /**
  * Renders the elevation challenge prompt described by `BaseAuthElevationRoute` whenever `apiFetch` (see
- * `api.ts`) intercepts an `AUTH_REQUIRES_ELEVATION` response — mounted once near the root of each app
- * (`apps/www/_layout.tsx`, `apps/admin/_layout.tsx`) so every page, and every API call any page makes, gets
- * this behavior automatically without needing to know elevation exists.
+ * `api.ts`) intercepts an `AUTH_REQUIRES_ELEVATION` response. This is mounted once in each app's page shell
+ * (`AuthShell` or `AdminShell`) so that every page, and every API call any page makes, gets this behavior
+ * automatically without needing to know elevation exists.
  *
  * Mirrors `SignInFlow`'s `MfaStep`/`Fido2Challenge` (same method types, same "select then complete" shape)
  * but scoped to the caller's own uid throughout (there's no identifier to type) and with one extra case

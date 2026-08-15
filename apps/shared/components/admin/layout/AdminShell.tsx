@@ -1,6 +1,8 @@
-import React, { PropsWithChildren, useEffect, useState } from "react";
+import React, { PropsWithChildren, ReactNode, useEffect, useState } from "react";
 import { ApiRequestError, ApiUser, getCurrentUser, logout } from "../../../lib/api.js";
+import { ensureElevated } from "../../../lib/adminApi.js";
 import { useSessionRefresh } from "../../../lib/useSessionRefresh.js";
+import ElevationHost from "../../elevation/ElevationHost.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
 
@@ -12,8 +14,8 @@ export interface AdminShellProps {
 type Status = "checking" | "denied" | "error" | "authorized";
 
 /**
- * Gates every `apps/admin` page behind the `admin` role and renders the shared nav chrome once authorized.
- * This is a UX convenience only since every admin API call is independently ACL-checked server-side regardless.
+ * Gates every `apps/admin` page behind the `admin` trusted role *and* a fresh elevation, via
+ * `ensureElevated()`.
  */
 export default function AdminShell({ userUid, children }: PropsWithChildren<AdminShellProps>) {
     const [status, setStatus] = useState<Status>("checking");
@@ -31,11 +33,20 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
         }
 
         getCurrentUser()
-            .then((user) => {
-                setCurrentUser(user);
-                setStatus(user.roles?.includes("admin") ? "authorized" : "denied");
-            })
+            .then(setCurrentUser)
+            .catch(() => undefined);
+
+        // Blocks on the elevation prompt (via apiFetch/ElevationHost, triggered by the returned api-104 error
+        // ensureElevated() gets back when not yet elevated) before the console renders as usable. If the error
+        // returned is `api-103`, that means the caller was elevated but genuinely isn't a trusted user and
+        // therefore cannot access the admin console.
+        ensureElevated()
+            .then(() => setStatus("authorized"))
             .catch((err) => {
+                if (err instanceof ApiRequestError && err.code === "api-103") {
+                    setStatus("denied");
+                    return;
+                }
                 setError(err instanceof ApiRequestError ? err.message : "Could not verify administrator access.");
                 setStatus("error");
             });
@@ -46,12 +57,11 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
         window.location.href = "/auth/signin";
     }
 
+    let content: ReactNode;
     if (!userUid || status === "checking") {
-        return <div className="rr-page" />;
-    }
-
-    if (status === "denied") {
-        return (
+        content = <div className="rr-page" />;
+    } else if (status === "denied") {
+        content = (
             <div className="rr-page">
                 <div className="rr-container">
                     <Alert>You do not have administrator access.</Alert>
@@ -61,38 +71,43 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
                 </div>
             </div>
         );
-    }
-
-    if (status === "error") {
-        return (
+    } else if (status === "error") {
+        content = (
             <div className="rr-page">
                 <div className="rr-container">
                     <Alert>{error}</Alert>
                 </div>
             </div>
         );
+    } else {
+        content = (
+            <div className="rr-page">
+                <div className="rr-container rr-container--wide">
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+                            <a href="/admin" className="rr-brand" style={{ flexDirection: "row", gap: "0.5rem" }}>
+                                <img src="/images/logo.svg" width="28" height="28" alt="" />
+                                <span>RapidREST Admin</span>
+                            </a>
+                            <a href="/admin">Users</a>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                            {currentUser && <span className="rr-hint">{currentUser.uid}</span>}
+                            <Button variant="text" type="button" onClick={handleSignOut}>
+                                Sign out
+                            </Button>
+                        </div>
+                    </div>
+                    {children}
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="rr-page">
-            <div className="rr-container rr-container--wide">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-                        <a href="/admin" className="rr-brand" style={{ flexDirection: "row", gap: "0.5rem" }}>
-                            <img src="/images/logo.svg" width="28" height="28" alt="" />
-                            <span>RapidREST Admin</span>
-                        </a>
-                        <a href="/admin">Users</a>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                        {currentUser && <span className="rr-hint">{currentUser.uid}</span>}
-                        <Button variant="text" type="button" onClick={handleSignOut}>
-                            Sign out
-                        </Button>
-                    </div>
-                </div>
-                {children}
-            </div>
-        </div>
+        <>
+            {content}
+            <ElevationHost />
+        </>
     );
 }
