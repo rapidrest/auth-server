@@ -1380,6 +1380,46 @@ describe("AccountPage — authenticator app (TOTP)", () => {
         expect(await screen.findByText("label taken")).toBeInTheDocument();
     });
 
+    it("shows a generic message when saving the label on Confirm fails with a non-API error", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        mockedCreateTotpSecret.mockResolvedValueOnce({
+            ...secret({ uid: "totp1", type: "totp", version: 0 }),
+            data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
+        });
+        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
+        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
+        await screen.findByText("ABCD1234");
+
+        mockedUpdateSecret.mockRejectedValueOnce(new TypeError("boom"));
+        await user.type(screen.getByLabelText("Label (optional)"), "LastPass");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        expect(await screen.findByText("Could not save the label.")).toBeInTheDocument();
+    });
+
+    it("leaves other existing secrets unchanged when saving the label after creation", async () => {
+        const user = userEvent.setup();
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "existing1", type: "password" })] }));
+        await goToTotp(user);
+        mockedCreateTotpSecret.mockResolvedValueOnce({
+            ...secret({ uid: "totp1", type: "totp", version: 0 }),
+            data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
+        });
+        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
+        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
+        await screen.findByText("ABCD1234");
+
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "totp1", type: "totp", version: 1, hint: "LastPass" }));
+        await user.type(screen.getByLabelText("Label (optional)"), "LastPass");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        await waitFor(() => expect(screen.getByText("(LastPass)")).toBeInTheDocument());
+        // The pre-existing password secret (which the map iterated past without matching) is untouched.
+        expect(screen.getByText("Password")).toBeInTheDocument();
+    });
+
     it("shows the ApiRequestError message when adding fails", async () => {
         const user = userEvent.setup();
         await goToTotp(user);
@@ -1463,6 +1503,42 @@ describe("AccountPage — passkey", () => {
         await user.click(screen.getByRole("button", { name: "Confirm" }));
 
         expect(await screen.findByText("label taken")).toBeInTheDocument();
+    });
+
+    it("shows a generic message when saving the label on Confirm fails with a non-API error", async () => {
+        const user = userEvent.setup();
+        await goToPasskey(user);
+        mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({ challenge: "c" });
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 0 }));
+        await user.click(screen.getByRole("button", { name: "Add passkey" }));
+        await screen.findByText("Passkey added.");
+
+        mockedUpdateSecret.mockRejectedValueOnce(new TypeError("boom"));
+        await user.type(screen.getByLabelText("Label (optional)"), "iPhone");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        expect(await screen.findByText("Could not save the label.")).toBeInTheDocument();
+    });
+
+    it("leaves other existing secrets unchanged when saving the label after registration", async () => {
+        const user = userEvent.setup();
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "existing1", type: "password" })] }));
+        await goToPasskey(user);
+        mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({ challenge: "c" });
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 0 }));
+        await user.click(screen.getByRole("button", { name: "Add passkey" }));
+        await screen.findByText("Passkey added.");
+
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 1, hint: "iPhone" }));
+        await user.type(screen.getByLabelText("Label (optional)"), "iPhone");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        await waitFor(() => expect(screen.getByText("(iPhone)")).toBeInTheDocument());
+        // The pre-existing password secret (which the map iterated past without matching) is untouched.
+        expect(screen.getByText("Password")).toBeInTheDocument();
     });
 
     it("shows a cancellation message on NotAllowedError", async () => {
@@ -1559,6 +1635,42 @@ describe("AccountPage — FIDO2 security key", () => {
         await user.click(screen.getByRole("button", { name: "Confirm" }));
 
         expect(await screen.findByText("label taken")).toBeInTheDocument();
+    });
+
+    it("shows a generic message when saving the label on Confirm fails with a non-API error", async () => {
+        const user = userEvent.setup();
+        await goToFido2(user);
+        mockedGetFido2RegistrationOptions.mockResolvedValueOnce({ challenge: "c" });
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedRegisterFido2.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2", version: 0 }));
+        await user.click(screen.getByRole("button", { name: "Add security key" }));
+        await screen.findByText("Security key added.");
+
+        mockedUpdateSecret.mockRejectedValueOnce(new TypeError("boom"));
+        await user.type(screen.getByLabelText("Label (optional)"), "YubiKey");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        expect(await screen.findByText("Could not save the label.")).toBeInTheDocument();
+    });
+
+    it("leaves other existing secrets unchanged when saving the label after registration", async () => {
+        const user = userEvent.setup();
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "existing1", type: "password" })] }));
+        await goToFido2(user);
+        mockedGetFido2RegistrationOptions.mockResolvedValueOnce({ challenge: "c" });
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedRegisterFido2.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2", version: 0 }));
+        await user.click(screen.getByRole("button", { name: "Add security key" }));
+        await screen.findByText("Security key added.");
+
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "cred1", type: "fido2", version: 1, hint: "YubiKey" }));
+        await user.type(screen.getByLabelText("Label (optional)"), "YubiKey");
+        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        await waitFor(() => expect(screen.getByText("(YubiKey)")).toBeInTheDocument());
+        // The pre-existing password secret (which the map iterated past without matching) is untouched.
+        expect(screen.getByText("Password")).toBeInTheDocument();
     });
 
     it("shows a cancellation message on NotAllowedError", async () => {

@@ -15,8 +15,16 @@ interface DetailPageProps {
     userUid?: string;
 }
 
-/** This framework has no dynamic route segments — the target account's uid is passed as `?uid=`. */
-function readTargetUid(): string | null {
+/**
+ * This framework has no dynamic route segments — the target account's uid is passed as `?uid=`. Exported
+ * so its `typeof window === "undefined"` guard can be exercised directly in a `node`-environment test:
+ * `UserDetailContent` (which calls this as a `useState` lazy initializer) is always mounted inside
+ * `AdminShell`, which renders only its own "checking" placeholder — never `children` — during SSR (its
+ * `status` only ever leaves `"checking"` via a `useEffect`, which doesn't run under
+ * `renderToStaticMarkup`). So this function never actually runs with no `window` global as part of the
+ * real page tree; the guard only gets exercised by calling it directly.
+ */
+export function readTargetUid(): string | null {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("uid");
 }
