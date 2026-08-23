@@ -1,9 +1,9 @@
 ﻿///////////////////////////////////////////////////////////////////////////////
 // Copyright (C) 2020-2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
-vi.mock("ioredis", async () => {
-    const RedisMock = await import("ioredis-mock");
-    return { Redis: RedisMock.default || RedisMock };
+vi.mock("redis", async () => {
+    const { createFakeRedisModule } = await import("./helpers/FakeRedis.js");
+    return createFakeRedisModule();
 });
 
 const corsOrigins = ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"];

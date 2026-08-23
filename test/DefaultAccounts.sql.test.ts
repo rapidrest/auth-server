@@ -1,9 +1,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
-vi.mock("ioredis", async () => {
-    const RedisMock = await import("ioredis-mock");
-    return { Redis: RedisMock.default || RedisMock };
+vi.mock("redis", async () => {
+    const { createFakeRedisModule } = await import("./helpers/FakeRedis.js");
+    return createFakeRedisModule();
 });
 
 import config from "../src/config.sql.js";
@@ -21,12 +21,18 @@ import * as sqlite3 from "sqlite3";
 // real sqlite deployment, and as mongodb-memory-server's out-of-process mongod already does for the
 // mongo equivalent of this test). Use a file-backed database instead so the data actually persists.
 const DB_FILE = "rrst-test-default-accounts";
+// The "acl" and "sql" datastores each open their own native connection - better-sqlite3 (unlike the
+// old `sqlite3`-backed "sqlite" driver) takes an exclusive lock on every write, so two connections
+// sharing one file collide with a "database is locked" error the moment their startup schema syncs
+// overlap. Giving "acl" its own file sidesteps that; ACL and SQL storage don't need to be colocated.
+const ACL_DB_FILE = "rrst-test-default-accounts-acl";
 const sqlite: sqlite3.Database = new sqlite3.Database(":memory:");
 
-/** Finds the one-time password `DefaultAccounts` logs after creating a new account, if any. */
+/** Finds the one-time password `DefaultAccounts` logs after creating a new account, if any. Strips
+ * the single quotes DefaultAccounts wraps the password in (`Password: '<password>'`). */
 function findLoggedPassword(infoSpy: ReturnType<typeof vi.spyOn>): string | undefined {
-    const line = infoSpy.mock.calls.map((args) => String(args[0])).find((l) => l.startsWith("Password: "));
-    return line?.slice("Password: ".length);
+    const line = infoSpy.mock.calls.map((args) => String(args[0])).find((l) => l.startsWith("Password: '"));
+    return line?.slice("Password: '".length, -1);
 }
 
 describe("DefaultAccounts Tests (sql)", () => {
@@ -36,14 +42,18 @@ describe("DefaultAccounts Tests (sql)", () => {
     const server: Server = new Server({ config, basePath: "./src/sql", logger, objectFactory });
 
     beforeAll(async () => {
+        // DefaultAccounts only logs the raw one-time password when no password file is configured -
+        // otherwise it writes the password to that file and logs just "Password: See '<path>'". This
+        // test asserts against the logged value directly, so disable the password file here.
+        config.set("auth:password_file", "");
         config.set("datastores:acl", {
-            type: "sqlite",
+            type: "better-sqlite3",
             host: "localhost",
-            database: DB_FILE,
+            database: ACL_DB_FILE,
             synchronize: true,
         });
         config.set("datastores:sql", {
-            type: "sqlite",
+            type: "better-sqlite3",
             host: "localhost",
             database: DB_FILE,
             synchronize: true,
@@ -59,7 +69,9 @@ describe("DefaultAccounts Tests (sql)", () => {
                 resolve();
             });
         });
-        await fs.promises.rm(DB_FILE, { force: true });
+        for (const file of [DB_FILE, ACL_DB_FILE]) {
+            await fs.promises.rm(file, { force: true });
+        }
     });
 
     afterEach(async () => {

@@ -1,9 +1,9 @@
 ﻿///////////////////////////////////////////////////////////////////////////////
 // Copyright (C) 2020-2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
-vi.mock("ioredis", async () => {
-    const RedisMock = await import("ioredis-mock");
-    return { Redis: RedisMock.default || RedisMock };
+vi.mock("redis", async () => {
+    const { createFakeRedisModule } = await import("./helpers/FakeRedis.js");
+    return createFakeRedisModule();
 });
 
 const corsOrigins = ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"];
@@ -13,9 +13,17 @@ import config from "../src/config.sql.js";
 import { Logger, sleep } from "@rapidrest/core";
 import { ObjectFactory, Server } from "@rapidrest/service-core";
 import { request } from "@rapidrest/service-core/test";
+import * as fs from "fs";
 import * as sqlite3 from "sqlite3";
 
 const sqlite: sqlite3.Database = new sqlite3.Database(":memory:");
+
+// The "acl" and "sql" datastores each open their own native connection - better-sqlite3 (unlike the
+// old `sqlite3`-backed "sqlite" driver) takes an exclusive lock on every write, so two connections
+// sharing one file collide with a "database is locked" error the moment their startup schema syncs
+// overlap. Giving each its own file sidesteps that; ACL and SQL storage don't need to be colocated.
+const SQL_DB_FILE = "rrst-test";
+const ACL_DB_FILE = "rrst-test-acl";
 
 describe("Server Tests", () => {
     const logger = new Logger();
@@ -24,15 +32,15 @@ describe("Server Tests", () => {
 
     beforeAll(async () => {
         config.set("datastores:acl", {
-            type: "sqlite",
+            type: "better-sqlite3",
             host: "localhost",
-            database: "rrst-test",
+            database: ACL_DB_FILE,
             synchronize: true,
         });
         config.set("datastores:sql", {
-            type: "sqlite",
+            type: "better-sqlite3",
             host: "localhost",
-            database: "rrst-test",
+            database: SQL_DB_FILE,
             synchronize: true,
         });
     });
@@ -46,6 +54,9 @@ describe("Server Tests", () => {
                 resolve();
             });
         });
+        for (const file of [SQL_DB_FILE, ACL_DB_FILE]) {
+            await fs.promises.rm(file, { force: true });
+        }
     });
 
     beforeEach(async () => {

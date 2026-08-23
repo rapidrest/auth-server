@@ -1,9 +1,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
-vi.mock("ioredis", async () => {
-    const RedisMock = await import("ioredis-mock");
-    return { Redis: RedisMock.default || RedisMock };
+vi.mock("redis", async () => {
+    const { createFakeRedisModule } = await import("./helpers/FakeRedis.js");
+    return createFakeRedisModule();
 });
 
 import config from "../src/config.mongo.js";
@@ -13,10 +13,11 @@ import { ObjectFactory, RepoUtils, Server } from "@rapidrest/service-core";
 import { importArgon2 } from "@rapidrest/auth";
 import { AliasMongo, SecretMongo, UserMongo } from "@rapidrest/auth/mongo";
 
-/** Finds the one-time password `DefaultAccounts` logs after creating a new account, if any. */
+/** Finds the one-time password `DefaultAccounts` logs after creating a new account, if any. Strips
+ * the single quotes DefaultAccounts wraps the password in (`Password: '<password>'`). */
 function findLoggedPassword(infoSpy: ReturnType<typeof vi.spyOn>): string | undefined {
-    const line = infoSpy.mock.calls.map((args) => String(args[0])).find((l) => l.startsWith("Password: "));
-    return line?.slice("Password: ".length);
+    const line = infoSpy.mock.calls.map((args) => String(args[0])).find((l) => l.startsWith("Password: '"));
+    return line?.slice("Password: '".length, -1);
 }
 
 const mongod: MongoMemoryServer = new MongoMemoryServer({
@@ -33,6 +34,10 @@ describe("DefaultAccounts Tests (mongo)", () => {
     const server: Server = new Server({ config, basePath: "./src/mongo", logger, objectFactory });
 
     beforeAll(async () => {
+        // DefaultAccounts only logs the raw one-time password when no password file is configured -
+        // otherwise it writes the password to that file and logs just "Password: See '<path>'". This
+        // test asserts against the logged value directly, so disable the password file here.
+        config.set("auth:password_file", "");
         await mongod.start();
     });
 
