@@ -2,3 +2,5 @@ Contributors should submit an update to this file with a commit in order to rece
 
 List of Contributors
 ====================
+
+Jean-Philippe Steinmetz <caskater4>
