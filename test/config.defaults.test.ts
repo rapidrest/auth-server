@@ -5,15 +5,26 @@ import {
     assertProductionSecretsAreSet,
     DEFAULT_AUTH_SECRET,
     DEFAULT_COOKIE_SECRET,
+    DEFAULT_OIDC_CLIENT_ID,
+    DEFAULT_OIDC_CLIENT_SECRET,
     DEFAULT_SESSION_SECRET,
     SecretsConfig,
 } from "../src/config.defaults.js";
 
-function fakeConfig(overrides: Partial<Record<"cookie_secret" | "auth:secret" | "session:secret", string>>): SecretsConfig {
+type FakeConfigKey =
+    | "cookie_secret"
+    | "auth:secret"
+    | "session:secret"
+    | "auth:oidc:clientID"
+    | "auth:oidc:clientSecret";
+
+function fakeConfig(overrides: Partial<Record<FakeConfigKey, string>>): SecretsConfig {
     const values: Record<string, string> = {
         cookie_secret: DEFAULT_COOKIE_SECRET,
         "auth:secret": DEFAULT_AUTH_SECRET,
         "session:secret": DEFAULT_SESSION_SECRET,
+        "auth:oidc:clientID": DEFAULT_OIDC_CLIENT_ID,
+        "auth:oidc:clientSecret": DEFAULT_OIDC_CLIENT_SECRET,
         ...overrides,
     };
     return { get: (key: string) => values[key] };
@@ -43,5 +54,47 @@ describe("assertProductionSecretsAreSet", () => {
             "session:secret": "unique-session-secret",
         });
         expect(() => assertProductionSecretsAreSet(config, "production")).not.toThrow();
+    });
+
+    describe("OIDC placeholder credentials", () => {
+        const overriddenSecrets = {
+            cookie_secret: "unique-cookie-secret",
+            "auth:secret": "unique-auth-secret",
+            "session:secret": "unique-session-secret",
+        };
+
+        it("warns (but does not throw) in production when the placeholder OIDC credentials are still in effect", () => {
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+            const config = fakeConfig(overriddenSecrets);
+            expect(() => assertProductionSecretsAreSet(config, "production")).not.toThrow();
+            expect(warn).toHaveBeenCalledWith(
+                expect.stringMatching(/AUTH__OIDC__CLIENTID, AUTH__OIDC__CLIENTSECRET/),
+            );
+        });
+
+        it("names only the specific OIDC placeholder(s) still at their default", () => {
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+            const config = fakeConfig({ ...overriddenSecrets, "auth:oidc:clientID": "a-real-client-id" });
+            assertProductionSecretsAreSet(config, "production");
+            expect(warn).toHaveBeenCalledWith(expect.stringMatching(/^WARNING:.*AUTH__OIDC__CLIENTSECRET/));
+            expect(warn.mock.calls[0][0]).not.toMatch(/AUTH__OIDC__CLIENTID\b/);
+        });
+
+        it("does not warn once both OIDC credentials have been overridden", () => {
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+            const config = fakeConfig({
+                ...overriddenSecrets,
+                "auth:oidc:clientID": "a-real-client-id",
+                "auth:oidc:clientSecret": "a-real-client-secret",
+            });
+            assertProductionSecretsAreSet(config, "production");
+            expect(warn).not.toHaveBeenCalled();
+        });
+
+        it("does not warn outside production even with the placeholder credentials still in effect", () => {
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+            assertProductionSecretsAreSet(fakeConfig({}), "development");
+            expect(warn).not.toHaveBeenCalled();
+        });
     });
 });

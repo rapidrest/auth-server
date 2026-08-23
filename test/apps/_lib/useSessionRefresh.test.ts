@@ -11,7 +11,7 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
     return { ...actual, refreshAccessToken: vi.fn() };
 });
 
-import { refreshAccessToken } from "../../../apps/shared/lib/api.js";
+import { ApiRequestError, refreshAccessToken } from "../../../apps/shared/lib/api.js";
 import { useSessionRefresh } from "../../../apps/shared/lib/useSessionRefresh.js";
 
 const mockedRefreshAccessToken = vi.mocked(refreshAccessToken);
@@ -93,14 +93,67 @@ describe("useSessionRefresh — with userUid (already authenticated)", () => {
         expect(mockedRefreshAccessToken).toHaveBeenCalledTimes(2);
     });
 
-    it("redirects to sign-in if a scheduled refresh fails", async () => {
+    it("redirects to sign-in immediately if a scheduled refresh is rejected as unauthorized (refresh token expired/revoked)", async () => {
         vi.useFakeTimers();
         const location = mockLocation();
-        mockedRefreshAccessToken.mockRejectedValueOnce(new Error("refresh token expired"));
+        mockedRefreshAccessToken.mockRejectedValueOnce(new ApiRequestError("refresh token expired", 401));
 
         renderHook(() => useSessionRefresh("u1"));
         await vi.advanceTimersByTimeAsync(55 * 60 * 1000);
         await vi.waitFor(() => expect(location.replace).toHaveBeenCalledWith("/auth/signin"));
+        expect(mockedRefreshAccessToken).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries instead of redirecting on a transient (non-auth) failure, and does not redirect once a retry succeeds", async () => {
+        vi.useFakeTimers();
+        const location = mockLocation();
+        mockedRefreshAccessToken.mockRejectedValueOnce(new ApiRequestError("bad gateway", 502)).mockResolvedValueOnce(AUTH_RESULT);
+
+        renderHook(() => useSessionRefresh("u1"));
+        await vi.advanceTimersByTimeAsync(55 * 60 * 1000);
+        expect(mockedRefreshAccessToken).toHaveBeenCalledTimes(1);
+        expect(location.replace).not.toHaveBeenCalled();
+
+        // 30s retry backoff.
+        await vi.advanceTimersByTimeAsync(30 * 1000);
+        expect(mockedRefreshAccessToken).toHaveBeenCalledTimes(2);
+        expect(location.replace).not.toHaveBeenCalled();
+    });
+
+    it("redirects to sign-in once transient-failure retries are exhausted", async () => {
+        vi.useFakeTimers();
+        const location = mockLocation();
+        mockedRefreshAccessToken.mockRejectedValue(new ApiRequestError("bad gateway", 502));
+
+        renderHook(() => useSessionRefresh("u1"));
+        await vi.advanceTimersByTimeAsync(55 * 60 * 1000); // initial attempt
+        await vi.advanceTimersByTimeAsync(30 * 1000); // retry 1
+        await vi.advanceTimersByTimeAsync(30 * 1000); // retry 2
+        expect(location.replace).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(30 * 1000); // retry 3 — retries exhausted
+        await vi.waitFor(() => expect(location.replace).toHaveBeenCalledWith("/auth/signin"));
+    });
+
+    it("does not redirect or schedule a retry for a stale rejection that arrives after unmount", async () => {
+        vi.useFakeTimers();
+        const location = mockLocation();
+        let rejectRefresh: (reason: unknown) => void = () => undefined;
+        mockedRefreshAccessToken.mockReturnValueOnce(new Promise((_resolve, reject) => (rejectRefresh = reject)));
+
+        const { unmount } = renderHook(() => useSessionRefresh("u1"));
+        await vi.advanceTimersByTimeAsync(55 * 60 * 1000);
+        expect(mockedRefreshAccessToken).toHaveBeenCalledTimes(1);
+
+        unmount();
+        rejectRefresh(new ApiRequestError("bad gateway", 502));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        // No redirect, and no retry scheduled off the back of the stale rejection.
+        await vi.advanceTimersByTimeAsync(60 * 1000);
+        expect(location.replace).not.toHaveBeenCalled();
+        expect(mockedRefreshAccessToken).toHaveBeenCalledTimes(1);
     });
 
     it("clears the timer on unmount, so no refresh fires afterward", async () => {

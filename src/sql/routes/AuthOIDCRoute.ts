@@ -5,6 +5,7 @@ import { RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthOIDCRouteSQL } from "@rapidrest/auth/sql";
 import { OIDCProvider } from "@rapidrest/auth";
 import { ObjectDecorators } from "@rapidrest/core";
+import { DEFAULT_OIDC_CLIENT_ID, DEFAULT_OIDC_CLIENT_SECRET } from "../../config.defaults.js";
 const { Config } = ObjectDecorators;
 const { ApiRoute } = RouteDecorators;
 
@@ -14,8 +15,8 @@ export class AuthOIDCRoute extends BaseAuthOIDCRouteSQL {
     protected providerConfig: OIDCProvider = {
         name: "test",
         authorizationURL: "https://oidc-test.com/authorize",
-        clientID: "123457890",
-        clientSecret: "f32fa983732aq9rf7ab39f",
+        clientID: DEFAULT_OIDC_CLIENT_ID,
+        clientSecret: DEFAULT_OIDC_CLIENT_SECRET,
         profileURL: "https://oidc-test.com/userinfo",
         protocol: "openid",
         redirectURI: "http://localhost:3000",

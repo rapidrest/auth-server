@@ -4,7 +4,13 @@
 import { createRequire } from "module";
 import nconf from "nconf";
 import { join } from "path";
-import { DEFAULT_AUTH_SECRET, DEFAULT_COOKIE_SECRET, DEFAULT_SESSION_SECRET } from "./config.defaults.js";
+import {
+    DEFAULT_AUTH_SECRET,
+    DEFAULT_COOKIE_SECRET,
+    DEFAULT_OIDC_CLIENT_ID,
+    DEFAULT_OIDC_CLIENT_SECRET,
+    DEFAULT_SESSION_SECRET,
+} from "./config.defaults.js";
 
 const _require = createRequire(import.meta.url);
 const packageInfo = _require(join(process.cwd(), "package.json"));
@@ -71,8 +77,12 @@ conf.defaults({
         // whenever a JWT is issued, so the SSR pages under apps/www can authenticate a request without
         // the client having to attach an Authorization header itself. HttpOnly (the default) so the
         // token isn't reachable from JavaScript. `access.maxAge`/`refresh.maxAge` match
-        // `options.expiresIn`/`refresh.expiresIn` below. NOTE: secure is left false for local
-        // http://localhost development — a production deployment served over HTTPS should set this to true.
+        // `options.expiresIn`/`refresh.expiresIn` below. Neither `access` nor `refresh` sets `secure`
+        // here, so `TokenUtils.buildCookie()`'s default applies: the `Secure` attribute is included
+        // unless `secure: false` is explicitly set. Browsers treat `http://localhost` as a trustworthy
+        // origin, so this default also works for local dev without changes — only set `secure: false`
+        // below if you need cookie persistence on a plain-HTTP origin that ISN'T `localhost` (e.g. a LAN
+        // IP or a non-TLS staging host), and never do so for a real production deployment.
         cookie: {
             enabled: true,
             access: { name: "jwt", maxAge: 60 * 60 },
@@ -92,8 +102,8 @@ conf.defaults({
         oidc: {
             name: "test",
             authorizationURL: "https://oidc-test.com/authorize",
-            clientID: "123457890",
-            clientSecret: "f32fa983732aq9rf7ab39f",
+            clientID: DEFAULT_OIDC_CLIENT_ID,
+            clientSecret: DEFAULT_OIDC_CLIENT_SECRET,
             profileURL: "https://oidc-test.com/userinfo",
             protocol: "openid",
             redirectURI: "http://localhost:3000",
@@ -144,8 +154,15 @@ conf.defaults({
     },
     cluster_url: "http://localhost",
     metrics: {
-        authRequired: false,
+        authRequired: true,
     },
+    // Exact IP addresses of proxies/load balancers this server sits behind and trusts to set
+    // X-Forwarded-For/X-Real-IP truthfully. Left empty by default (fail closed: forwarding headers are
+    // ignored and NetUtils.getIPAddress() falls back to the socket's own remote address), which is safe
+    // but means per-IP rate limiting and audit-log IPs will all collapse onto the proxy's own address in
+    // any deployment that actually sits behind one (the common case in production). Set this to your
+    // reverse proxy/load balancer's IP(s) if you deploy behind one.
+    trusted_proxies: [],
 });
 
 export default conf;

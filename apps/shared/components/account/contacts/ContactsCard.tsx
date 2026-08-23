@@ -192,12 +192,17 @@ export default function ContactsCard({
         setContactsError(null);
         const existingAlias = findAliasForContact(aliases, contact);
         try {
-            await saveContacts(contacts.filter((c) => !(c.contact === contact.contact && c.type === contact.type)));
+            // Delete the sign-in alias (the actual credential) before removing the contact from the
+            // profile, not after: if the second step fails partway through, this ordering leaves the
+            // contact still visible in the table with its sign-in already disabled (safe — the user can
+            // just retry "Remove"), rather than the alias silently remaining a working, invisible
+            // credential for a contact that's already gone from the account UI.
             if (existingAlias) {
                 // Same reasoning as handleToggleContactSignIn: a match means `aliases` is already loaded.
                 await deleteAlias(existingAlias.uid);
                 setAliases((prev) => prev!.filter((a) => a.uid !== existingAlias.uid));
             }
+            await saveContacts(contacts.filter((c) => !(c.contact === contact.contact && c.type === contact.type)));
         } catch (err) {
             setContactsError(err instanceof ApiRequestError ? err.message : "Could not remove that contact.");
         }

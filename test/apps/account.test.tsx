@@ -843,6 +843,34 @@ describe("AccountPage — contacts table", () => {
         await waitFor(() => expect(mockedDeleteAlias).toHaveBeenCalledWith("a2"));
     });
 
+    it("deletes the matching alias before updating the profile, so a failed alias deletion leaves the contact untouched", async () => {
+        // Ordering matters here: the alias (the actual sign-in credential) must be gone before the contact
+        // disappears from the profile, not after — otherwise a failure partway through this two-step
+        // removal could leave a working alias for a contact no longer visible anywhere in the account UI.
+        const user = userEvent.setup();
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                profile: profileObj({ version: 5, contacts: [contact(), secondContact] }),
+                aliases: [
+                    alias({ uid: "a2", alias: "ada@example.com", type: "email" }),
+                    alias({ uid: "a3", alias: "second@example.com", type: "email" }),
+                ],
+            }),
+        );
+        render(<AccountPage userUid="u1" />);
+        const row = within(await screen.findByRole("table")).getByText("ada@example.com").closest("tr")!;
+        mockedDeleteAlias.mockRejectedValueOnce(new ApiRequestError("cannot delete alias", 500));
+
+        await user.click(within(row).getByRole("button", { name: "Remove" }));
+
+        await waitFor(() => expect(mockedDeleteAlias).toHaveBeenCalledWith("a2"));
+        expect(mockedUpdateProfile).not.toHaveBeenCalled();
+        // The contact is still shown — the failed removal didn't silently drop it from the visible list.
+        expect(within(contactsCard()).getByText("ada@example.com")).toBeInTheDocument();
+        expect(await within(contactsCard()).findByText("cannot delete alias")).toBeInTheDocument();
+    });
+
     it("shows the ApiRequestError message when removing a contact fails", async () => {
         const user = userEvent.setup();
         mockedGetAccount.mockReset();

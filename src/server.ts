@@ -39,8 +39,13 @@ const start = async function (config: any, logger: any) {
         logger.debug(err);
     }
 
-    // Initialize EventUtils to be able to send out telemetry events
-    const auth: any = config.get("auth");
+    // Initialize EventUtils to be able to send out telemetry events. Build a standalone copy of the
+    // auth config rather than mutating the object `config.get()` returns: nconf does not clone nested
+    // values, so `config.get("auth")` returns the exact live object shared by every other consumer of
+    // this config (e.g. `TokenUtils`) — deleting `expiresIn` off of it in place previously stripped
+    // expiry from every access token the server issues, not just this one telemetry token.
+    const configuredAuth: any = config.get("auth");
+    const auth: any = { ...configuredAuth, options: { ...configuredAuth.options } };
     delete auth.options.expiresIn;
     const token: string = await JWTUtils.createToken(auth,
         {
