@@ -15,6 +15,8 @@ export interface AddContactModalProps {
     setType: (type: RegistrationIdentifierType) => void;
     value: string;
     setValue: (value: string) => void;
+    enableSignIn: boolean;
+    setEnableSignIn: (value: boolean) => void;
     onSubmit: (e: FormEvent) => void;
 }
 
@@ -32,6 +34,8 @@ export default function AddContactModal({
     setType,
     value,
     setValue,
+    enableSignIn,
+    setEnableSignIn,
     onSubmit,
 }: AddContactModalProps) {
     return (
@@ -66,6 +70,17 @@ export default function AddContactModal({
                         onChange={(e) => setValue(e.target.value)}
                     />
                 </FormField>
+                <div className="rr-field">
+                    <label htmlFor="newContactEnableSignIn" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <input
+                            id="newContactEnableSignIn"
+                            type="checkbox"
+                            checked={enableSignIn}
+                            onChange={(e) => setEnableSignIn(e.target.checked)}
+                        />
+                        Use this contact to sign in once verified
+                    </label>
+                </div>
                 <Button type="submit" loading={adding} disabled={adding} style={{ width: "auto" }}>
                     Add
                 </Button>

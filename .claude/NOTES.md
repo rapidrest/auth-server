@@ -69,6 +69,21 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-08-22 — auto-enable sign-in on contact verification
+
+Added a "Use this contact to sign in once verified" checkbox (default checked) to the Add
+Contact modal (`AddContactModal.tsx`). `ContactsCard.tsx` carries that choice through to
+`handleVerifyContact` via a `verifyingAutoEnableSignIn` piece of state, and on a successful
+verification of a contact added through that flow, automatically calls `createAlias(type,
+contact, true)` so the user doesn't have to separately click "Enable" afterward. Scoped
+deliberately narrow: only the create→verify path sets this flag — re-verifying an
+already-existing unverified contact via the table's own standalone "Verify" button (
+`openVerifyModal`) never auto-enables, since that's not part of "creating" a contact and there's
+no checkbox state to carry through for it. Alias creation failure after a successful verification
+is treated as best-effort/non-blocking: the verify modal has already closed and the contact is
+already marked verified, so a failure here surfaces as the card's own error banner rather than
+reopening the verify modal or discarding the successful verification.
+
 ### 2026-08-22 — adversarial security/correctness/performance review (two independent agents)
 
 Ran two independent adversarial review agents in parallel (one backend/route-focused, one

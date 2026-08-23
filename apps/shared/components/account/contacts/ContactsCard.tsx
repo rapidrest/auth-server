@@ -53,10 +53,17 @@ export default function ContactsCard({
     const [addContactError, setAddContactError] = useState<string | null>(null);
     const [newContactType, setNewContactType] = useState<RegistrationIdentifierType>("email");
     const [newContactValue, setNewContactValue] = useState("");
+    const [newContactEnableSignIn, setNewContactEnableSignIn] = useState(true);
     const [contactAdding, setContactAdding] = useState(false);
 
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
     const [verifyingContact, setVerifyingContact] = useState<Contact | null>(null);
+    // Whether a successful verification of `verifyingContact` should automatically create a matching
+    // sign-in alias — carries the Add Contact modal's "Use this contact to sign in once verified"
+    // checkbox value through to `handleVerifyContact`. Only ever `true` when the verify modal was opened
+    // by `handleAddContact` right after creating a brand-new contact; re-verifying an existing contact via
+    // the table's own "Verify" action never auto-enables sign-in.
+    const [verifyingAutoEnableSignIn, setVerifyingAutoEnableSignIn] = useState(false);
     const [verifyCode, setVerifyCode] = useState("");
     const [verifySaving, setVerifySaving] = useState(false);
     const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -83,6 +90,7 @@ export default function ContactsCard({
     function openAddContactModal() {
         setNewContactType("email");
         setNewContactValue("");
+        setNewContactEnableSignIn(true);
         setAddContactError(null);
         setAddContactModalOpen(true);
     }
@@ -91,6 +99,7 @@ export default function ContactsCard({
         setAddContactModalOpen(false);
         setNewContactType("email");
         setNewContactValue("");
+        setNewContactEnableSignIn(true);
         setAddContactError(null);
     }
 
@@ -101,11 +110,13 @@ export default function ContactsCard({
         const contact: Contact = { contact: newContactValue.trim(), type: newContactType, verified: false };
         try {
             await saveContacts([...contacts, contact]);
+            const autoEnableSignIn = newContactEnableSignIn;
             closeAddContactModal();
             // The server auto-sends a verification code as a side effect of adding a genuinely new,
             // unverified contact — prompt for it immediately rather than making the user hunt for a
             // separate "verify" action.
             setVerifyingContact(contact);
+            setVerifyingAutoEnableSignIn(autoEnableSignIn);
             setVerifyCode("");
             setVerifyError(null);
             setResent(false);
@@ -119,6 +130,7 @@ export default function ContactsCard({
 
     function openVerifyModal(contact: Contact) {
         setVerifyingContact(contact);
+        setVerifyingAutoEnableSignIn(false);
         setVerifyCode("");
         setVerifyError(null);
         setResent(false);
@@ -128,6 +140,7 @@ export default function ContactsCard({
     function closeVerifyModal() {
         setVerifyModalOpen(false);
         setVerifyingContact(null);
+        setVerifyingAutoEnableSignIn(false);
         setVerifyCode("");
         setVerifyError(null);
         setResent(false);
@@ -136,12 +149,30 @@ export default function ContactsCard({
     async function handleVerifyContact(e: FormEvent) {
         e.preventDefault();
         // Only reachable while the verify modal is open, which always sets `verifyingContact` first.
+        const verifiedContact = verifyingContact!;
+        const autoEnableSignIn = verifyingAutoEnableSignIn;
         setVerifyError(null);
         setVerifySaving(true);
         try {
-            const updated = await verifyContact(verifyingContact!.contact, verifyCode.trim());
+            const updated = await verifyContact(verifiedContact.contact, verifyCode.trim());
             setProfile(updated);
             closeVerifyModal();
+            if (autoEnableSignIn) {
+                // Best-effort: verification itself already succeeded and the modal has closed, so a
+                // failure here (e.g. a transient error) surfaces as the card's own error banner rather
+                // than reopening the verify modal or making the user re-enter the code.
+                try {
+                    const createdAlias = await createAlias(verifiedContact.type, verifiedContact.contact, true);
+                    // Same reasoning as handleToggleContactSignIn: reachable only once `aliases` is loaded.
+                    setAliases((prev) => [...prev!, createdAlias]);
+                } catch (err) {
+                    setContactsError(
+                        err instanceof ApiRequestError
+                            ? err.message
+                            : "Verified, but could not enable that contact for sign-in.",
+                    );
+                }
+            }
         } catch (err) {
             setVerifyError(
                 err instanceof ApiRequestError ? "Invalid or expired code." : "Something went wrong. Please try again.",
@@ -306,6 +337,8 @@ export default function ContactsCard({
                 setType={setNewContactType}
                 value={newContactValue}
                 setValue={setNewContactValue}
+                enableSignIn={newContactEnableSignIn}
+                setEnableSignIn={setNewContactEnableSignIn}
                 onSubmit={handleAddContact}
             />
 

@@ -64,7 +64,7 @@ describe("assertProductionSecretsAreSet", () => {
         };
 
         it("warns (but does not throw) in production when the placeholder OIDC credentials are still in effect", () => {
-            const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
             const config = fakeConfig(overriddenSecrets);
             expect(() => assertProductionSecretsAreSet(config, "production")).not.toThrow();
             expect(warn).toHaveBeenCalledWith(
@@ -73,7 +73,7 @@ describe("assertProductionSecretsAreSet", () => {
         });
 
         it("names only the specific OIDC placeholder(s) still at their default", () => {
-            const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
             const config = fakeConfig({ ...overriddenSecrets, "auth:oidc:clientID": "a-real-client-id" });
             assertProductionSecretsAreSet(config, "production");
             expect(warn).toHaveBeenCalledWith(expect.stringMatching(/^WARNING:.*AUTH__OIDC__CLIENTSECRET/));
@@ -81,7 +81,7 @@ describe("assertProductionSecretsAreSet", () => {
         });
 
         it("does not warn once both OIDC credentials have been overridden", () => {
-            const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
             const config = fakeConfig({
                 ...overriddenSecrets,
                 "auth:oidc:clientID": "a-real-client-id",
@@ -92,7 +92,7 @@ describe("assertProductionSecretsAreSet", () => {
         });
 
         it("does not warn outside production even with the placeholder credentials still in effect", () => {
-            const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
             assertProductionSecretsAreSet(fakeConfig({}), "development");
             expect(warn).not.toHaveBeenCalled();
         });

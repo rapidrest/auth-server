@@ -607,6 +607,103 @@ describe("AccountPage — contacts table", () => {
         expect(screen.getByText("Verified")).toBeInTheDocument();
     });
 
+    it("auto-enables sign-in once a newly-added contact is verified (checkbox checked by default)", async () => {
+        const user = userEvent.setup();
+        render(<AccountPage userUid="u1" />);
+        const addDialog = await openAddContactModal(user);
+        expect(within(addDialog).getByLabelText("Use this contact to sign in once verified")).toBeChecked();
+        mockedCreateProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ contact: "new@example.com", verified: false })] }));
+
+        await user.type(within(addDialog).getByLabelText("E-mail address"), "new@example.com");
+        await user.click(within(addDialog).getByRole("button", { name: "Add" }));
+        const verifyDialog = await screen.findByRole("dialog", { name: "Verify contact" });
+
+        mockedVerifyContact.mockResolvedValueOnce(profileObj({ contacts: [contact({ contact: "new@example.com", verified: true })] }));
+        mockedCreateAlias.mockResolvedValueOnce(alias({ uid: "a9", alias: "new@example.com", type: "email" }));
+        await user.type(within(verifyDialog).getByLabelText("Verification code"), "123456");
+        await user.click(within(verifyDialog).getByRole("button", { name: "Verify" }));
+
+        await waitFor(() => expect(mockedCreateAlias).toHaveBeenCalledWith("email", "new@example.com", true));
+        const row = within(await screen.findByRole("table")).getByText("new@example.com").closest("tr")!;
+        expect(await within(row).findByRole("button", { name: "Disable" })).toBeInTheDocument();
+    });
+
+    it("does not auto-enable sign-in when the checkbox is unchecked before adding a contact", async () => {
+        const user = userEvent.setup();
+        render(<AccountPage userUid="u1" />);
+        const addDialog = await openAddContactModal(user);
+        await user.click(within(addDialog).getByLabelText("Use this contact to sign in once verified"));
+        mockedCreateProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ contact: "new@example.com", verified: false })] }));
+
+        await user.type(within(addDialog).getByLabelText("E-mail address"), "new@example.com");
+        await user.click(within(addDialog).getByRole("button", { name: "Add" }));
+        const verifyDialog = await screen.findByRole("dialog", { name: "Verify contact" });
+
+        mockedVerifyContact.mockResolvedValueOnce(profileObj({ contacts: [contact({ contact: "new@example.com", verified: true })] }));
+        await user.type(within(verifyDialog).getByLabelText("Verification code"), "123456");
+        await user.click(within(verifyDialog).getByRole("button", { name: "Verify" }));
+
+        const row = within(await screen.findByRole("table")).getByText("new@example.com").closest("tr")!;
+        expect(await within(row).findByRole("button", { name: "Enable" })).toBeInTheDocument();
+        expect(mockedCreateAlias).not.toHaveBeenCalled();
+    });
+
+    it("does not auto-enable sign-in when re-verifying an existing unverified contact via its own Verify action", async () => {
+        const user = userEvent.setup();
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ profile: profileObj({ contacts: [contact({ verified: false })] }) }));
+        render(<AccountPage userUid="u1" />);
+        await user.click(await screen.findByRole("button", { name: "Verify" }));
+        const dialog = screen.getByRole("dialog", { name: "Verify contact" });
+
+        mockedVerifyContact.mockResolvedValueOnce(profileObj({ contacts: [contact({ verified: true })] }));
+        await user.type(within(dialog).getByLabelText("Verification code"), "123456");
+        await user.click(within(dialog).getByRole("button", { name: "Verify" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(mockedCreateAlias).not.toHaveBeenCalled();
+    });
+
+    it("shows an error but keeps the contact verified when auto-enabling sign-in fails after verification", async () => {
+        const user = userEvent.setup();
+        render(<AccountPage userUid="u1" />);
+        const addDialog = await openAddContactModal(user);
+        mockedCreateProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ contact: "new@example.com", verified: false })] }));
+
+        await user.type(within(addDialog).getByLabelText("E-mail address"), "new@example.com");
+        await user.click(within(addDialog).getByRole("button", { name: "Add" }));
+        const verifyDialog = await screen.findByRole("dialog", { name: "Verify contact" });
+
+        mockedVerifyContact.mockResolvedValueOnce(profileObj({ contacts: [contact({ contact: "new@example.com", verified: true })] }));
+        mockedCreateAlias.mockRejectedValueOnce(new ApiRequestError("could not enable sign-in", 500));
+        await user.type(within(verifyDialog).getByLabelText("Verification code"), "123456");
+        await user.click(within(verifyDialog).getByRole("button", { name: "Verify" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(await within(contactsCard()).findByText("could not enable sign-in")).toBeInTheDocument();
+        const row = within(await screen.findByRole("table")).getByText("new@example.com").closest("tr")!;
+        expect(within(row).getByText("Verified")).toBeInTheDocument();
+        expect(within(row).getByRole("button", { name: "Enable" })).toBeInTheDocument();
+    });
+
+    it("shows a generic message when auto-enabling sign-in fails with a non-API error", async () => {
+        const user = userEvent.setup();
+        render(<AccountPage userUid="u1" />);
+        const addDialog = await openAddContactModal(user);
+        mockedCreateProfile.mockResolvedValueOnce(profileObj({ contacts: [contact({ contact: "new@example.com", verified: false })] }));
+
+        await user.type(within(addDialog).getByLabelText("E-mail address"), "new@example.com");
+        await user.click(within(addDialog).getByRole("button", { name: "Add" }));
+        const verifyDialog = await screen.findByRole("dialog", { name: "Verify contact" });
+
+        mockedVerifyContact.mockResolvedValueOnce(profileObj({ contacts: [contact({ contact: "new@example.com", verified: true })] }));
+        mockedCreateAlias.mockRejectedValueOnce(new TypeError("boom"));
+        await user.type(within(verifyDialog).getByLabelText("Verification code"), "123456");
+        await user.click(within(verifyDialog).getByRole("button", { name: "Verify" }));
+
+        expect(await within(contactsCard()).findByText("Verified, but could not enable that contact for sign-in.")).toBeInTheDocument();
+    });
+
     it("shows a fixed message on an invalid verification code", async () => {
         const user = userEvent.setup();
         mockedGetAccount.mockReset();
