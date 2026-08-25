@@ -11,6 +11,8 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Standing decisions
 
+- **Commit discipline.** Don't `git commit` unless explicitly asked, even after a full
+  review-and-fix cycle with passing tests. Leave changes staged/unstaged and say so.
 - **This is a monorepo checkout, not isolated packages.** `auth-server` sits alongside its own
   `@rapidrest/*` dependencies as sibling directories under `d:\github\rapidrest\`: `auth`,
   `core`, `react`, `service-core`, `cli`. All are owned by the same author (Jean-Philippe
@@ -67,7 +69,79 @@ Keep entries terse — this is a reference, not a transcript.
   mutate an object returned from `config.get()` in place; clone first
   (`{ ...config.get("auth"), options: { ...config.get("auth").options } }`).
 
+- **A plain sign-in token never carries trusted roles.** `POST /auth/mfa` (and `/auth/password`)
+  return a token/cookie with `roles: []` even for an account whose `User.roles` really is
+  `["admin"]` in the database — confirmed by direct DB inspection, not a persistence bug. Trusted
+  roles only appear after a separate elevation step: `POST /auth/elevation` with `{password}`
+  (`elevateWithPassword()` in `apps/shared/lib/api.ts`) for an account with no enrolled second
+  factor (true for every account this repo's own tooling provisions), which returns a new,
+  short-lived elevated token/cookie that does carry `roles`. This is `@RequiresElevation()`
+  working as designed (see `BaseAdminRoute`/`AdminConsoleRoute`), not a bug — any tooling/script
+  that signs in and then expects to immediately call a trusted-role-gated endpoint (`/admin/*`,
+  `/metrics`, `POST /users` with `verified`/`roles` set, etc.) needs this extra elevation call
+  first, or it 403s with `api-102`.
+- **`jwt`/`refresh` cookies are `Secure` by default** (see the earlier nconf/cookie standing
+  decision), which is correct for a real HTTPS deployment but means any HTTP client whose cookie
+  jar actually enforces RFC 6265 (k6, real browsers) will not carry them over a plain `http://`
+  connection — confirmed while building `k6-tests/`. **curl's own cookie jar does not enforce
+  this** (sends `Secure` cookies over plain HTTP regardless), which can produce a false "it works"
+  result if you spot-check a cookie-dependent flow with curl instead of the real client. Test
+  cookie-dependent flows (refresh, authenticated SSR pages) against an HTTPS target for a result
+  that means anything.
+
 ## Session Log
+
+### 2026-08-23 — critical startup crash found+fixed in @rapidrest/service-core; k6 load-test suite added
+
+**Critical, 100%-reproducible startup crash, live on the documented Docker quick-start** (found
+while trying to boot a real server to validate the k6 suite below — not caught by the existing
+test suite because it mocks Redis with `FakeRedis`, which has no `duplicate()`/`connect()`
+semantics to trip over). `docker-compose build && docker-compose up` (or plain `node
+dist/src/server.js` against real Mongo+Redis) crashed every time, ~1.2s into startup, with
+`ClientClosedError: The client is closed` inside `ACLUtils.saveDefaultACL()` →
+`RedisCache.load()`. Root cause, confirmed by direct DB inspection and HTTP-level tracing (not
+guessed): `@rapidrest/core`'s `ObjectFactory.initialize()` resolves any `@DataSource`/`@Redis`-
+injected field by calling `.duplicate()` on the shared connection when the connection type
+exposes that method (`typeof conn.duplicate === "function"`) — written with some other
+duplicable connection type in mind, but a **node-redis client's `.duplicate()` also matches that
+duck type, and unlike whatever the check was written for, returns a fresh, unconnected client**
+that the injection code never calls `.connect()` on. Every `@Redis(...)`-injected field (e.g.
+`RedisCache.redisClient`, used unconditionally on every startup by ACL bootstrap) got a dead
+client. `service-core`'s own `EventListenerManager` had the identical latent bug in its
+constructor (`this.redis = redis.duplicate()`, never connected) — dormant by default only because
+`events:channels` defaults to `[]`, so `init()`'s `subscribe()` loop never actually runs; it would
+crash the same way the moment an operator configures any event channels.
+
+**Fixed at the source** in the sibling `service-core` repo (per the standing decision above — not
+worked around locally): `ObjectFactory.initialize()` now awaits `.connect()` on the duplicated
+connection when it looks redis-shaped (`isOpen: boolean` + `connect: function`, narrow duck typing
+so it can't misfire against some other duplicable type); `EventListenerManager.init()` now
+connects its duplicated client before subscribing, matching the pattern `BaseAdminRoute.init()`
+already used correctly for its own duplicated publisher client. Applied to `auth-server` via
+`yarn patch` (`.yarn/patches/@rapidrest-service-core-*.patch`, `package.json` resolutions) rather
+than a local `node_modules` edit, so it survives `yarn install` — this is a stopgap until
+`service-core` is rebuilt/republished for real; the source changes are uncommitted in the sibling
+repo pending review. Verified: full `auth-server` suite (537/537) and a fresh
+`docker-compose build && up` both pass/boot cleanly with the patch applied.
+
+**Also fixed while validating the fix:** `passwords` (the file `DefaultAccounts` writes the
+freshly-generated admin password to — see the standing decision on `auth:password_file`) was not
+in `.gitignore`; a local `node dist/src/server.js` run leaves this file, containing a real
+plaintext credential, sitting in the repo root ready to be swept into a careless `git add -A`.
+Added to `.gitignore`.
+
+**Added `k6-tests/`**: a k6 load-test suite modeled on `petstore_example`'s own `k6-tests/`
+layout, covering `/status`, `/openapi/{json,yaml}`, public/authenticated SSR pages, sign-in,
+refresh, self-service profile/secrets/aliases, and admin list/get/create/`/metrics`. Not a blind
+port of the reference — see the two new standing decisions above (elevation, Secure cookies) and
+`k6-tests/README.md` for why: naively porting petstore's "every VU signs in as the same account"
+pattern immediately trips `auth-server`'s real rate limiter (petstore's own toy auth has none).
+Self-service scripts spread logins across a pool of accounts `setup.ts` provisions ahead of time
+(`testUsers.ts`, keyed by k6's `__VU`); admin-only scripts sign in and elevate exactly once per
+run via k6's `setup()` lifecycle hook, regardless of VU count. Deliberately out of scope:
+registration/MFA-challenge flows and OIDC, none of which a script can complete without receiving a
+real out-of-band code or talking to a real third-party IdP. Every script individually validated
+live against a real (patched, freshly-booted) server this session.
 
 ### 2026-08-22 — auto-enable sign-in on contact verification
 

@@ -21,3 +21,6 @@ loggererror.log
 petstore-*.tgz
 /profiles
 rrst-test
+# Written by DefaultAccounts (`auth:password_file`, default "passwords") with plaintext credentials for
+# any freshly-created default account (e.g. the initial admin) - must never be committed.
+/passwords
