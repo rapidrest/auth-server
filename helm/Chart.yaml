@@ -1,7 +1,8 @@
 apiVersion: v2
-description: Installs  into a Kubernetes cluster
-name: 
+description: Installs the RapidREST authentication and authorization server into a Kubernetes cluster
+name: auth-server
 version: 1.0.0
+appVersion: "0.1.0"
 dependencies:
 
 - name: mongodb

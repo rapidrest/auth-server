@@ -24,9 +24,8 @@ redis:
   url: 'redis://db-redis-master'
   architecture: standalone
   auth:
-    enabled: false
+    enabled: true
   fullnameOverride: db-redis
-  usePassword: false
   master:
     persistence:
       enabled: false
@@ -43,21 +42,26 @@ mongodb:
   architecture: standalone
   fullnameOverride: mongodb
   auth:
-    enabled: false
+    enabled: true
 
 service:
   image:
     registry: ghcr.io
-    repository: 
-    tag: 1.1.2
+    repository: rapidrest/auth-server
+    tag: ""
   replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
   mongodb:
     acl:
       name: access_control_lists
       host: ''
     mongo:
-      name: 
-      fullnameOverride: ''
+      name: rrst_auth
       host: ''
   config:
     logs: true

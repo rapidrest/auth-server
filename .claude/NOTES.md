@@ -89,7 +89,125 @@ Keep entries terse — this is a reference, not a transcript.
   cookie-dependent flows (refresh, authenticated SSR pages) against an HTTPS target for a result
   that means anything.
 
+- **The Helm chart in `helm/` was, until 2026-08-25, an unadapted copy of the `petstore_example`
+  reference project's scaffold** — never touched since this repo's initial commit, per git log.
+  `helm lint` failed outright (`chart.metadata.name is required`), and every app-specific resource
+  name rendered as the literal string `-services` (missing the `{{ include "rrst.fullname" . }}`
+  prefix `_helpers.tpl` already defines — only `templates/tests/test-connection.yaml` actually used
+  it). If a *new* template file is ever added under `helm/templates/`, name its resources the same
+  way the fixed ones now do (`{{ include "rrst.fullname" . }}-<suffix>` / `{{ include "rrst.name"
+  . }}` for the `app:` label) — don't copy the un-prefixed pattern that was there before.
+- **`helm dependency update` needs `Chart.yaml`'s `name:` field to actually be set** before it (or
+  `helm lint`/`helm template`) will do anything at all with a chart — an easy first check when a
+  chart mysteriously "does nothing."
+- **Reading a Bitnami subchart's auto-generated password back out via `lookup` (the pattern
+  `service-config.yaml`/`redis.yaml` use for the mongodb/redis root passwords) doesn't work on a
+  brand-new `helm install`** — `lookup` only sees resources that already exist in the cluster, and
+  the subchart's own Secret is created in the *same* install operation. The app starts with no
+  datastore credentials wired in and crash-loops until a follow-up `helm upgrade` (no values need
+  to change) picks up the by-then-existing secret. This is inherent to `lookup`'s documented
+  behavior, not fixable by rewriting the template differently — see the CAVEAT comments in both
+  files, and `templates/NOTES.txt`, which surfaces it to the operator directly.
+- A generic YAML-aware IDE linter will flag most Helm template files in this chart as invalid YAML
+  (`{{- ... }}` Go-template syntax, especially multi-line `{{- /* comment */ }}` blocks, reads as
+  malformed flow-mapping syntax to a plain YAML parser). This is a false positive, not a real
+  error — Helm templates aren't valid YAML until rendered. Trust `helm lint`/`helm template`
+  (`helm/` has the `mongodb`/`redis` Bitnami subchart dependencies fetched via `helm dependency
+  update` — network access to `charts.bitnami.com` confirmed available this session), not the
+  editor's diagnostics, for this directory.
+
 ## Session Log
+
+### 2026-08-25 — Docker/Helm deployment review, chart adapted from petstore scaffold to a real one
+
+Full review of `Dockerfile`, `.dockerignore`, `docker-compose.*.yml`, and `helm/`. User decisions
+going in: chart name `auth-server`, image `ghcr.io/rapidrest/auth-server`, keep the existing
+Gateway API approach (not switching to plain Ingress). Validated throughout via `helm lint`/`helm
+template` (real subchart deps fetched — see the standing decision above) and, for Docker, actual
+`docker build` + live boot against real Mongo/Redis containers (confirmed non-root user, healthy
+healthcheck, working API) — not just static reading. No live Kubernetes cluster was available
+(Docker Desktop's k8s integration is installed but not running, and enabling it needs GUI
+interaction), so the credential-wiring templates are verified as far as static rendering +
+exact-secret-name/key cross-referencing against the real fetched subcharts can confirm, but not
+via an actual `helm install`.
+
+**Helm — chart-breaking, fixed:**
+- `Chart.yaml`: `name:`/`description:` were blank → `helm lint` failed to even load the chart.
+  Set `name: auth-server`, `appVersion: "0.1.0"` (matches `package.json`).
+- Every app-specific resource (`1_deployments/service.yaml`'s Deployment,
+  `2_services/api_services.yaml`'s Service, `3_gateways/api.yaml`'s HTTPRoute backend ref) was
+  missing its `{{ include "rrst.fullname" . }}` prefix, rendering the literal invalid name
+  `-services` and empty `app:` labels — fixed throughout, verified the full selector chain
+  (Deployment pod labels → Service selector → HTTPRoute backendRef → Service name) now matches.
+- `values.yaml`: `service.image.repository` was blank (→ `ghcr.io/:1.1.2`, unpullable) - set to
+  `rapidrest/auth-server`; tag now defaults to `""` with the Deployment template falling back to
+  `.Chart.AppVersion` (the `service.version`-vs-latest check that drove `imagePullPolicy` also
+  referenced a field, `service.version`, that didn't exist anywhere in `values.yaml` — replaced
+  with a direct check against the resolved tag). `service.mongodb.mongo.name` was blank (→
+  `datastores__mongo__database: null`) - set to `rrst_auth`. `service.resources` didn't exist at
+  all (→ `resources: <no value>`, invalid YAML) - added a real requests/limits map and fixed the
+  template to `toYaml`/`nindent` it instead of interpolating directly. `service.imagePullSecret`
+  also didn't exist - made `imagePullSecrets` conditional instead of requiring a dummy value.
+- Removed two dead/unused values: `redis.usePassword` (not a real key this chart version reads —
+  `auth.enabled` is; see the security fixes below) and `service.mongodb.mongo.fullnameOverride`
+  (never referenced by any template).
+
+**Helm — security, fixed:**
+- Non-production pods launched `node --inspect=0.0.0.0:9229` — the unauthenticated Node inspector
+  bound to *all* interfaces (RCE for anyone who can reach the pod on that port), and pointed at a
+  nonexistent `dist/server.js` (real path is `dist/src/server.js`) so it was broken on top of
+  being dangerous. Fixed to `127.0.0.1:9229` + the correct path.
+- `templates/0_config/service_accounts.yaml` created a ServiceAccount + Role/RoleBinding granting
+  `resources: ["*"], verbs: ["*"]` across core/apps/extensions/batch in the namespace — confirmed
+  unused (not referenced by any Deployment's `serviceAccountName`, and neither `auth-server` nor
+  its sibling packages ever talk to the Kubernetes API) and removed entirely rather than scoping
+  it down to a permission level nothing in this codebase needs.
+- `mongodb.auth.enabled`/`redis.auth.enabled` flipped `false` → `true` (both datastores had zero
+  authentication by default). Wired the generated credentials into the app's actual connection
+  config: `service-config.yaml` reads the mongodb subchart's root password back out (secret name =
+  exactly `mongodb.fullnameOverride`, key `mongodb-root-password` — confirmed against the real
+  fetched subchart template, not guessed) and sets `datastores__{acl,mongo}__{username,password}`
+  + `options: authSource=admin` (required — root's credentials only exist in the `admin`
+  database). `redis.yaml` does the same for `redis-password`, folding it into the connection URL
+  (`redis://:<password>@host`) rather than as separate fields, since that's the shape
+  `ConnectionManager.buildConnectionUri()` expects for redis specifically. See the `lookup`/first-
+  install caveat in the standing decisions above — this is a real limitation, not incomplete work.
+- `templates/0_config/tls-certs.yaml` referenced `.Values.namespace`, which doesn't exist anywhere
+  in `values.yaml` (→ blank) — fixed to `.Release.Namespace`, used correctly everywhere else.
+- `templates/0_config/redis.yaml`'s upgrade-preserving `lookup` checked for a secret named
+  `db-cache-info`, but the secret it actually creates is named `db-redis-info` — the mismatch made
+  the "preserve across upgrades" check permanently dead code. Moot now that the file was rewritten
+  around the auth wiring above (which needs a *different* lookup, against the redis subchart's own
+  secret, not this one), but worth remembering as a pattern to check for elsewhere.
+- `templates/NOTES.txt` had the same wrong-secret-name bug for MongoDB credentials (looked up
+  `mongodb-secrets`, which never existed, using keys — `MONGODB_DATABASE_ADMIN_USER`/`_PASSWORD` —
+  that were never real either) - fixed to the real secret/key and the credential now actually
+  displays after a successful `helm upgrade`.
+- CORS origins built from `.Values.host` as a bare hostname (`"localhost"`, not `"http://localhost"`)
+  — real browsers send an `Origin` header with a scheme, so this could never actually match. Fixed
+  to build a proper scheme-qualified origin, deriving the scheme from `gateway.tls`.
+
+**Docker, fixed (each rebuilt + live-boot-tested against real Mongo/Redis, confirmed non-root
+process, healthy healthcheck, working API — not just read):**
+- No non-root `USER` — container ran as root. Added `USER node` (the base image's built-in
+  non-root user) plus `--chown=node:node` on every `COPY --from=builder`, after all root-only
+  steps (package installs, `chmod`). Deliberately did **not** prune devDependencies from the
+  runtime image, despite that being the more obviously "correct" hardening move — confirmed
+  `docker-compose.debug.yml`'s `yarn debug` (→ `rapidrest dev --inspect`, a devDependency via
+  `@rapidrest/cli`) depends on them being present, so this image intentionally serves both the
+  production and dev-debug use cases from one build; pruning would break the existing debug
+  workflow. Left as a known, deliberate tradeoff rather than "fixed."
+- `.dockerignore` didn't exclude `passwords` (the plaintext-credential file — see the earlier
+  standing decision — that a local `node dist/src/server.js` run leaves in the repo root), nor
+  `coverage/`, `test/`, `k6-tests/`, `*.log`, `junit.xml` — all added.
+- Fixed a leftover `# Use an official Python runtime as a parent image` comment (copy-paste
+  artifact, this is a Node project) and the deprecated `ENV key value` syntax Docker's own
+  buildkit linter flagged (`ENV key=value` now).
+
+**Also fixed:** `helm/charts/*.tgz` (fetched Bitnami dependency archives) and the plaintext
+`passwords` file were both previously untracked-but-not-ignored — added to `.gitignore` (the
+former should be regenerated via `helm dependency update`/`Chart.lock`, not committed as binary
+blobs; `Chart.lock` itself should still be committed).
 
 ### 2026-08-23 — critical startup crash found+fixed in @rapidrest/service-core; k6 load-test suite added
 

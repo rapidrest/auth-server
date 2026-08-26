@@ -50,7 +50,7 @@ spec:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: -services
+    - name: {{ include "rrst.fullname" . }}-services
       port: 80
     {{- if not $.Values.gateway.hsts }}
     filters:

@@ -2,10 +2,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: -services
+  name: {{ include "rrst.fullname" . }}-services
   labels:
-    app: 
-    app.kubernetes.io/instance: -services
+    app: {{ include "rrst.name" . }}
+    app.kubernetes.io/instance: {{ include "rrst.fullname" . }}-services
 spec:
   ports:
     - port: 80
@@ -13,4 +13,4 @@ spec:
       name: nodejs
       protocol: TCP
   selector:
-    app: 
+    app: {{ include "rrst.name" . }}
