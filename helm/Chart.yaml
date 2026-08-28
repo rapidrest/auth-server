@@ -14,6 +14,14 @@ dependencies:
     - mongodb
   alias: mongodb
 
+- name: postgresql
+  repository: "@bitnami"
+  version: ~18.8.13
+  condition: postgresql.create
+  tags:
+    - dbs
+    - postgresql
+  alias: postgresql
 
 - name: redis
   version: ~24.1.3

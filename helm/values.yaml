@@ -44,6 +44,18 @@ mongodb:
   auth:
     enabled: true
 
+postgresql:
+  create: false
+  architecture: standalone
+  fullnameOverride: postgresql
+  auth:
+    enablePostgresUser: true
+    # PostgreSQL (unlike MongoDB) won't create databases on first connection, so only one
+    # extra database is auto-provisioned here. The acl datastore below defaults to the
+    # built-in "postgres" database; override service.postgresql.acl.name if you provision a
+    # dedicated database for it out-of-band.
+    database: rrst_auth
+
 service:
   image:
     registry: ghcr.io
@@ -61,6 +73,13 @@ service:
       name: access_control_lists
       host: ''
     mongo:
+      name: rrst_auth
+      host: ''
+  postgresql:
+    acl:
+      name: postgres
+      host: ''
+    sql:
       name: rrst_auth
       host: ''
   config:
