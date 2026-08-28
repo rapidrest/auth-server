@@ -10,10 +10,33 @@
 export const DEFAULT_COOKIE_SECRET = "f0fLSKFJLKWJFe09f32joff098u2fOFIWJ32890fnfnlak";
 export const DEFAULT_AUTH_SECRET = "MyPasswordIsSecure";
 export const DEFAULT_SESSION_SECRET = "SessionsHaveSecrets";
-/** Placeholder OIDC credentials pointing at a non-resolving test domain — `config.sql.ts`/`config.mongo.ts`
- * and each `AuthOIDCRoute` share these so `assertProductionSecretsAreSet()` can recognize them. */
-export const DEFAULT_OIDC_CLIENT_ID = "123457890";
-export const DEFAULT_OIDC_CLIENT_SECRET = "f32fa983732aq9rf7ab39f";
+/** Placeholder Google OAuth/OIDC credentials — `config.sql.ts`/`config.mongo.ts` and `AuthGoogleRoute`
+ * share these so `assertProductionSecretsAreSet()` can recognize them. */
+export const DEFAULT_GOOGLE_CLIENT_ID = "123457890.apps.googleusercontent.com";
+export const DEFAULT_GOOGLE_CLIENT_SECRET = "f32fa983732aq9rf7ab39f";
+/** Placeholder Microsoft Entra ID (Azure AD) application credentials, plus the multi-tenant `common`
+ * authority — see the doc comment on `AuthMicrosoftRoute.tenant` for why a real deployment must
+ * override the tenant with a concrete tenant ID/GUID rather than leaving it at `common`. */
+export const DEFAULT_MICROSOFT_CLIENT_ID = "00000000-0000-0000-0000-000000000000";
+export const DEFAULT_MICROSOFT_CLIENT_SECRET = "f32fa983732aq9rf7ab39f";
+export const DEFAULT_MICROSOFT_TENANT = "common";
+/** Placeholder Sign in with Apple credentials. Unlike the other providers, Apple's `client_secret` is
+ * not a static shared secret but a JWT that `AuthAppleRoute` signs itself using `privateKey` — this is
+ * a syntactically valid (but publicly known, non-functional) EC private key so signing doesn't throw
+ * before an operator has configured a real one. */
+export const DEFAULT_APPLE_CLIENT_ID = "com.example.rapidrest.auth-server";
+export const DEFAULT_APPLE_TEAM_ID = "AAPLTEAMID01";
+export const DEFAULT_APPLE_KEY_ID = "AAPLKEYID01";
+export const DEFAULT_APPLE_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgURaDmC9zCJXKH+6z
+DE4CeQrE8aibsDjjQI7t2eOJLZ+hRANCAAT9l9H5w8oyl79ekU2eNVXyY198Pq5y
+zZvwdJPaqYxCEXrMfzDL+Z2zbs7tiSka1ab6dG5FH3pPrFcqC36TfbGf
+-----END PRIVATE KEY-----`;
+/** Placeholder Facebook Login app credentials (Facebook calls these "App ID"/"App Secret") —
+ * `config.sql.ts`/`config.mongo.ts` and `AuthFacebookRoute` share these so
+ * `assertProductionSecretsAreSet()` can recognize them. */
+export const DEFAULT_FACEBOOK_CLIENT_ID = "1234567890123456";
+export const DEFAULT_FACEBOOK_CLIENT_SECRET = "f32fa983732aq9rf7ab39f";
 
 /** Minimal shape of the `nconf` config object this guard needs — matches `config.sql.ts`/`config.mongo.ts`'s export. */
 export interface SecretsConfig {
@@ -50,21 +73,39 @@ export function assertProductionSecretsAreSet(config: SecretsConfig, environment
         );
     }
 
-    // The shipped OIDC provider config points at a non-resolving test domain, so unlike the secrets above
-    // it can't be used to forge anything — but starting successfully while silently unable to complete a
-    // real OIDC login is still a trap for an operator who enabled it and forgot to override the placeholder.
-    // A warning rather than a hard failure, since (unlike the three secrets above) this route is always
-    // mounted regardless of whether the deployment actually uses OIDC.
-    const oidcPlaceholders: string[] = [
-        config.get("auth:oidc:clientID") === DEFAULT_OIDC_CLIENT_ID ? "AUTH__OIDC__CLIENTID" : undefined,
-        config.get("auth:oidc:clientSecret") === DEFAULT_OIDC_CLIENT_SECRET ? "AUTH__OIDC__CLIENTSECRET" : undefined,
+    // The shipped Google/Microsoft/Apple provider configs point at non-functional placeholder
+    // credentials, so unlike the secrets above they can't be used to forge anything — but starting
+    // successfully while silently unable to complete a real sign-in is still a trap for an operator
+    // who enabled a provider and forgot to override its placeholder. A warning rather than a hard
+    // failure, since (unlike the three secrets above) these routes are always mounted regardless of
+    // whether the deployment actually uses any of them.
+    const providerPlaceholders: string[] = [
+        config.get("auth:google:clientID") === DEFAULT_GOOGLE_CLIENT_ID ? "AUTH__GOOGLE__CLIENTID" : undefined,
+        config.get("auth:google:clientSecret") === DEFAULT_GOOGLE_CLIENT_SECRET
+            ? "AUTH__GOOGLE__CLIENTSECRET"
+            : undefined,
+        config.get("auth:microsoft:clientID") === DEFAULT_MICROSOFT_CLIENT_ID
+            ? "AUTH__MICROSOFT__CLIENTID"
+            : undefined,
+        config.get("auth:microsoft:clientSecret") === DEFAULT_MICROSOFT_CLIENT_SECRET
+            ? "AUTH__MICROSOFT__CLIENTSECRET"
+            : undefined,
+        config.get("auth:microsoft:tenant") === DEFAULT_MICROSOFT_TENANT ? "AUTH__MICROSOFT__TENANT" : undefined,
+        config.get("auth:apple:clientID") === DEFAULT_APPLE_CLIENT_ID ? "AUTH__APPLE__CLIENTID" : undefined,
+        config.get("auth:apple:teamId") === DEFAULT_APPLE_TEAM_ID ? "AUTH__APPLE__TEAMID" : undefined,
+        config.get("auth:apple:keyId") === DEFAULT_APPLE_KEY_ID ? "AUTH__APPLE__KEYID" : undefined,
+        config.get("auth:apple:privateKey") === DEFAULT_APPLE_PRIVATE_KEY ? "AUTH__APPLE__PRIVATEKEY" : undefined,
+        config.get("auth:facebook:clientID") === DEFAULT_FACEBOOK_CLIENT_ID ? "AUTH__FACEBOOK__CLIENTID" : undefined,
+        config.get("auth:facebook:clientSecret") === DEFAULT_FACEBOOK_CLIENT_SECRET
+            ? "AUTH__FACEBOOK__CLIENTSECRET"
+            : undefined,
     ].filter((entry): entry is string => entry !== undefined);
 
-    if (oidcPlaceholders.length > 0) {
+    if (providerPlaceholders.length > 0) {
         console.warn(
-            `WARNING: starting in production with the default placeholder OIDC credential(s) still in ` +
-                `effect: ${oidcPlaceholders.join(", ")}. OIDC sign-in will not work until these are set to ` +
-                "your real provider's values. If you don't use OIDC sign-in, this can be ignored.",
+            `WARNING: starting in production with the default placeholder OAuth/OIDC credential(s) still ` +
+                `in effect: ${providerPlaceholders.join(", ")}. Sign-in with the affected provider(s) will not ` +
+                "work until these are set to your real values. If you don't use that provider, this can be ignored.",
         );
     }
 }

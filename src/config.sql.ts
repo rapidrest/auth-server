@@ -6,9 +6,18 @@ import nconf from "nconf";
 import { join } from "path";
 import {
     DEFAULT_AUTH_SECRET,
+    DEFAULT_APPLE_CLIENT_ID,
+    DEFAULT_APPLE_KEY_ID,
+    DEFAULT_APPLE_PRIVATE_KEY,
+    DEFAULT_APPLE_TEAM_ID,
     DEFAULT_COOKIE_SECRET,
-    DEFAULT_OIDC_CLIENT_ID,
-    DEFAULT_OIDC_CLIENT_SECRET,
+    DEFAULT_FACEBOOK_CLIENT_ID,
+    DEFAULT_FACEBOOK_CLIENT_SECRET,
+    DEFAULT_GOOGLE_CLIENT_ID,
+    DEFAULT_GOOGLE_CLIENT_SECRET,
+    DEFAULT_MICROSOFT_CLIENT_ID,
+    DEFAULT_MICROSOFT_CLIENT_SECRET,
+    DEFAULT_MICROSOFT_TENANT,
     DEFAULT_SESSION_SECRET,
 } from "./config.defaults.js";
 
@@ -104,15 +113,30 @@ conf.defaults({
         refresh: {
             expiresIn: "14 days",
         },
-        oidc: {
-            name: "test",
-            authorizationURL: "https://oidc-test.com/authorize",
-            clientID: DEFAULT_OIDC_CLIENT_ID,
-            clientSecret: DEFAULT_OIDC_CLIENT_SECRET,
-            profileURL: "https://oidc-test.com/userinfo",
-            protocol: "openid",
-            redirectURI: "http://localhost:3000",
-            tokenURL: "https://oidc-test.com/profile",
+        google: {
+            clientID: DEFAULT_GOOGLE_CLIENT_ID,
+            clientSecret: DEFAULT_GOOGLE_CLIENT_SECRET,
+            // Points at the backend route itself (not a frontend page) — see AuthGoogleRoute's own
+            // redirectURI doc comment for why.
+            redirectURI: "http://localhost:3000/api/auth/google",
+        },
+        microsoft: {
+            tenant: DEFAULT_MICROSOFT_TENANT,
+            clientID: DEFAULT_MICROSOFT_CLIENT_ID,
+            clientSecret: DEFAULT_MICROSOFT_CLIENT_SECRET,
+            redirectURI: "http://localhost:3000/api/auth/microsoft",
+        },
+        apple: {
+            clientID: DEFAULT_APPLE_CLIENT_ID,
+            teamId: DEFAULT_APPLE_TEAM_ID,
+            keyId: DEFAULT_APPLE_KEY_ID,
+            privateKey: DEFAULT_APPLE_PRIVATE_KEY,
+            redirectURI: "http://localhost:3000/api/auth/apple",
+        },
+        facebook: {
+            clientID: DEFAULT_FACEBOOK_CLIENT_ID,
+            clientSecret: DEFAULT_FACEBOOK_CLIENT_SECRET,
+            redirectURI: "http://localhost:3000/api/auth/facebook",
         },
         passkey: {
             rpName: "rapidrest",

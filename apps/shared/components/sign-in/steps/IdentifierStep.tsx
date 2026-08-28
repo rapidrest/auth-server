@@ -35,15 +35,45 @@ export default function IdentifierStep({ identifier, setIdentifier, discoverLoad
 
             <div className="rr-divider">or</div>
 
-            <Button variant="oauth" type="button" disabled style={{ marginBottom: "0.6rem" }}>
+            <Button
+                variant="oauth"
+                type="button"
+                style={{ marginBottom: "0.6rem" }}
+                onClick={() => {
+                    window.location.href = "/api/auth/google";
+                }}
+            >
                 Continue with Google
             </Button>
-            <Button variant="oauth" type="button" disabled>
+            <Button
+                variant="oauth"
+                type="button"
+                style={{ marginBottom: "0.6rem" }}
+                onClick={() => {
+                    window.location.href = "/api/auth/microsoft";
+                }}
+            >
                 Continue with Microsoft
             </Button>
-            <div className="rr-hint" style={{ textAlign: "center", marginTop: "0.6rem" }}>
-                OAuth sign-in isn&rsquo;t configured on this server yet.
-            </div>
+            <Button
+                variant="oauth"
+                type="button"
+                style={{ marginBottom: "0.6rem" }}
+                onClick={() => {
+                    window.location.href = "/api/auth/apple";
+                }}
+            >
+                Continue with Apple
+            </Button>
+            <Button
+                variant="oauth"
+                type="button"
+                onClick={() => {
+                    window.location.href = "/api/auth/facebook";
+                }}
+            >
+                Continue with Facebook
+            </Button>
         </form>
     );
 }

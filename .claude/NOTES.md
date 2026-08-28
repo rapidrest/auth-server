@@ -407,3 +407,159 @@ this surfaced (both pre-existing, unmasked rather than caused by the version bum
 - Tooling note: the Bash tool's cwd resets between calls if you `cd` into a sibling directory
   outside the project root (e.g. `/d/github/rapidrest/react`) — use a subshell
   (`(cd /d/github/rapidrest/react && yarn build)`) instead of a bare `cd`.
+
+### 2026-08-27 — replaced generic AuthOIDCRoute with Google/Microsoft/Apple-specific routes
+
+- Removed `src/{sql,mongo}/routes/AuthOIDCRoute.ts` (the single generic, config-driven OIDC
+  provider) and replaced them with `AuthGoogleRoute`/`AuthMicrosoftRoute`/`AuthAppleRoute` in both
+  backends, mounted at `/auth/google`, `/auth/microsoft`, `/auth/apple`.
+- **This required an unreleased fix in the sibling `auth` repo.** `@rapidrest/auth@1.0.0`
+  (published, what was installed here) hardcoded `BaseAuthOIDCRoute`'s registered strategy name
+  to `"oauth"` — mounting more than one OIDC route would have every instance silently clobber the
+  same `AuthMiddleware` registration key, so only the last one loaded would actually work. The
+  sibling repo already had this fixed on `main` (commit `2bce9ac`, local version bumped to
+  `1.1.0`, not yet pushed/published at the time) via a new `protected strategyName` field each
+  subclass can override, paired with a documented requirement to also redeclare `login()` with a
+  matching `@Auth([strategyName])` (decorator metadata is read from the *declaring* class, not
+  re-evaluated per instance, so an unmodified inherited `login()` would still check `"oauth"`
+  regardless of `strategyName`). Bumped `package.json` to `"@rapidrest/auth": "^1.1.0"` — per
+  Standing decisions above, this is a real registry dependency, not a portal/workspace link, so
+  `yarn install` will fail until `1.1.0` is actually published. User (JP) said he'd publish it
+  himself; until then this repo won't `yarn install`/build/test clean.
+- Each new route defines individual `@Config("auth:<provider>:...")` fields (clientID/
+  clientSecret/redirectURI, `tenant` for Microsoft, `teamId`/`keyId`/`privateKey` for Apple)
+  rather than one opaque `@Config("auth:<provider>")` object field, and computes `providerConfig`
+  as a `get` accessor over those fields. Confirmed safe by reading
+  `@rapidrest/core`'s `ObjectFactory.js`: `@Config`-decorated fields are populated in a dedicated
+  injection pass that runs before any `@Init` hook fires, so the getter always sees real config
+  values by the time the base class's private `@Init initialize()` reads `this.providerConfig`.
+  This also sidesteps the fact that `BaseAuthOIDCRoute.initialize()` is `private` (can't be
+  overridden from a subclass in a different file) — no need to hook initialization at all.
+- Google and Microsoft use the shared `OIDCStrategy`'s standard OpenID + JWKS `id_token`
+  verification unmodified; per-provider `profileMap` overrides translate each provider's actual
+  id_token claim names (Google: `sub`/`given_name`/`family_name`/`picture`; Microsoft:
+  `sub`/`preferred_username` fallback for email) onto the canonical `OIDCProfile` shape — the
+  package's `DEFAULT_PROFILE_MAP` assumes claim names (`profile.username`, etc.) that don't match
+  any real provider's actual id_token.
+- **Microsoft tenant caveat (documented in-code, not solved):** defaulting to the multi-tenant
+  `common` authority is fine for the authorize/token endpoints, but Microsoft's id_token `iss`
+  claim is tenant-specific even when the request went through `common` — `OIDCStrategy.
+  verifyIdToken()` does a strict single-string issuer match, so a real sign-in through `common`
+  will fail issuer verification. `auth:microsoft:tenant` must be set to a concrete tenant
+  GUID (or `consumers`, whose id_tokens consistently use Microsoft's fixed consumers-tenant GUID
+  as `iss`) for production use. `assertProductionSecretsAreSet()` now warns if `tenant` is still
+  `common` in production, same treatment as the other placeholder credentials.
+- **Apple client_secret is a JWT, not a static secret** — the only provider where this is true.
+  Rather than plumbing dynamic secret generation into the shared `OIDCStrategy`/`OIDCProvider`
+  (which would couple that generic package to one provider's quirk), `AuthAppleRoute` signs an
+  ES256 JWT itself (`iss`=teamId, `sub`=clientID, `aud`="https://appleid.apple.com") in a private
+  `getClientSecret()` method called from the `providerConfig` getter, cached and regenerated when
+  under an hour from Apple's ~6-month max lifetime. Added `jsonwebtoken`+`@types/jsonwebtoken` as
+  direct dependencies (previously only reached transitively via `@rapidrest/auth`'s own use of it
+  for id_token verification) since this is now imported directly in this repo's own code.
+  Apple also never returns given/family name in the id_token (only once, in a separate `user` POST
+  field on first authorization) — deliberately left unmapped rather than reading that extra field,
+  since the generic `OIDCStrategy.authenticate()` doesn't surface anything beyond `code`/`state`
+  from the callback request today.
+- `config.defaults.ts`: replaced `DEFAULT_OIDC_CLIENT_ID`/`DEFAULT_OIDC_CLIENT_SECRET` with
+  per-provider placeholder constants (`DEFAULT_GOOGLE_*`/`DEFAULT_MICROSOFT_*`/`DEFAULT_APPLE_*`),
+  including a syntactically-valid-but-public EC private key as the Apple placeholder so
+  `jwt.sign()` doesn't throw before an operator configures a real one. Extended
+  `assertProductionSecretsAreSet()`'s warning list accordingly (same warn-not-throw treatment as
+  before — these routes are always mounted regardless of whether any given provider is in use).
+
+### 2026-08-27 (same session) — wired the Google/Microsoft/Apple routes to the sign-in page
+
+- **No frontend callback page needed — this is the key design decision.** `login()` on each of
+  the three OIDC routes only ever runs *after* `@Auth([strategyName])` has already driven
+  `OIDCStrategy.authenticate()` to a successful code exchange: the "no `code` yet, redirect to the
+  provider" branch inside `authenticate()` returns `undefined` and ends the response itself, which
+  (confirmed by reading `RouteUtils.js`'s dispatch wrapper) short-circuits the middleware chain
+  before the route handler is ever invoked. So `login()` genuinely has no "plain API call" case to
+  support for these three routes — every invocation means a sign-in just completed. Each
+  `login()` override now does `await super.login(user, req, res)` (mints the AuthResult, which
+  sets the `jwt`/`refresh` cookies as a side effect via `TokenUtils.createAuthResult` — the
+  return value itself is discarded) and then manually redirects with
+  `res.status(302); res.setHeader("Location", "/account"); res.setHeader("Content-Length", 0); res.end();`,
+  returning `undefined`. Confirmed safe against `RouteUtils.js`'s post-handler response logic: it
+  unconditionally calls `res.send()`/`next()` after the handler returns regardless of what the
+  handler returned, but every adapter's `end()`/`send()` is guarded by `_writableEnded` and is a
+  no-op once already called — exactly the same pattern `OIDCStrategy` itself already relies on for
+  its own manual redirect. `@Returns` was updated from `[AuthResult, undefined]` to `[undefined]`
+  and the `AuthResult` import dropped from all 6 route files, since JSON is never actually the
+  real response anymore.
+- `redirectURI` config defaults (both `config.sql.ts`/`config.mongo.ts` and each route's own
+  `@Config` default) changed from the bare origin (`http://localhost:3000`) to the backend route
+  itself (`http://localhost:3000/api/auth/google`, etc.) — the same URL serves both legs of the
+  OAuth dance (initiate + provider callback), so there was never a reason to route through a
+  separate frontend page at all.
+- Frontend: `apps/shared/components/sign-in/steps/IdentifierStep.tsx`'s two disabled placeholder
+  buttons ("Continue with Google"/"Microsoft", `disabled`, plus a "isn't configured" hint) are now
+  live — `onClick` does a real top-level `window.location.href = "/api/auth/<provider>"`
+  navigation (NOT an `apiFetch`/`fetch` call — the browser needs to actually follow the provider's
+  redirect chain and land back on a real page, not receive a JSON response body it can't act on).
+  Added a third "Continue with Apple" button, same pattern. Deliberately kept these as plain text
+  buttons with no brand icon: `react-icons` (already a dependency) ships Simple Icons (`SiGoogle`,
+  `SiApple`) but has **no Microsoft mark at all** (removed from Simple Icons over trademark
+  policy) — icons for 2 of 3 providers but not the third would look broken, so all three stayed
+  icon-less rather than introducing that inconsistency.
+- **Known, accepted gap: OAuth failures show a raw JSON error page, not a friendly one.** Provider
+  errors (`?error=access_denied`), CSRF/state mismatches, and token-exchange failures are all
+  thrown from *inside* `OIDCStrategy.authenticate()`, which runs as `@Auth` middleware **before**
+  `login()` — so a route-level `login()` override has no opportunity to catch them and redirect to
+  `/auth/signin` with a nice message the way every other sign-in method's `try/catch` does. Fixing
+  this would need route-level (or global) error-handling middleware wired into the `@Auth`
+  decorator's dispatch, which is real framework-level scope beyond "wire up the button" — left
+  alone deliberately, same as the Microsoft-tenant-issuer and Apple-given/family-name gaps above.
+- Test: `test/apps/auth/signin.test.tsx`'s old "renders disabled OAuth buttons" test became
+  "renders enabled OAuth buttons for every provider"; added a new `describe("SignInPage — OAuth
+  buttons")` block asserting each button click sets `location.href` to its `/api/auth/<provider>`
+  endpoint (via the existing `mockLocation()` helper — no new test infra needed).
+- Caught and fixed my own mistake while writing the *previous* entry in this file: an `Edit`
+  truncated the pre-existing "Tooling note" bullet mid-sentence and its continuation ended up
+  orphaned as a dangling fragment at the very end of the file instead of completing that sentence.
+  Reattached it. **Lesson: when appending to a file via `old_string` matching, double check the
+  matched boundary doesn't split content the edit didn't mean to touch** — a truncated bullet with
+  no visible syntax error is easy to miss without rereading the surrounding lines.
+
+### 2026-08-27 (same session) — added Facebook as a fifth OIDC/OAuth provider
+
+- Added `AuthFacebookRoute` (SQL + Mongo) and a fourth "Continue with Facebook" button, following
+  the exact same `strategyName`/`login()`-redirect pattern established for Google/Microsoft/Apple
+  earlier this session — see those entries above for the shared architecture (per-provider
+  strategy name + matching `@Auth([...])`, `login()` redirects to `/account` instead of returning
+  JSON, `redirectURI` points at the route's own backend URL).
+- **Facebook Login is plain OAuth 2.0, not OpenID Connect** — no id_token, no JWKS, no `issuer`.
+  `providerConfig.protocol` is set to `"oauth2"` (not `"openid"`) specifically so
+  `OIDCStrategy.retrieveUserProfile()` skips the id_token-verification branch entirely and always
+  fetches `profileURL` instead. Facebook's Graph API accepts the access token via a standard
+  `Authorization: Bearer` header (it returns `token_type: "bearer"` from its token endpoint),
+  which is exactly what `OIDCStrategy` already sends unconditionally — no code changes needed
+  anywhere in `@rapidrest/auth` for this provider, unlike Apple's JWT client_secret quirk.
+- `profileURL` is the Graph API `/me` endpoint with an explicit `fields=` query string
+  (`id,name,email,first_name,last_name,picture`); a `GRAPH_API_VERSION = "v21.0"` constant is
+  interpolated into all three Facebook URLs (authorize/token/profile) since Facebook requires (and
+  eventually deprecates) explicit API versions — bump that one constant when it nears
+  deprecation. `picture` comes back as a nested `{ data: { url, ... } }` object from Graph API
+  (there's no bare-URL field), so the `profileMap`'s `avatar` entry is
+  `"profile.picture?.data?.url"` rather than a flat property access like the other providers.
+  `email_verified` is inferred as `!!profile.email` — Facebook only ever returns an `email` claim
+  for an account with a verified address, so its mere presence already implies verified (same
+  reasoning already used for Microsoft's `preferred_username` fallback).
+- No PKCE configured for Facebook (`pkce` left unset), unlike the other three providers — this is
+  a confidential client already authenticating via `clientSecret`/Basic-auth at the token
+  exchange, and Facebook's PKCE support for the traditional server-side Login dialog isn't as
+  consistently documented/tested as Google/Microsoft/Apple's, so it was left out rather than
+  asserting confidence in something unverified. Low risk either way since unrecognized query
+  params are normally just ignored by OAuth authorization servers, but no reason to add unverified
+  surface area for no benefit.
+- No new dependencies — Facebook needs no JWT signing (unlike Apple) and no JWKS client (unlike
+  Google/Microsoft), just the same `axios`-based profile fetch already used for any `profileURL`
+  provider.
+- Kept the frontend button icon-less like the other three, for the same reason recorded in the
+  previous entry (`react-icons`'s Simple Icons set has `SiFacebook` but not `SiMicrosoft` —
+  inconsistent partial icon coverage would look worse than none).
+- Extended `config.defaults.ts`'s placeholder-credential warning list and both
+  `test/config.defaults.test.ts` and `test/apps/auth/signin.test.tsx` the same way as the other
+  three providers (new `DEFAULT_FACEBOOK_CLIENT_ID`/`DEFAULT_FACEBOOK_CLIENT_SECRET`, a new
+  enabled-button assertion, a new click-navigates-to-`/api/auth/facebook` test).

@@ -1484,9 +1484,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/auth@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "@rapidrest/auth@npm:1.0.0"
+"@rapidrest/auth@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@rapidrest/auth@npm:1.1.0"
   dependencies:
     cross-spawn: "npm:^7.0.5"
     parse-duration: "npm:^2.1.8"
@@ -1508,7 +1508,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/938d6bdcb009e7a45deff24884ce95d9ee93f4df3e4428f212f6ea6ccb53dcc9735b334de79b99385322e1efdd8418880235ef5bb7860a001c07e29d0106a3b6
+  checksum: 10c0/203f949fd4c39faf812d8a565628ce27175158bb70582f712cc9b637d13d31ef63c476162eb7a0f478a4635aa51deb6f0dd736ac62a64a830d3f2696ee964944
   languageName: node
   linkType: hard
 
@@ -2389,7 +2389,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/jsonwebtoken@npm:^9.0.4":
+"@types/jsonwebtoken@npm:^9.0.4, @types/jsonwebtoken@npm:^9.0.7":
   version: 9.0.10
   resolution: "@types/jsonwebtoken@npm:9.0.10"
   dependencies:
@@ -3101,7 +3101,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "auth-server@workspace:."
   dependencies:
-    "@rapidrest/auth": "npm:^1.0.0"
+    "@rapidrest/auth": "npm:^1.1.0"
     "@rapidrest/cli": "npm:^0.18.0"
     "@rapidrest/core": "npm:^5.1.0"
     "@rapidrest/react": "npm:^1.0.1"
@@ -3113,6 +3113,7 @@ __metadata:
     "@testing-library/jest-dom": "npm:^7.0.1"
     "@testing-library/react": "npm:^16.3.2"
     "@testing-library/user-event": "npm:^14.6.6"
+    "@types/jsonwebtoken": "npm:^9.0.7"
     "@types/nconf": "npm:^0.10.7"
     "@types/node": "npm:^26.2.0"
     "@types/qrcode": "npm:^1.5.6"
@@ -3129,6 +3130,7 @@ __metadata:
     eslint-plugin-jsdoc: "npm:^64.2.1"
     globals: "npm:^17.11.0"
     jsdom: "npm:^30.0.1"
+    jsonwebtoken: "npm:^9.0.2"
     jwks-rsa: "npm:^4.1.0"
     lodash-es: "npm:^4.18.1"
     mongodb: "npm:^7.5.0"
@@ -6084,7 +6086,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsonwebtoken@npm:^9.0.3":
+"jsonwebtoken@npm:^9.0.2, jsonwebtoken@npm:^9.0.3":
   version: 9.0.3
   resolution: "jsonwebtoken@npm:9.0.3"
   dependencies:

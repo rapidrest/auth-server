@@ -122,10 +122,12 @@ async function goToOtpChallenge(
 }
 
 describe("SignInPage — identifier step", () => {
-    it("renders disabled OAuth buttons", () => {
+    it("renders enabled OAuth buttons for every provider", () => {
         render(<SignInPage />);
-        expect(screen.getByRole("button", { name: "Continue with Google" })).toBeDisabled();
-        expect(screen.getByRole("button", { name: "Continue with Microsoft" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+        expect(screen.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
+        expect(screen.getByRole("button", { name: "Continue with Apple" })).toBeEnabled();
+        expect(screen.getByRole("button", { name: "Continue with Facebook" })).toBeEnabled();
     });
 
     it("calls discoverAuthMethods and advances to the method-list step on submit", async () => {
@@ -154,6 +156,44 @@ describe("SignInPage — identifier step", () => {
 
         expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
         expect(screen.getByLabelText("Account ID, e-mail, or phone")).toBeInTheDocument();
+    });
+});
+
+describe("SignInPage — OAuth buttons", () => {
+    // Each button is a real top-level navigation (not a fetch/apiFetch call) to the backend's own
+    // OIDC route — that route redirects to the provider, and the provider's own redirect back to
+    // that same URL completes the sign-in server-side, ending in a redirect to /account. So the
+    // only thing to assert here is that clicking each button sets `location.href` accordingly.
+    it("navigates to /api/auth/google when Continue with Google is clicked", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        render(<SignInPage />);
+        await user.click(screen.getByRole("button", { name: "Continue with Google" }));
+        expect(location.href).toBe("/api/auth/google");
+    });
+
+    it("navigates to /api/auth/microsoft when Continue with Microsoft is clicked", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        render(<SignInPage />);
+        await user.click(screen.getByRole("button", { name: "Continue with Microsoft" }));
+        expect(location.href).toBe("/api/auth/microsoft");
+    });
+
+    it("navigates to /api/auth/apple when Continue with Apple is clicked", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        render(<SignInPage />);
+        await user.click(screen.getByRole("button", { name: "Continue with Apple" }));
+        expect(location.href).toBe("/api/auth/apple");
+    });
+
+    it("navigates to /api/auth/facebook when Continue with Facebook is clicked", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        render(<SignInPage />);
+        await user.click(screen.getByRole("button", { name: "Continue with Facebook" }));
+        expect(location.href).toBe("/api/auth/facebook");
     });
 });
 
