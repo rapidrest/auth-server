@@ -3,6 +3,7 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
+import config from "./config.js";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { JWTUtils, EventUtils, Logger } from "@rapidrest/core";
@@ -11,14 +12,10 @@ import { ObjectFactory, Server } from "@rapidrest/service-core";
 import * as fs from "fs";
 import { readFile } from "fs/promises";
 import * as os from "os";
-import * as path from "path";
 import { assertProductionSecretsAreSet } from "./config.defaults.js";
 
 const _filename = fileURLToPath(import.meta.url);
 const _dirname = dirname(_filename);
-
-const isSQL: boolean = !!process.env.datastores__sql__url;
-const config:any = (isSQL ? await import("./config.sql.js") : await import("./config.mongo.js")).default;
 
 assertProductionSecretsAreSet(config, process.env.environment);
 
@@ -57,7 +54,7 @@ const start = async function (config: any, logger: any) {
     await EventUtils.init(config, logger, token);
 
     // Create and start the server
-    server = new Server({ config, basePath: path.join(_dirname, isSQL ? "sql" : "mongo"), logger, objectFactory });
+    server = new Server({ config, basePath: config.get("base_path"), logger, objectFactory });
     await server.start();
 };
 

@@ -55,7 +55,7 @@ const start = async function (config: any, logger: any) {
     await EventUtils.init(config, logger, token);
 
     // Create and start the server
-    server = new Server({ config, basePath: path.join(_dirname, "mongo"), logger, objectFactory });
+    server = new Server({ config, basePath: config.get("base_path"), logger, objectFactory });
     await server.start();
 };
 

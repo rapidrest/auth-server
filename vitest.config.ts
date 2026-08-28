@@ -54,7 +54,14 @@ export default defineConfig({
             enabled: true,
             provider: 'v8',
             include: ['src/**/*.ts', 'apps/**/*.ts', 'apps/**/*.tsx'],
-            exclude: ['**/node_modules/**', 'src/server.ts', 'src/**/Models.ts', '**/test/**'],
+            exclude: [
+                '**/node_modules/**',
+                'src/server.ts',
+                'src/server.mongo.ts',
+                'src/server.sql.ts',
+                'src/**/Models.ts',
+                '**/test/**',
+            ],
             reporter: ['text', 'json', 'html', 'lcov'],
             thresholds: {
                 branches: 99,

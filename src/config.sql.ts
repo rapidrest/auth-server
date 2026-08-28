@@ -37,6 +37,7 @@ conf.use("memory");
 conf.defaults({
     service_name: packageInfo.name,
     version: packageInfo.version,
+    base_path: join(__dirname, "sql"),
     cookie_secret: DEFAULT_COOKIE_SECRET,
     cors: {
         origins: ["http://localhost:3000"],
