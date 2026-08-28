@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React from "react";
 import { FiHardDrive, FiKey, FiLock, FiMail, FiPhone, FiShield } from "react-icons/fi";
 import Button from "../../buttons/Button.js";

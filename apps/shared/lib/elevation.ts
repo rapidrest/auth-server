@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 /**
  * Global broker that lets `apiFetch` (see `api.ts`) hand off to a UI prompt whenever the backend responds
  * with `AUTH_REQUIRES_ELEVATION` (`api-104`), without either module depending on the other's internals.

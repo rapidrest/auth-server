@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { FormEvent, ReactNode } from "react";
 import { FiHardDrive, FiMail, FiShield } from "react-icons/fi";
 import { MfaMethod } from "../../../lib/api.js";

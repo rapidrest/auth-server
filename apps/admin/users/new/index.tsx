@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React from "react";
 import AdminShell from "../../../shared/components/admin/layout/AdminShell.js";
 import CreateUserForm from "../../../shared/components/admin/users/CreateUserForm.js";

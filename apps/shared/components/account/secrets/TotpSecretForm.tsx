@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { FormEvent, Dispatch, SetStateAction, useState } from "react";
 import QRCode from "qrcode";
 import { ApiRequestError, createTotpSecret, SecretSummary, updateSecret } from "../../../lib/api.js";

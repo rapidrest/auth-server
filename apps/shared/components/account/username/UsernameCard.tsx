@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { Dispatch, FormEvent, SetStateAction, useMemo, useState } from "react";
 import { Alias, ApiRequestError, createUsernameAlias, updateUsernameAlias } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";

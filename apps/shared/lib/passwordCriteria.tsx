@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useMemo, useState } from "react";
 import { getPasswordRequirements, PasswordRequirements } from "./api.js";
 

@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { Dispatch, FormEvent, SetStateAction, useState } from "react";
 import { startRegistration, type PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
 import { ApiRequestError, getPasskeyRegistrationOptions, registerPasskey, SecretSummary, updateSecret } from "../../../lib/api.js";

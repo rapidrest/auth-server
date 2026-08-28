@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { PropsWithChildren, ReactNode, useEffect, useState } from "react";
 import { ApiRequestError, ApiUser, getCurrentUser, logout } from "../../../lib/api.js";
 import { ensureElevated } from "../../../lib/adminApi.js";

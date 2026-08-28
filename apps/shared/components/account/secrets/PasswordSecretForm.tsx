@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { Dispatch, FormEvent, SetStateAction, useState } from "react";
 import { ApiRequestError, createPasswordSecret, SecretSummary, updateSecret } from "../../../lib/api.js";
 import { isPasswordValid, usePasswordRequirements } from "../../../lib/passwordCriteria.js";

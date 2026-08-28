@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { Dispatch, SetStateAction } from "react";
 import { FiHardDrive, FiKey, FiLock, FiShield } from "react-icons/fi";
 import Modal from "../../../lib/Modal.js";

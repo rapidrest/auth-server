@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
 import { ApiRequestError } from "../../../../lib/api.js";
 import { AdminUser, updateUser } from "../../../../lib/adminApi.js";

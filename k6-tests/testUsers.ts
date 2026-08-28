@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 /**
  * `auth:rateLimit` (see `@rapidrest/auth`'s `RateLimiter`) rejects more than 5 sign-in attempts for the
  * same identifier within a 5-minute window by default - a single shared identity (e.g. the default admin

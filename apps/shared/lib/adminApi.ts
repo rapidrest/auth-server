@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 /**
  * Admin-only API calls: managing any account (not just the caller's own), used exclusively by `apps/admin`.
  * Kept separate from `lib/api.ts` (the self-service surface every app uses) since none of this is reachable

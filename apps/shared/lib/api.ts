@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 /**
  * Minimal client-side helpers shared by the auth pages: a `fetch` wrapper that talks to the same-origin
  * RapidREST API. There is no client router or HTTP client shipped by `@rapidrest/react`, so this is

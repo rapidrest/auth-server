@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
 import { Alias, ApiRequestError, ApiUser, getAccount, hasSecondFactor, logout, Profile, SecretSummary } from "../../shared/lib/api.js";
 import { useSessionRefresh } from "../../shared/lib/useSessionRefresh.js";

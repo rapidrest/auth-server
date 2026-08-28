@@ -1,3 +1,7 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
+///////////////////////////////////////////////////////////////////////////////
 import React, { Dispatch, SetStateAction, useState } from "react";
 import { ApiRequestError, deleteSecret, SecretSummary, SecretType } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";

@@ -5,7 +5,7 @@
   "type": "module",
   "repository": "github/auth-server",
   "author": "Jean-Philippe Steinmetz <rapidrests@gmail.com>",
-  "license": "MIT",
+  "license": "MPL-2.0",
   "files": [
     "dist"
   ],
