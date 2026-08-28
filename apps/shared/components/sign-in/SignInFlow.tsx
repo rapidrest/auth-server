@@ -1,9 +1,10 @@
-import React, { FormEvent, useState } from "react";
+import React, { FormEvent, useEffect, useState } from "react";
 import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import {
     ApiRequestError,
     AuthResult,
     beginMfaChallenge,
+    completeOAuthSignIn,
     DiscoverResult,
     discoverAuthMethods,
     getFido2Challenge,
@@ -25,7 +26,28 @@ import IdentifierStep from "./steps/IdentifierStep.js";
 import MethodListStep from "./steps/MethodListStep.js";
 import ChallengeStep from "./steps/ChallengeStep.js";
 import MfaStep from "./steps/MfaStep.js";
+import OAuthCallbackStep from "./steps/OAuthCallbackStep.js";
 import { buildMethodList, EMPTY_DISCOVER, FixedMethod, Method, OtpHint, Step } from "./types.js";
+
+/**
+ * Recovers the provider name this component encoded as OAuth `state` when it initiated the
+ * redirect (see `handleOAuthSignIn`) from the combined `state` value the provider hands back on
+ * its own redirect — `<csrfToken>.<provider>`, per `OIDCStrategy.buildAuthorizationURI`'s state
+ * encoding (the CSRF half is a server-generated `crypto.randomBytes(...).toString("base64url")`
+ * value; base64url's alphabet is `[A-Za-z0-9_-]`, RFC 4648 §5, which by construction never contains
+ * a literal `.`, so splitting on the first `.` reliably recovers whatever this component appended
+ * without this component needing to validate the CSRF half itself — the backend independently
+ * re-checks that against the session when the code is exchanged). Per RFC 6749 §4.1.2/§4.1.2.1, a
+ * compliant provider echoes `state` back unchanged on both the success and error redirects, so this
+ * works for `?error=` callbacks too, not just `?code=` ones.
+ */
+function extractProviderFromState(state: string | null): string {
+    if (!state) {
+        return "";
+    }
+    const separatorIndex = state.indexOf(".");
+    return separatorIndex >= 0 ? state.slice(separatorIndex + 1) : "";
+}
 
 export interface SignInFlowProps {
     /**
@@ -65,6 +87,59 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
     const [error, setError] = useState<string | null>(null);
 
     const methodItems = buildMethodList(discover);
+
+    // Picks up where handleOAuthSignIn left off: a provider's "Continue with ..." button does a real
+    // top-level navigation away to /api/auth/<provider> and back (see that function's own comment for
+    // why this can't be a fetch call), so the only way this component learns the attempt even happened
+    // is by re-mounting with `code`/`state`/`error` back in the URL. Runs once, on mount, client-side
+    // only (a server-rendered pass has no `window` to read either of those from).
+    useEffect(() => {
+        const search = window.location.search;
+        const params = new URLSearchParams(search);
+        if (!params.has("code") && !params.has("error")) {
+            return;
+        }
+
+        // Scrub the one-time code/state out of the URL immediately so a page refresh (or the user
+        // copying the link) can't replay it against an already-consumed authorization code.
+        window.history.replaceState(null, "", window.location.pathname);
+
+        const provider = extractProviderFromState(params.get("state"));
+
+        setStep("oauth");
+        setError(null);
+
+        if (!provider) {
+            // No provider recoverable from `state` — e.g. it was stripped/mangled in transit, or the
+            // provider errored out before ever including one. Nothing to forward this to; ask the
+            // user to retry.
+            setError("Sign-in could not be completed. Please try again.");
+            return;
+        }
+
+        setLoading(true);
+        completeOAuthSignIn(provider, search)
+            .then((result) => onSuccess(result))
+            .catch((err) => {
+                setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");
+                setLoading(false);
+            });
+        // Deliberately empty: this is a one-time check of the URL this component mounted with, not a
+        // reaction to any state/prop this effect would otherwise need to depend on.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    function handleOAuthSignIn(provider: string) {
+        // Round-trips the provider name through the OAuth `state` param — exactly what `state` is
+        // for. `OIDCStrategy.buildAuthorizationURI` reads this query param as the "client app data"
+        // half of `state`, combines it with its own CSRF token, and the provider hands the whole
+        // thing back untouched on its own redirect — see extractProviderFromState above for how this
+        // component recovers it from there. A real top-level navigation, not a fetch/apiFetch call:
+        // the browser has to actually follow the provider's own redirect chain (its login/consent
+        // screens live on its domain, not ours) and land back on a real page, which a fetch response
+        // body can't make it do.
+        window.location.href = `/api/auth/${provider}?state=${encodeURIComponent(provider)}`;
+    }
 
     async function handleIdentifierSubmit(e: FormEvent) {
         e.preventDefault();
@@ -318,8 +393,11 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
                     discoverLoading={discoverLoading}
                     error={error}
                     onSubmit={handleIdentifierSubmit}
+                    onOAuthSignIn={handleOAuthSignIn}
                 />
             )}
+
+            {step === "oauth" && <OAuthCallbackStep error={error} onBack={goToIdentifier} />}
 
             {step === "methods" && (
                 <MethodListStep

@@ -17,13 +17,22 @@ Keep entries terse — this is a reference, not a transcript.
   `@rapidrest/*` dependencies as sibling directories under `d:\github\rapidrest\`: `auth`,
   `core`, `react`, `service-core`, `cli`. All are owned by the same author (Jean-Philippe
   Steinmetz) as `auth-server` itself. When a bug traces into one of these packages, fix it at
-  the source in the sibling repo (then rebuild + patch/republish) rather than working around it
-  only in `auth-server` — these aren't third-party deps you can't touch.
+  the source in the sibling repo rather than working around it only in `auth-server` — these
+  aren't third-party deps you can't touch.
+- **Never bump a `package.json` `version` field, in this repo or any sibling `@rapidrest/*` repo,
+  and never publish/`npm publish` one.** JP has a formal release process for that (see e.g.
+  `auth-server`'s own `"version"`/`"postversion"` npm-lifecycle scripts, which sync the Helm
+  chart/README and push tags — a manual version edit bypasses all of that and produces conflicts).
+  This applies even when a fix in a sibling repo is otherwise done and verified: land the source
+  fix, leave the version field alone, and tell JP it's ready for him to version/publish himself.
+  Once he publishes, bump *this* repo's dependency constraint (e.g. `"@rapidrest/auth": "^X.Y.Z"`)
+  to the version he actually published — that part is fine, since it's just declaring what this
+  repo needs, not deciding a sibling repo's own release number.
 - `@rapidrest/react` is consumed from the npm registry (not a workspace/portal link), so a
   source fix in the sibling `react` repo does **not** automatically reach `auth-server`'s
-  `node_modules`. Either `yarn patch`/`yarn patch-commit` the installed copy for an immediate
-  fix, or bump the version once the sibling package is rebuilt and republished (`^1.0.1`
-  currently does **not** need a patch — see Session Log 2026-08-22).
+  `node_modules`. For an immediate fix ahead of a real publish, `yarn patch`/`yarn patch-commit`
+  the installed copy rather than bumping any version field (`^1.0.1` currently does **not** need a
+  patch — see Session Log 2026-08-22).
 - TypeORM 1.x dropped the plain `"sqlite"` driver (the async `sqlite3`-backed one). Only
   `"better-sqlite3"` (sync) and `"sqljs"` remain for file/in-memory SQLite. Any config using
   `type: "sqlite"` needs to become `type: "better-sqlite3"`, and the `better-sqlite3` npm
@@ -470,6 +479,15 @@ this surfaced (both pre-existing, unmasked rather than caused by the version bum
 
 ### 2026-08-27 (same session) — wired the Google/Microsoft/Apple routes to the sign-in page
 
+**SUPERSEDED the same session — see the later "refactored OAuth callback handling onto the
+frontend" entry below.** JP explicitly rejected the redirect-URI-points-at-the-API design this
+entry describes: he wants the provider redirecting back to the *sign-in page*, which forwards the
+code to the API itself via `fetch`, so OAuth error handling goes through React's normal
+try/catch/Alert path like every other sign-in method instead of the browser landing on a raw JSON
+response. Left the reasoning below intact as a record of what was tried and why it didn't hold up
+— don't re-derive this same "point redirectURI at the API route" design from scratch, it's a dead
+end for exactly the error-handling reason above.
+
 - **No frontend callback page needed — this is the key design decision.** `login()` on each of
   the three OIDC routes only ever runs *after* `@Auth([strategyName])` has already driven
   `OIDCStrategy.authenticate()` to a successful code exchange: the "no `code` yet, redirect to the
@@ -558,8 +576,136 @@ this surfaced (both pre-existing, unmasked rather than caused by the version bum
   provider.
 - Kept the frontend button icon-less like the other three, for the same reason recorded in the
   previous entry (`react-icons`'s Simple Icons set has `SiFacebook` but not `SiMicrosoft` —
-  inconsistent partial icon coverage would look worse than none).
+  inconsistent partial icon coverage would look worse than none). **Superseded later the same
+  session** — JP asked for real icons on all four buttons, so hand-rolled inline SVG brand marks
+  were added instead of relying on `react-icons` at all; see the "added real SVG brand icons"
+  entry below.
 - Extended `config.defaults.ts`'s placeholder-credential warning list and both
   `test/config.defaults.test.ts` and `test/apps/auth/signin.test.tsx` the same way as the other
   three providers (new `DEFAULT_FACEBOOK_CLIENT_ID`/`DEFAULT_FACEBOOK_CLIENT_SECRET`, a new
   enabled-button assertion, a new click-navigates-to-`/api/auth/facebook` test).
+
+### 2026-08-27 (same session) — refactored OAuth callback handling onto the frontend, added real SVG brand icons
+
+JP rejected the earlier same-session design (routing the provider's redirect straight back to the
+API route, with `login()` issuing a raw 302 to `/account`) — see the SUPERSEDED marker on that
+entry above for his exact reasoning. This entry replaces it for all four providers
+(Google/Microsoft/Apple/Facebook, SQL+Mongo — 8 route files).
+
+- **`redirectURI` now points at the frontend sign-in page** (`http://localhost:3000/auth/signin`),
+  not the backend API route — identical value across all four providers' configs is fine since
+  redirect_uri matching is scoped per-provider-app, not global.
+- **`login()` reverted to the original simple pass-through** (`return super.login(user, req,
+  res);`), `Promise<AuthResult | undefined>` restored as the return type, `@Returns([AuthResult,
+  undefined])` and the `AuthResult` import restored in all 8 route files. The provider→API-route
+  redirect trick and its manual `res.status(302)/setHeader/end()` dance are gone entirely — `login()`
+  now behaves exactly like every other sign-in route in this codebase (`/auth/mfa`, `/auth/passkey`,
+  etc.): it returns JSON, the framework serializes it, done. This is *why* the fix eliminates the
+  "known, accepted gap" from the previous entry (raw JSON error pages on OAuth failure) — the
+  frontend now owns the whole request/response, so a thrown `ApiError` from
+  `OIDCStrategy.authenticate()` surfaces as a normal `ApiRequestError` through `apiFetch`, exactly
+  like a failed password or OTP attempt.
+- **The hard problem this design has to solve: the frontend doesn't know which provider a
+  returning `?code=...` belongs to**, since all four now share one `redirectURI`. First pass used
+  `sessionStorage` to remember the provider across the round trip; JP correctly pushed back on this
+  — round-tripping app data through the OAuth `state` param is literally what `state` is for, per
+  spec (RFC 6749 §4.1/§10.12), so reach for that before reaching for extra client-side storage.
+  Final design: `handleOAuthSignIn(provider)` does `window.location.href =
+  "/api/auth/<provider>?state=<provider>"` — `OIDCStrategy.buildAuthorizationURI` (in
+  `@rapidrest/auth`) reads that `state` query param as the "client app data" half, combines it with
+  its own CSRF token into `<csrfToken>.<provider>`, and hands the combined value to the OAuth
+  provider, which echoes it back unchanged on its own redirect (for both success *and* error
+  redirects — RFC 6749 §4.1.2.1). `SignInFlow.tsx`'s local `extractProviderFromState(state)` helper
+  recovers `provider` by splitting on the first `.` — safe because the CSRF half is always a
+  `crypto.randomBytes(...).toString("base64url")` value, and base64url's alphabet (RFC 4648 §5)
+  never contains a literal `.`. No sessionStorage, no extra constant to share between files, no
+  multi-tab edge case to worry about — the whole round trip is stateless from the frontend's
+  perspective. Don't reintroduce sessionStorage/localStorage for this if it comes up again.
+- **New `Step = "oauth"` and `OAuthCallbackStep.tsx`** (`apps/shared/components/sign-in/types.ts` /
+  `steps/`): `SignInFlow` runs a mount-only `useEffect` (empty dep array — deliberately a one-time
+  check of whatever URL this mount inherited, not a reactive effect) that: (1) no-ops immediately
+  if neither `code` nor `error` is in `location.search` (covers every normal page load, including
+  all pre-existing tests, which don't set either) (2) scrubs `code`/`state` from the URL via
+  `history.replaceState` *before* anything else, so a refresh/copied link can't replay an
+  already-consumed code, (3) recovers the provider from `state` per above, (4) switches to the
+  `"oauth"` step and either calls the new `completeOAuthSignIn(provider, search)` (in
+  `apps/shared/lib/api.ts` — a thin `apiFetch` wrapper forwarding the full original query string to
+  `/auth/<provider>`) on success invoking the same `onSuccess` prop every other method uses, or (if
+  `state` had no provider to recover — e.g. missing, or no `.` in it) shows a fixed "Sign-in could
+  not be completed" error immediately without ever calling the API.
+- Capture `search` into a local `const` at the very top of the effect, *before* calling
+  `history.replaceState` — reading `window.location.search` again afterward would read back the
+  already-scrubbed empty string. Got this right on the first pass but flagging it since it's the
+  one-line bug most likely to reappear if this effect is ever restructured.
+- Testing note for future sessions: `mockLocation()` (`test/apps/testUtils.ts`) doesn't include
+  `search`/`pathname`, which is fine for every *other* test (an absent `.search` makes
+  `new URLSearchParams(undefined)` — empty, safe, matches "no OAuth callback in progress") but not
+  enough to simulate an *incoming* callback. Added a local `mockOAuthCallbackLocation(search)`
+  helper in the new `describe("SignInPage — OAuth callback")` block (not lifted into the shared
+  `testUtils.ts` — it's one-test-file-specific enough not to warrant it yet) that extends the same
+  swapped-plain-object trick with `pathname`/`search`, plus `vi.spyOn(window.history,
+  "replaceState")` (the real jsdom `History` object is untouched by swapping `window.location`, so
+  it needs its own stub or the effect's `replaceState` call has nothing meaningful to act on in a
+  test).
+- **Added real inline SVG brand icons to all four buttons** (JP asked for this after the callback
+  refactor was in), in a new `steps/OAuthIcons.tsx` (`GoogleIcon`/`MicrosoftIcon`/`AppleIcon`/
+  `FacebookIcon`). Deliberately hand-rolled inline SVG rather than pulling from `react-icons` (a
+  dependency already used elsewhere for Feather icons) — its Simple Icons set covers Google/Apple
+  but has no Microsoft mark at all (removed over trademark policy), and partial icon coverage
+  across a button row would look broken, which is exactly the reasoning that led to *no* icons at
+  all two entries ago. Each icon is `aria-hidden="true"` so the button's accessible name stays just
+  the visible label text (`getByRole("button", { name: "Continue with Google" })` etc. in tests
+  needed no changes) — `.rr-button`'s existing `display:flex; gap:0.5rem` handles icon+label
+  layout with no new CSS. `IdentifierStep`'s four near-identical `<Button>` blocks were also
+  collapsed into one `OAUTH_PROVIDERS.map(...)` (id/label/icon triples) while making this change.
+
+### 2026-08-27 (same session) — `jwt.sign is not a function` crash in Docker: `import * as jwt` vs `import jwt`
+
+JP reported the production/Docker container (built via the repo's actual `Dockerfile`, which runs
+`node dist/src/server.js` directly — no `tsx`/`vitest`/bundler in between) crashing on startup with
+`TypeError: jwt.sign is not a function` inside `AuthAppleRoute`. **This never reproduced in any
+test or `tsc --noEmit` run this whole session** — the root cause is a genuine gap between how
+`vitest` (esbuild-based CJS interop, lenient) and plain Node's native ESM loader (strict,
+`cjs-module-lexer`-based static analysis of named exports) resolve `import * as ns from
+"<cjs-package>"` for `jsonwebtoken` specifically.
+
+- **Confirmed empirically** (`node --input-type=module -e "import * as jwt from 'jsonwebtoken'; ..."`,
+  run directly, not through any test runner): the resulting namespace only has `decode`, `default`,
+  and `module.exports` as keys — `sign` and `verify` are both `undefined` on the namespace itself,
+  while `jwt.default.sign`/`jwt.default.verify` work fine. `import jwt from "jsonwebtoken"`
+  (default import) always resolves to the full CJS `module.exports` object regardless of how well
+  the named exports were statically analyzed — that's the fix, applied everywhere this pattern
+  appeared: `src/{sql,mongo}/routes/AuthAppleRoute.ts` here (`jwt.sign`, called eagerly from the
+  `providerConfig` getter, which runs during the `@Init` startup hook — this is *why* it crashed
+  the whole server on boot rather than only failing on an actual Apple sign-in attempt), and
+  **`@rapidrest/auth`'s own `src/auth/OIDCStrategy.ts`** (`jwt.decode`/`jwt.verify`, used by
+  `verifyIdToken()` for every OpenID provider's id_token verification — Google, Microsoft, and
+  Apple all hit this, just lazily, only on an actual completed sign-in rather than at startup,
+  which is presumably why it hadn't been reported yet).
+- **This is the second `@rapidrest/auth` bug found and fixed at the source this session** (see the
+  strategy-name-collision entry above for the first) — per the standing decision, fixed in the
+  sibling repo, not worked around only in `auth-server`. Initially also bumped `@rapidrest/auth`'s
+  own `package.json` version (`1.1.1`) and this repo's dependency constraint to match — JP said not
+  to do that ("there's a formal process for that and your change causes conflicts"), so both were
+  reverted back to `1.1.0`/`"^1.1.0"`. See the new standing decision above this Session Log for the
+  rule going forward: leave version bumps and publishing to JP entirely, in every `@rapidrest/*`
+  sibling repo, not just this one. The source fix itself is still in place either way — only the
+  version number/publish step is his to do.
+- Verified via the exact same "run compiled output under plain `node`, not vitest" methodology
+  that surfaced the bug in the first place — `tsc --noEmit` and `vitest run` alone would not have
+  caught this fix either, since both are lenient the same way the original bug's test coverage was.
+  **Lesson for future sessions: a fix for a Node-native-ESM-vs-CJS-interop bug must be verified by
+  actually running compiled `dist/` output under plain `node`, never just `tsc --noEmit`/`vitest`**
+  — confirmed by literally reproducing "works in vitest, fails in node" side-by-side for this exact
+  import.
+- Checked `@rapidrest/auth`'s test suite (`vitest run`) for regressions from the `OIDCStrategy.ts`
+  import fix: `test/routes/sql/AuthOIDCRoute.test.ts` run in isolation has byte-identical
+  pass/fail sets before and after (diffed test names, not just counts) — the fix introduces no
+  regressions. Running the *full* suite (`yarn vitest run`, no path filter) shows large numbers of
+  pre-existing, unrelated failures in this sandbox (~367/1496, e.g. `UserRoute.test.ts` asserting
+  403 and getting 404 — routes not mounting, most likely a missing real Postgres/Mongo/Redis
+  service in this environment) that reproduce identically on unmodified `main` too (confirmed via
+  `git stash`) — pre-existing environmental gap in this sandbox specifically, not something this
+  session broke, and out of scope to chase down for an unrelated one-line import fix.
+- Searched the rest of `@rapidrest/auth`'s `src/` for the same `import * as x from "jsonwebtoken"`
+  pattern — this was the only occurrence.

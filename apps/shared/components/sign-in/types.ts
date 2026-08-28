@@ -1,6 +1,6 @@
 import { DiscoverResult } from "../../lib/api.js";
 
-export type Step = "identifier" | "methods" | "challenge" | "mfa";
+export type Step = "identifier" | "methods" | "challenge" | "mfa" | "oauth";
 export type FixedMethod = "passkey" | "password" | "totp" | "fido2";
 export type Method = FixedMethod | "otp";
 export type OtpHint = DiscoverResult["otp"][number];

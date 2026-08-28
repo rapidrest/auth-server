@@ -287,6 +287,19 @@ export function signInWithPassword(id: string, password: string): Promise<AuthRe
 }
 
 /**
+ * Completes an OAuth/OIDC sign-in after the provider has redirected the browser back to this page
+ * with `?code=...&state=...` (or `?error=...`) appended to the URL. `search` is that query string
+ * forwarded as-is to the matching backend route (`/auth/<provider>`, e.g. `/auth/google`), which
+ * performs the token exchange server-side (validating `state` against the session it started) and
+ * resolves the same `AuthResult` shape as every other sign-in method — including throwing a normal
+ * `ApiRequestError` if the provider reported an error or the exchange failed, so the caller's usual
+ * `err instanceof ApiRequestError` handling applies here too, same as everywhere else in this file.
+ */
+export function completeOAuthSignIn(provider: string, search: string): Promise<AuthResult> {
+    return apiFetch(`/auth/${provider}${search}`);
+}
+
+/**
  * Begins the selected second-factor challenge (phase 2 of `/auth/mfa`) using the `uid`/`methods[].id` from
  * `signInWithPassword()`'s `MfaChallenge` result. Resolves `{}` for `otp`/`totp` (a code was sent, or the
  * client's authenticator app already has one) or a WebAuthn `PublicKeyCredentialRequestOptionsJSON` for

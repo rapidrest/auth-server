@@ -1,7 +1,8 @@
-import React, { FormEvent } from "react";
+import React, { FormEvent, ReactNode } from "react";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";
 import Alert from "../../feedback/Alert.js";
+import { AppleIcon, FacebookIcon, GoogleIcon, MicrosoftIcon } from "./OAuthIcons.js";
 
 export interface IdentifierStepProps {
     identifier: string;
@@ -9,9 +10,24 @@ export interface IdentifierStepProps {
     discoverLoading: boolean;
     error: string | null;
     onSubmit: (e: FormEvent) => void;
+    onOAuthSignIn: (provider: string) => void;
 }
 
-export default function IdentifierStep({ identifier, setIdentifier, discoverLoading, error, onSubmit }: IdentifierStepProps) {
+const OAUTH_PROVIDERS: Array<{ id: string; label: string; icon: ReactNode }> = [
+    { id: "google", label: "Continue with Google", icon: <GoogleIcon /> },
+    { id: "microsoft", label: "Continue with Microsoft", icon: <MicrosoftIcon /> },
+    { id: "apple", label: "Continue with Apple", icon: <AppleIcon /> },
+    { id: "facebook", label: "Continue with Facebook", icon: <FacebookIcon /> },
+];
+
+export default function IdentifierStep({
+    identifier,
+    setIdentifier,
+    discoverLoading,
+    error,
+    onSubmit,
+    onOAuthSignIn,
+}: IdentifierStepProps) {
     return (
         <form onSubmit={onSubmit}>
             <div className="rr-card__title">Sign in</div>
@@ -35,45 +51,18 @@ export default function IdentifierStep({ identifier, setIdentifier, discoverLoad
 
             <div className="rr-divider">or</div>
 
-            <Button
-                variant="oauth"
-                type="button"
-                style={{ marginBottom: "0.6rem" }}
-                onClick={() => {
-                    window.location.href = "/api/auth/google";
-                }}
-            >
-                Continue with Google
-            </Button>
-            <Button
-                variant="oauth"
-                type="button"
-                style={{ marginBottom: "0.6rem" }}
-                onClick={() => {
-                    window.location.href = "/api/auth/microsoft";
-                }}
-            >
-                Continue with Microsoft
-            </Button>
-            <Button
-                variant="oauth"
-                type="button"
-                style={{ marginBottom: "0.6rem" }}
-                onClick={() => {
-                    window.location.href = "/api/auth/apple";
-                }}
-            >
-                Continue with Apple
-            </Button>
-            <Button
-                variant="oauth"
-                type="button"
-                onClick={() => {
-                    window.location.href = "/api/auth/facebook";
-                }}
-            >
-                Continue with Facebook
-            </Button>
+            {OAUTH_PROVIDERS.map(({ id, label, icon }, index) => (
+                <Button
+                    key={id}
+                    variant="oauth"
+                    type="button"
+                    style={index < OAUTH_PROVIDERS.length - 1 ? { marginBottom: "0.6rem" } : undefined}
+                    onClick={() => onOAuthSignIn(id)}
+                >
+                    {icon}
+                    {label}
+                </Button>
+            ))}
         </form>
     );
 }

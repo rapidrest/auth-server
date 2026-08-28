@@ -116,27 +116,27 @@ conf.defaults({
         google: {
             clientID: DEFAULT_GOOGLE_CLIENT_ID,
             clientSecret: DEFAULT_GOOGLE_CLIENT_SECRET,
-            // Points at the backend route itself (not a frontend page) — see AuthGoogleRoute's own
+            // Points at the frontend sign-in page (not this API route) — see AuthGoogleRoute's own
             // redirectURI doc comment for why.
-            redirectURI: "http://localhost:3000/api/auth/google",
+            redirectURI: "http://localhost:3000/auth/signin",
         },
         microsoft: {
             tenant: DEFAULT_MICROSOFT_TENANT,
             clientID: DEFAULT_MICROSOFT_CLIENT_ID,
             clientSecret: DEFAULT_MICROSOFT_CLIENT_SECRET,
-            redirectURI: "http://localhost:3000/api/auth/microsoft",
+            redirectURI: "http://localhost:3000/auth/signin",
         },
         apple: {
             clientID: DEFAULT_APPLE_CLIENT_ID,
             teamId: DEFAULT_APPLE_TEAM_ID,
             keyId: DEFAULT_APPLE_KEY_ID,
             privateKey: DEFAULT_APPLE_PRIVATE_KEY,
-            redirectURI: "http://localhost:3000/api/auth/apple",
+            redirectURI: "http://localhost:3000/auth/signin",
         },
         facebook: {
             clientID: DEFAULT_FACEBOOK_CLIENT_ID,
             clientSecret: DEFAULT_FACEBOOK_CLIENT_SECRET,
-            redirectURI: "http://localhost:3000/api/auth/facebook",
+            redirectURI: "http://localhost:3000/auth/signin",
         },
         passkey: {
             rpName: "rapidrest",

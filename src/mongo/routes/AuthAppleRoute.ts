@@ -3,9 +3,15 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { DocDecorators, HttpRequest, HttpResponse, RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthOIDCRouteMongo } from "@rapidrest/auth/mongo";
-import { OIDCProvider } from "@rapidrest/auth";
+import { AuthResult, OIDCProvider } from "@rapidrest/auth";
 import { ObjectDecorators, type JWTUser } from "@rapidrest/core";
-import * as jwt from "jsonwebtoken";
+// A default import, not `import * as jwt` — jsonwebtoken is CJS, and under Node's native ESM
+// loader (not bundler-based interop like esbuild/vitest, which is more lenient) a namespace import
+// of this package only picks up `decode` as a statically-detected named export; `sign` comes back
+// `undefined` on the namespace (confirmed by running the compiled output under plain `node`,
+// matching how this ships in Docker), while the default import always resolves to the whole
+// `module.exports` object regardless of how well the named exports were statically analyzed.
+import jwt from "jsonwebtoken";
 import {
     DEFAULT_APPLE_CLIENT_ID,
     DEFAULT_APPLE_KEY_ID,
@@ -49,14 +55,16 @@ export class AuthAppleRoute extends BaseAuthOIDCRouteMongo {
     @Config("auth:apple:privateKey", DEFAULT_APPLE_PRIVATE_KEY)
     protected privateKey: string = DEFAULT_APPLE_PRIVATE_KEY;
 
-    // Points at this same route (not a frontend page) — `OIDCStrategy.authenticate()` handles both
-    // legs of the dance on whichever route it's configured against: the initial GET (no `code`)
-    // redirects the browser to Apple, and Apple's own redirect back here (now carrying `code`) is
-    // what completes the exchange. See `login()` below for what happens once that succeeds. Note
-    // Apple requires a registered "Return URL" to be HTTPS (no `localhost` exception like Google) —
-    // this default only works for provider configuration/testing purposes, not a real callback.
-    @Config("auth:apple:redirectURI", "http://localhost:3000/api/auth/apple")
-    protected redirectURI: string | string[] = "http://localhost:3000/api/auth/apple";
+    // Points at the frontend sign-in page (NOT this API route) — the page forwards the returned
+    // `code`/`state` back to this same endpoint itself via a fetch call (see SignInFlow's mount
+    // effect / completeOAuthSignIn in apps/shared/lib/api.ts) rather than the provider redirecting
+    // here directly. This keeps error handling (denied consent, CSRF/state mismatch, exchange
+    // failures) inside React's normal try/catch flow instead of a raw JSON response the browser
+    // would otherwise land on after a top-level navigation. Note Apple also requires a registered
+    // "Return URL" to be HTTPS (no `localhost` exception like Google) — this default only works for
+    // provider configuration/testing purposes, not a real callback.
+    @Config("auth:apple:redirectURI", "http://localhost:3000/auth/signin")
+    protected redirectURI: string | string[] = "http://localhost:3000/auth/signin";
 
     private cachedClientSecret?: { value: string; expiresAt: number };
 
@@ -118,10 +126,11 @@ export class AuthAppleRoute extends BaseAuthOIDCRouteMongo {
     @Summary("Login Apple")
     @Description(
         "Authenticates the user using Sign in with Apple (OpenID Connect). A request with no `code` redirects " +
-            "the browser to Apple's authorization page; Apple's own redirect back to this same endpoint (now " +
-            "carrying `code`) completes the exchange, sets the auth cookies, and redirects the browser to /account.",
+            "the browser to Apple's authorization page; once the user approves, the frontend sign-in page " +
+            "forwards the resulting `code`/`state` back to this same endpoint, which completes the exchange and " +
+            "returns a JSON Web Token access token to be used with future API requests.",
     )
-    @Returns([undefined])
+    @Returns([AuthResult, undefined])
     @Auth(["apple"])
     @Get()
     @Post()
@@ -129,17 +138,7 @@ export class AuthAppleRoute extends BaseAuthOIDCRouteMongo {
         @AuthUser user: JWTUser,
         @Request req: HttpRequest,
         @Response res: HttpResponse,
-    ): Promise<undefined> {
-        // `login()` is only ever invoked once `@Auth(["apple"])` has already run OIDCStrategy.authenticate()
-        // to completion — the "redirect to Apple" leg returns undefined from authenticate() itself and never
-        // reaches this handler. So every call here really did just complete a successful sign-in, and a real
-        // page navigation (not a raw JSON body) is what the browser sitting on this URL after bouncing back
-        // from Apple actually needs.
-        await super.login(user, req, res);
-        res.status(302);
-        res.setHeader("Location", "/account");
-        res.setHeader("Content-Length", 0);
-        res.end();
-        return undefined;
+    ): Promise<AuthResult | undefined> {
+        return super.login(user, req, res);
     }
 }

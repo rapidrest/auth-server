@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { DocDecorators, HttpRequest, HttpResponse, RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthOIDCRouteMongo } from "@rapidrest/auth/mongo";
-import { OIDCProvider } from "@rapidrest/auth";
+import { AuthResult, OIDCProvider } from "@rapidrest/auth";
 import { ObjectDecorators, type JWTUser } from "@rapidrest/core";
 import { DEFAULT_FACEBOOK_CLIENT_ID, DEFAULT_FACEBOOK_CLIENT_SECRET } from "../../config.defaults.js";
 
@@ -32,12 +32,14 @@ export class AuthFacebookRoute extends BaseAuthOIDCRouteMongo {
     @Config("auth:facebook:clientSecret", DEFAULT_FACEBOOK_CLIENT_SECRET)
     protected clientSecret: string = DEFAULT_FACEBOOK_CLIENT_SECRET;
 
-    // Points at this same route (not a frontend page) — `OIDCStrategy.authenticate()` handles both
-    // legs of the dance on whichever route it's configured against: the initial GET (no `code`)
-    // redirects the browser to Facebook, and Facebook's own redirect back here (now carrying `code`)
-    // is what completes the exchange. See `login()` below for what happens once that succeeds.
-    @Config("auth:facebook:redirectURI", "http://localhost:3000/api/auth/facebook")
-    protected redirectURI: string | string[] = "http://localhost:3000/api/auth/facebook";
+    // Points at the frontend sign-in page (NOT this API route) — the page forwards the returned
+    // `code`/`state` back to this same endpoint itself via a fetch call (see SignInFlow's mount
+    // effect / completeOAuthSignIn in apps/shared/lib/api.ts) rather than the provider redirecting
+    // here directly. This keeps error handling (denied consent, CSRF/state mismatch, exchange
+    // failures) inside React's normal try/catch flow instead of a raw JSON response the browser
+    // would otherwise land on after a top-level navigation.
+    @Config("auth:facebook:redirectURI", "http://localhost:3000/auth/signin")
+    protected redirectURI: string | string[] = "http://localhost:3000/auth/signin";
 
     protected get providerConfig(): OIDCProvider {
         return {
@@ -72,10 +74,11 @@ export class AuthFacebookRoute extends BaseAuthOIDCRouteMongo {
     @Summary("Login Facebook")
     @Description(
         "Authenticates the user using Facebook Login (OAuth 2.0). A request with no `code` redirects the " +
-            "browser to Facebook's authorization dialog; Facebook's own redirect back to this same endpoint " +
-            "(now carrying `code`) completes the exchange, sets the auth cookies, and redirects the browser to /account.",
+            "browser to Facebook's authorization dialog; once the user approves, the frontend sign-in page " +
+            "forwards the resulting `code`/`state` back to this same endpoint, which completes the exchange and " +
+            "returns a JSON Web Token access token to be used with future API requests.",
     )
-    @Returns([undefined])
+    @Returns([AuthResult, undefined])
     @Auth(["facebook"])
     @Get()
     @Post()
@@ -83,17 +86,7 @@ export class AuthFacebookRoute extends BaseAuthOIDCRouteMongo {
         @AuthUser user: JWTUser,
         @Request req: HttpRequest,
         @Response res: HttpResponse,
-    ): Promise<undefined> {
-        // `login()` is only ever invoked once `@Auth(["facebook"])` has already run
-        // OIDCStrategy.authenticate() to completion — the "redirect to Facebook" leg returns undefined
-        // from authenticate() itself and never reaches this handler. So every call here really did just
-        // complete a successful sign-in, and a real page navigation (not a raw JSON body) is what the
-        // browser sitting on this URL after bouncing back from Facebook actually needs.
-        await super.login(user, req, res);
-        res.status(302);
-        res.setHeader("Location", "/account");
-        res.setHeader("Content-Length", 0);
-        res.end();
-        return undefined;
+    ): Promise<AuthResult | undefined> {
+        return super.login(user, req, res);
     }
 }

@@ -17,6 +17,7 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
     return {
         ...actual,
         beginMfaChallenge: vi.fn(),
+        completeOAuthSignIn: vi.fn(),
         discoverAuthMethods: vi.fn(),
         getFido2Challenge: vi.fn(),
         getOtpChallenge: vi.fn(),
@@ -35,6 +36,7 @@ import { startAuthentication } from "@simplewebauthn/browser";
 import {
     ApiRequestError,
     beginMfaChallenge,
+    completeOAuthSignIn,
     DiscoverResult,
     discoverAuthMethods,
     getFido2Challenge,
@@ -53,6 +55,7 @@ import SignInPage from "../../../apps/www/auth/signin/index.js";
 
 const mockedStartAuthentication = vi.mocked(startAuthentication);
 const mockedBeginMfaChallenge = vi.mocked(beginMfaChallenge);
+const mockedCompleteOAuthSignIn = vi.mocked(completeOAuthSignIn);
 const mockedDiscoverAuthMethods = vi.mocked(discoverAuthMethods);
 const mockedGetFido2Challenge = vi.mocked(getFido2Challenge);
 const mockedGetOtpChallenge = vi.mocked(getOtpChallenge);
@@ -161,39 +164,137 @@ describe("SignInPage — identifier step", () => {
 
 describe("SignInPage — OAuth buttons", () => {
     // Each button is a real top-level navigation (not a fetch/apiFetch call) to the backend's own
-    // OIDC route — that route redirects to the provider, and the provider's own redirect back to
-    // that same URL completes the sign-in server-side, ending in a redirect to /account. So the
-    // only thing to assert here is that clicking each button sets `location.href` accordingly.
-    it("navigates to /api/auth/google when Continue with Google is clicked", async () => {
+    // OIDC route, which redirects the browser to the provider. The provider name rides along as the
+    // `state` query param — see "SignInPage — OAuth callback" below for why: the provider redirects
+    // the browser back to this same sign-in page (not the API) with that same `state` value echoed
+    // back, and that's how the page later knows which backend route to forward the returned code to.
+    it("navigates to /api/auth/google with the provider encoded in state when Continue with Google is clicked", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
         render(<SignInPage />);
         await user.click(screen.getByRole("button", { name: "Continue with Google" }));
-        expect(location.href).toBe("/api/auth/google");
+        expect(location.href).toBe("/api/auth/google?state=google");
     });
 
-    it("navigates to /api/auth/microsoft when Continue with Microsoft is clicked", async () => {
+    it("navigates to /api/auth/microsoft with the provider encoded in state when Continue with Microsoft is clicked", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
         render(<SignInPage />);
         await user.click(screen.getByRole("button", { name: "Continue with Microsoft" }));
-        expect(location.href).toBe("/api/auth/microsoft");
+        expect(location.href).toBe("/api/auth/microsoft?state=microsoft");
     });
 
-    it("navigates to /api/auth/apple when Continue with Apple is clicked", async () => {
+    it("navigates to /api/auth/apple with the provider encoded in state when Continue with Apple is clicked", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
         render(<SignInPage />);
         await user.click(screen.getByRole("button", { name: "Continue with Apple" }));
-        expect(location.href).toBe("/api/auth/apple");
+        expect(location.href).toBe("/api/auth/apple?state=apple");
     });
 
-    it("navigates to /api/auth/facebook when Continue with Facebook is clicked", async () => {
+    it("navigates to /api/auth/facebook with the provider encoded in state when Continue with Facebook is clicked", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
         render(<SignInPage />);
         await user.click(screen.getByRole("button", { name: "Continue with Facebook" }));
-        expect(location.href).toBe("/api/auth/facebook");
+        expect(location.href).toBe("/api/auth/facebook?state=facebook");
+    });
+});
+
+describe("SignInPage — OAuth callback", () => {
+    /**
+     * Simulates the page re-mounting after the provider redirected the browser back to it with
+     * `?code=...&state=<csrfToken>.<provider>` (or `?error=...&state=...`) already in the URL — the
+     * `state` value a real provider would echo back is exactly what `handleOAuthSignIn` sent it,
+     * combined server-side with a CSRF token (see `OIDCStrategy.buildAuthorizationURI`); the tests
+     * below use a fixed `csrf` stand-in for that token, since only the portion after the first `.`
+     * matters to this component. A real `Location` throws on the property reads/writes this needs
+     * (`search`, `pathname`, then later `href`), so — like `mockLocation()` — this replaces it with a
+     * plain writable stub, just extended with `search`/`pathname`. `history.replaceState` is stubbed
+     * out too, since it's real (not part of the swapped-out `location`) and would otherwise try to
+     * touch jsdom's actual navigation state.
+     */
+    function mockOAuthCallbackLocation(search: string): { pathname: string; search: string; href: string } {
+        const location = { pathname: "/auth/signin", search, href: "" };
+        Object.defineProperty(window, "location", { configurable: true, writable: true, value: location });
+        vi.spyOn(window.history, "replaceState").mockImplementation(() => undefined);
+        return location;
+    }
+
+    it("forwards the code/state to the provider named in state and redirects to /account on success", async () => {
+        mockOAuthCallbackLocation("?code=abc123&state=csrf.google");
+        mockedCompleteOAuthSignIn.mockResolvedValueOnce(AUTH_RESULT);
+
+        render(<SignInPage />);
+
+        await waitFor(() =>
+            expect(mockedCompleteOAuthSignIn).toHaveBeenCalledWith("google", "?code=abc123&state=csrf.google"),
+        );
+        await waitFor(() => expect(window.location.href).toBe("/account"));
+        // The one-time code must not be left sitting in the URL once consumed.
+        expect(window.history.replaceState).toHaveBeenCalledWith(null, "", "/auth/signin");
+    });
+
+    it("shows the server's error message and offers a way back when the exchange fails", async () => {
+        mockOAuthCallbackLocation("?code=abc123&state=csrf.apple");
+        mockedCompleteOAuthSignIn.mockRejectedValueOnce(new ApiRequestError("Invalid or expired code.", 401));
+        const user = userEvent.setup();
+
+        render(<SignInPage />);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Invalid or expired code.");
+        await user.click(screen.getByRole("button", { name: "Back to sign in" }));
+        expect(screen.getByLabelText("Account ID, e-mail, or phone")).toBeInTheDocument();
+    });
+
+    it("shows a generic message when the exchange fails with a non-API error", async () => {
+        mockOAuthCallbackLocation("?code=abc123&state=csrf.facebook");
+        mockedCompleteOAuthSignIn.mockRejectedValueOnce(new Error("network down"));
+
+        render(<SignInPage />);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    });
+
+    it("surfaces a provider-reported error (e.g. denied consent) the same way as an exchange failure", async () => {
+        // Per RFC 6749 §4.1.2.1, a compliant provider echoes `state` back unchanged on an error
+        // redirect too, so the provider is still recoverable here exactly as on the success path.
+        mockOAuthCallbackLocation("?error=access_denied&error_description=User+denied+access&state=csrf.google");
+        mockedCompleteOAuthSignIn.mockRejectedValueOnce(new ApiRequestError("OIDC provider returned an error: access_denied", 401));
+
+        render(<SignInPage />);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("OIDC provider returned an error: access_denied");
+        expect(mockedCompleteOAuthSignIn).toHaveBeenCalledWith(
+            "google",
+            "?error=access_denied&error_description=User+denied+access&state=csrf.google",
+        );
+    });
+
+    it("shows a fixed error without calling the API when state has no provider to recover", async () => {
+        // No `.` in `state` at all — nothing for this component to have appended.
+        mockOAuthCallbackLocation("?code=abc123&state=csrf");
+
+        render(<SignInPage />);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Sign-in could not be completed. Please try again.");
+        expect(mockedCompleteOAuthSignIn).not.toHaveBeenCalled();
+    });
+
+    it("shows a fixed error without calling the API when state is missing entirely", async () => {
+        mockOAuthCallbackLocation("?code=abc123");
+
+        render(<SignInPage />);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Sign-in could not be completed. Please try again.");
+        expect(mockedCompleteOAuthSignIn).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when there is no code/error in the URL", () => {
+        mockOAuthCallbackLocation("");
+        render(<SignInPage />);
+        expect(mockedCompleteOAuthSignIn).not.toHaveBeenCalled();
+        expect(screen.getByLabelText("Account ID, e-mail, or phone")).toBeInTheDocument();
     });
 });
 

@@ -3,7 +3,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 import { DocDecorators, HttpRequest, HttpResponse, RouteDecorators } from "@rapidrest/service-core";
 import { BaseAuthOIDCRouteMongo } from "@rapidrest/auth/mongo";
-import { OIDCProvider } from "@rapidrest/auth";
+import { AuthResult, OIDCProvider } from "@rapidrest/auth";
 import { ObjectDecorators, type JWTUser } from "@rapidrest/core";
 import {
     DEFAULT_MICROSOFT_CLIENT_ID,
@@ -43,12 +43,14 @@ export class AuthMicrosoftRoute extends BaseAuthOIDCRouteMongo {
     @Config("auth:microsoft:clientSecret", DEFAULT_MICROSOFT_CLIENT_SECRET)
     protected clientSecret: string = DEFAULT_MICROSOFT_CLIENT_SECRET;
 
-    // Points at this same route (not a frontend page) — `OIDCStrategy.authenticate()` handles both
-    // legs of the dance on whichever route it's configured against: the initial GET (no `code`)
-    // redirects the browser to Microsoft, and Microsoft's own redirect back here (now carrying
-    // `code`) is what completes the exchange. See `login()` below for what happens once that succeeds.
-    @Config("auth:microsoft:redirectURI", "http://localhost:3000/api/auth/microsoft")
-    protected redirectURI: string | string[] = "http://localhost:3000/api/auth/microsoft";
+    // Points at the frontend sign-in page (NOT this API route) — the page forwards the returned
+    // `code`/`state` back to this same endpoint itself via a fetch call (see SignInFlow's mount
+    // effect / completeOAuthSignIn in apps/shared/lib/api.ts) rather than the provider redirecting
+    // here directly. This keeps error handling (denied consent, CSRF/state mismatch, exchange
+    // failures) inside React's normal try/catch flow instead of a raw JSON response the browser
+    // would otherwise land on after a top-level navigation.
+    @Config("auth:microsoft:redirectURI", "http://localhost:3000/auth/signin")
+    protected redirectURI: string | string[] = "http://localhost:3000/auth/signin";
 
     protected get providerConfig(): OIDCProvider {
         return {
@@ -80,10 +82,11 @@ export class AuthMicrosoftRoute extends BaseAuthOIDCRouteMongo {
     @Summary("Login Microsoft")
     @Description(
         "Authenticates the user using Microsoft Entra ID (OpenID Connect). A request with no `code` redirects " +
-            "the browser to Microsoft's authorization page; Microsoft's own redirect back to this same endpoint " +
-            "(now carrying `code`) completes the exchange, sets the auth cookies, and redirects the browser to /account.",
+            "the browser to Microsoft's authorization page; once the user approves, the frontend sign-in page " +
+            "forwards the resulting `code`/`state` back to this same endpoint, which completes the exchange and " +
+            "returns a JSON Web Token access token to be used with future API requests.",
     )
-    @Returns([undefined])
+    @Returns([AuthResult, undefined])
     @Auth(["microsoft"])
     @Get()
     @Post()
@@ -91,17 +94,7 @@ export class AuthMicrosoftRoute extends BaseAuthOIDCRouteMongo {
         @AuthUser user: JWTUser,
         @Request req: HttpRequest,
         @Response res: HttpResponse,
-    ): Promise<undefined> {
-        // `login()` is only ever invoked once `@Auth(["microsoft"])` has already run
-        // OIDCStrategy.authenticate() to completion — the "redirect to Microsoft" leg returns undefined
-        // from authenticate() itself and never reaches this handler. So every call here really did just
-        // complete a successful sign-in, and a real page navigation (not a raw JSON body) is what the
-        // browser sitting on this URL after bouncing back from Microsoft actually needs.
-        await super.login(user, req, res);
-        res.status(302);
-        res.setHeader("Location", "/account");
-        res.setHeader("Content-Length", 0);
-        res.end();
-        return undefined;
+    ): Promise<AuthResult | undefined> {
+        return super.login(user, req, res);
     }
 }
