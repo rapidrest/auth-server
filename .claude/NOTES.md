@@ -751,30 +751,57 @@ stranded on an unstyled response with no chance for the UI to react. The *callba
 flow is the one unavoidable exception (the provider's own redirect has to be a real browser
 navigation this app doesn't control), but the *initiation* leg is entirely under this app's own
 control and has no excuse not to go through `fetch` first.
-- **New shared endpoint**: `BaseAuthOIDCRoute.authorize(req)` (`@rapidrest/auth`,
-  `GET /auth/<provider>/authorize`, no `@Auth` — the caller isn't signed in yet) looks up the
-  already-registered strategy via `this.authMiddleware.strategies.get(this.strategyName)` and
-  returns `{ url: strategy.buildAuthorizationURI(req) }` as JSON instead of the browser being
-  redirected automatically. Needed **no per-provider override** in `auth-server` at all (unlike
-  `login()`) — since it has no `@Auth` decorator, there's no declaring-class metadata problem to
-  work around, so every subclass gets it for free just by inheriting `BaseAuthOIDCRoute`.
-  `OIDCStrategy.buildAuthorizationURI` changed from `protected` to `public` to make this possible —
-  it already had no side effects beyond mutating `req.session` (CSRF/nonce/PKCE state), so exposing
-  it was safe; the actual redirect side effect lives entirely in `authenticate()`, untouched.
+- **First implementation** used a new `BaseAuthOIDCRoute.authorize(req)` endpoint
+  (`GET /auth/<provider>/authorize`) that looked up the registered strategy and called a
+  newly-`public` `buildAuthorizationURI(req)` directly. **Superseded within the same session** — see
+  the next entry below: JP added a simpler mechanism upstream (`no_redirect=true`) that reuses the
+  existing `login()` endpoint instead, so this dedicated route was removed again. Left this note as
+  a record of the path not taken; don't re-add a separate `/authorize` sub-route.
 - **Frontend**: `apps/shared/lib/api.ts` gained `getOAuthAuthorizeURL(provider, state)` (→
-  `GET /auth/<provider>/authorize?state=...`, returns `{url}`). `SignInFlow.handleOAuthSignIn` is
-  now `async`: fetches the URL, and only does `window.location.href = url` on success — a failure
-  throws the same `ApiRequestError` every other sign-in method already handles via
-  `err instanceof ApiRequestError ? err.message : "Something went wrong..."`, rendered inline on the
-  identifier step via the existing `error`/`Alert` state, exactly like a failed `discoverAuthMethods`
-  call. Added `oauthLoadingProvider` state (which provider's fetch is in flight) so
-  `IdentifierStep` can show a spinner on that one button and disable the other three during the
-  round trip — mirrors the existing `discoverLoading`/`Continue` button pattern.
-  `extractProviderFromState` and the callback-side `useEffect` in `SignInFlow.tsx` are **completely
-  unchanged** — `redirectURI` is still the frontend sign-in page, `state` still round-trips the
-  provider name the same way, and the callback leg's code was never the problem here.
+  `GET /auth/<provider>?no_redirect=true&state=...` as of the entry below; originally
+  `/auth/<provider>/authorize?state=...`). `SignInFlow.handleOAuthSignIn` is now `async`: fetches
+  the URL, and only does `window.location.href = url` on success — a failure throws the same
+  `ApiRequestError` every other sign-in method already handles via `err instanceof ApiRequestError ?
+  err.message : "Something went wrong..."`, rendered inline on the identifier step via the existing
+  `error`/`Alert` state, exactly like a failed `discoverAuthMethods` call. Added
+  `oauthLoadingProvider` state (which provider's fetch is in flight) so `IdentifierStep` can show a
+  spinner on that one button and disable the other three during the round trip — mirrors the
+  existing `discoverLoading`/`Continue` button pattern. `extractProviderFromState` and the
+  callback-side `useEffect` in `SignInFlow.tsx` are **completely unchanged by any of this** —
+  `redirectURI` is still the frontend sign-in page, `state` still round-trips the provider name the
+  same way, and the callback leg's code was never the problem here.
 - Old direct `window.location.href = "/api/auth/<provider>?state=..."` navigation is gone from
   `handleOAuthSignIn` entirely — every "Continue with ..." click now goes through `apiFetch` first.
-- This again depends on an unpublished sibling-repo change (the new `authorize()` endpoint +
-  `buildAuthorizationURI` visibility change) — same "land the fix, leave the version alone, JP
-  publishes when ready" workflow as the last two fixes.
+- This depends on an unpublished sibling-repo change — same "land the fix, leave the version alone,
+  JP publishes when ready" workflow as the last two fixes.
+
+### 2026-08-28 (later) — swapped the custom `/authorize` endpoint for `OIDCStrategy`'s own `no_redirect=true`
+
+JP added `no_redirect=true` support directly to `@rapidrest/auth`'s `OIDCStrategy.authenticate()`
+himself and flagged it as a possible replacement for the `authorize()` endpoint from the entry
+above. Adopted it and removed the custom endpoint — it's strictly simpler:
+- `OIDCStrategy.authenticate()` now checks `req.query?.no_redirect === "true"` on the no-`code`
+  branch: `true` → `res.status(200); res.json({ url })` instead of the `302`/`Location` redirect.
+  Since it still returns `undefined` and writes the response itself either way, this goes through
+  the **exact same** `@Auth([strategyName]) login()` entry point every provider route already had
+  — no new route, no manual `authMiddleware.strategies.get(...)` lookup, no per-provider anything.
+  `buildAuthorizationURI` reverted from `public` back to `protected` (nothing outside the class
+  calls it anymore) and `BaseAuthOIDCRoute.authorize()`/`OIDCAuthorizeResult` were deleted entirely,
+  along with their 4 tests in `test/routes/BaseAuthOIDCRoute.test.ts` (upstream `auth` repo).
+- `auth-server`'s only change: `getOAuthAuthorizeURL()` now fetches
+  `/auth/<provider>?no_redirect=true&state=...` instead of `/auth/<provider>/authorize?state=...`.
+  No route files changed here at all — every provider's existing `login()` override already had the
+  right `@Auth([strategyName])` wiring, which is all `no_redirect` needed to piggyback on.
+  `SignInFlow.tsx`/`IdentifierStep.tsx` needed zero changes — `getOAuthAuthorizeURL`'s signature
+  didn't change, only its internal URL.
+- Added `test/apps/_lib/api.test.ts`'s own direct `mockFetch`-level tests for
+  `getOAuthAuthorizeURL`/`completeOAuthSignIn` (asserting the exact query string sent) — these two
+  functions had **no** direct test coverage before this, only indirect coverage via
+  `signin.test.tsx`'s mocked-function-level tests, which wouldn't have caught a wrong URL/query
+  construction. Follow the existing `discoverAuthMethods` test in that file as the template for any
+  future `api.ts` function that builds its own query string.
+- Net effect: **one query param on an existing endpoint**, not a whole extra route, for the same
+  outcome. If a similar "give me data instead of a redirect" need comes up elsewhere in this
+  codebase, prefer extending the existing auth-flow endpoint with an opt-in query param over adding
+  a parallel endpoint, when the underlying strategy/middleware already do the right thing modulo
+  the redirect-vs-JSON response format.

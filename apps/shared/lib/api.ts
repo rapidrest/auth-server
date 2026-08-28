@@ -297,17 +297,19 @@ export interface OAuthAuthorizeResult {
 
 /**
  * Asks the backend for the URL to send the browser to in order to begin the given provider's
- * OAuth/OIDC flow, rather than navigating straight to a backend route that itself issues a
- * redirect. Fetching this first (instead of a raw top-level navigation to the redirect-issuing
- * route) means a failure to build that URL — missing session support, provider misconfiguration —
- * surfaces as a normal `ApiRequestError` this caller can render inline, instead of the browser
- * silently landing on the API's raw response with no chance for the UI to react. `state` is
+ * OAuth/OIDC flow, rather than navigating straight to `/auth/<provider>` and letting it issue a
+ * redirect. `no_redirect=true` is `OIDCStrategy.authenticate()`'s own opt-in (added upstream in
+ * `@rapidrest/auth`) to return `{ url }` as JSON on this exact same endpoint instead of a `302`,
+ * for exactly this purpose. Fetching this first — instead of a raw top-level navigation to a route
+ * that itself redirects — means a failure to build that URL (missing session support, provider
+ * misconfiguration) surfaces as a normal `ApiRequestError` this caller can render inline, instead
+ * of the browser landing on the API's raw response with no chance for the UI to react. `state` is
  * forwarded as-is to the backend, which round-trips it through the provider unchanged (see
  * `SignInFlow`'s `extractProviderFromState` for how the callback recovers it later) — always pass
  * the provider name itself here, matching `handleOAuthSignIn`'s usage.
  */
 export function getOAuthAuthorizeURL(provider: string, state: string): Promise<OAuthAuthorizeResult> {
-    return apiFetch(`/auth/${provider}/authorize?state=${encodeURIComponent(state)}`);
+    return apiFetch(`/auth/${provider}?no_redirect=true&state=${encodeURIComponent(state)}`);
 }
 
 /**

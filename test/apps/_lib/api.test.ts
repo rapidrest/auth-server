@@ -12,6 +12,7 @@ import {
     beginRegistration,
     completeElevationChallenge,
     completeElevationFido2,
+    completeOAuthSignIn,
     createAlias,
     createPasswordSecret,
     createProfile,
@@ -26,6 +27,7 @@ import {
     getCurrentUser,
     getFido2Challenge,
     getFido2RegistrationOptions,
+    getOAuthAuthorizeURL,
     getOtpChallenge,
     getPasskeyChallenge,
     getPasskeyRegistrationOptions,
@@ -612,6 +614,30 @@ describe("auth discovery", () => {
         const returned = await discoverAuthMethods("a b@example.com");
         expect(fetchMock).toHaveBeenCalledWith("/api/auth/discover?id=a%20b%40example.com", expect.anything());
         expect(returned).toEqual(result);
+    });
+});
+
+describe("OAuth sign-in", () => {
+    it("getOAuthAuthorizeURL fetches /auth/<provider> with no_redirect=true and an encoded state", async () => {
+        const result = { url: "https://accounts.google.com/o/oauth2/v2/auth?client_id=..." };
+        const fetchMock = mockFetch(() => jsonResponse(200, result));
+        const returned = await getOAuthAuthorizeURL("google", "google");
+        expect(fetchMock).toHaveBeenCalledWith("/api/auth/google?no_redirect=true&state=google", expect.anything());
+        expect(returned).toEqual(result);
+    });
+
+    it("getOAuthAuthorizeURL encodes a state value that needs it", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { url: "https://example.com/authorize" }));
+        await getOAuthAuthorizeURL("google", "a b");
+        expect(fetchMock).toHaveBeenCalledWith("/api/auth/google?no_redirect=true&state=a%20b", expect.anything());
+    });
+
+    it("completeOAuthSignIn forwards the full callback query string to /auth/<provider>", async () => {
+        const authResult = { token: "tok-123", user: { uid: "u1", version: 1, roles: [], scopes: [] } };
+        const fetchMock = mockFetch(() => jsonResponse(200, authResult));
+        const returned = await completeOAuthSignIn("google", "?code=abc123&state=csrf.google");
+        expect(fetchMock).toHaveBeenCalledWith("/api/auth/google?code=abc123&state=csrf.google", expect.anything());
+        expect(returned).toEqual(authResult);
     });
 });
 
