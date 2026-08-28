@@ -8,6 +8,7 @@ import {
     DiscoverResult,
     discoverAuthMethods,
     getFido2Challenge,
+    getOAuthAuthorizeURL,
     getOtpChallenge,
     getPasskeyChallenge,
     isMfaChallenge,
@@ -86,6 +87,10 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Which provider's "Continue with ..." button is mid-flight, if any — drives that one button's
+    // own loading spinner and disables the rest, via IdentifierStep's oauthLoadingProvider prop.
+    const [oauthLoadingProvider, setOauthLoadingProvider] = useState<string | null>(null);
+
     const methodItems = buildMethodList(discover);
 
     // Picks up where handleOAuthSignIn left off: a provider's "Continue with ..." button does a real
@@ -129,16 +134,29 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    function handleOAuthSignIn(provider: string) {
-        // Round-trips the provider name through the OAuth `state` param — exactly what `state` is
-        // for. `OIDCStrategy.buildAuthorizationURI` reads this query param as the "client app data"
-        // half of `state`, combines it with its own CSRF token, and the provider hands the whole
-        // thing back untouched on its own redirect — see extractProviderFromState above for how this
-        // component recovers it from there. A real top-level navigation, not a fetch/apiFetch call:
-        // the browser has to actually follow the provider's own redirect chain (its login/consent
-        // screens live on its domain, not ours) and land back on a real page, which a fetch response
-        // body can't make it do.
-        window.location.href = `/api/auth/${provider}?state=${encodeURIComponent(provider)}`;
+    async function handleOAuthSignIn(provider: string) {
+        // Fetches the authorization URL through the normal API/React error-handling path first,
+        // rather than navigating the browser straight to a backend route that itself issues the
+        // redirect — that would leave any failure (misconfiguration, a session that failed to start)
+        // landing the browser on the API's raw response with no chance for this component to render
+        // it. Only once a URL actually comes back does this do the real top-level navigation — the
+        // browser has to actually follow the provider's own redirect chain from there (its
+        // login/consent screens live on its domain, not ours), which a fetch response body alone
+        // can't make it do.
+        setError(null);
+        setOauthLoadingProvider(provider);
+        try {
+            // Round-trips the provider name through the OAuth `state` param — exactly what `state`
+            // is for. `OIDCStrategy.buildAuthorizationURI` reads this as the "client app data" half
+            // of `state`, combines it with its own CSRF token, and the provider hands the whole
+            // thing back untouched on its own redirect — see extractProviderFromState above for how
+            // this component recovers it from there.
+            const { url } = await getOAuthAuthorizeURL(provider, provider);
+            window.location.href = url;
+        } catch (err) {
+            setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");
+            setOauthLoadingProvider(null);
+        }
     }
 
     async function handleIdentifierSubmit(e: FormEvent) {
@@ -394,6 +412,7 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
                     error={error}
                     onSubmit={handleIdentifierSubmit}
                     onOAuthSignIn={handleOAuthSignIn}
+                    oauthLoadingProvider={oauthLoadingProvider}
                 />
             )}
 

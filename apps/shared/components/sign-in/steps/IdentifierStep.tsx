@@ -11,6 +11,9 @@ export interface IdentifierStepProps {
     error: string | null;
     onSubmit: (e: FormEvent) => void;
     onOAuthSignIn: (provider: string) => void;
+    /** The provider id currently fetching its authorization URL, if any — shows a spinner on that
+     * one button and disables the rest so a second click can't fire while the first is in flight. */
+    oauthLoadingProvider: string | null;
 }
 
 const OAUTH_PROVIDERS: Array<{ id: string; label: string; icon: ReactNode }> = [
@@ -27,6 +30,7 @@ export default function IdentifierStep({
     error,
     onSubmit,
     onOAuthSignIn,
+    oauthLoadingProvider,
 }: IdentifierStepProps) {
     return (
         <form onSubmit={onSubmit}>
@@ -58,6 +62,8 @@ export default function IdentifierStep({
                     type="button"
                     style={index < OAUTH_PROVIDERS.length - 1 ? { marginBottom: "0.6rem" } : undefined}
                     onClick={() => onOAuthSignIn(id)}
+                    loading={oauthLoadingProvider === id}
+                    disabled={oauthLoadingProvider !== null}
                 >
                     {icon}
                     {label}

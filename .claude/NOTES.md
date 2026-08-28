@@ -709,3 +709,72 @@ test or `tsc --noEmit` run this whole session** — the root cause is a genuine 
   session broke, and out of scope to chase down for an unrelated one-line import fix.
 - Searched the rest of `@rapidrest/auth`'s `src/` for the same `import * as x from "jsonwebtoken"`
   pattern — this was the only occurrence.
+
+### 2026-08-28 — third `@rapidrest/auth` bug: `ObjectFactory.newInstance(OIDCStrategy, {name: "default"})` collapsed every provider onto the first one
+
+JP reported every OAuth provider (not just one) failing at request time with `api-101 "No
+authentication strategy has been registered with name: google"` (etc.) after the previous two
+fixes were published as `1.1.1`. Root cause: `BaseAuthOIDCRoute.initialize()` created each
+provider's `OIDCStrategy` via `this._objectFactory.newInstance(OIDCStrategy, { name: "default",
+args: [options] })` — a **hardcoded literal `"default"`**, not `this.strategyName`.
+`ObjectFactory.newInstance()` (in `@rapidrest/core`) special-cases the literal name `"default"` as
+"give me *the* singleton instance of this class" (see its own doc comment at
+`ObjectFactory.ts:399-407`) — so whichever provider route's `initialize()` ran first got a real new
+`OIDCStrategy`, and every subsequent provider's `initialize()` silently got back that same shared
+instance instead of constructing its own, then registered that (wrong) strategy under its own
+`strategy.name` — meaning only the first-initialized provider's name ever actually resolved.
+- **Fix**: `name: this.strategyName` instead of `name: "default"` — this also matches
+  `strategyName`'s own default (`"oauth"`), so the single-provider case is unaffected.
+- **This is why the existing "multi-provider strategyName" tests never caught it**: they each
+  construct their own separate `makeMockObjectFactory()` per route, and that mock's
+  `newInstance(OIDCStrategy, ...)` unconditionally returns `new OIDCStrategy(...)` regardless of
+  `name` — it doesn't reproduce `ObjectFactory`'s real singleton-fallback caching at all. Added a
+  new regression test using a **real** `ObjectFactory` shared across two route instances (matching
+  how `Server`'s `ClassLoader` actually wires things up) — confirmed it fails without the fix
+  (`strategies.size` was `1`, not `2`) and passes with it, by literally reverting the fix locally,
+  running the test, and restoring it (same verification discipline as the `jwt.sign` fix).
+- **Third `@rapidrest/auth` bug found and fixed at the source this session** (see the two entries
+  above). Left the version field untouched per the standing decision — this is JP's to version and
+  publish.
+
+### 2026-08-28 (same session) — moved OAuth *initiation* into React too, not just the callback
+
+JP: *"Instead of redirecting the user to the oauth API endpoint (to then get redirected to the
+oauth provider), the react client should be making the request itself to the API endpoint to
+retrieve the redirect URL. That way if there's an error, it can render it properly in react. This
+is now the second time you've tried to short circuit proper handling in react."* This is
+**feedback to internalize broadly** (saved to global memory too, not just here — see
+`feedback_react_owns_navigation.md`): any time a user-initiated action might fail, route it through
+a `fetch`/React state update first, even if a plain `window.location.href` to a backend route would
+technically work — a raw navigation to a route that can itself error/redirect leaves the browser
+stranded on an unstyled response with no chance for the UI to react. The *callback* leg of an OAuth
+flow is the one unavoidable exception (the provider's own redirect has to be a real browser
+navigation this app doesn't control), but the *initiation* leg is entirely under this app's own
+control and has no excuse not to go through `fetch` first.
+- **New shared endpoint**: `BaseAuthOIDCRoute.authorize(req)` (`@rapidrest/auth`,
+  `GET /auth/<provider>/authorize`, no `@Auth` — the caller isn't signed in yet) looks up the
+  already-registered strategy via `this.authMiddleware.strategies.get(this.strategyName)` and
+  returns `{ url: strategy.buildAuthorizationURI(req) }` as JSON instead of the browser being
+  redirected automatically. Needed **no per-provider override** in `auth-server` at all (unlike
+  `login()`) — since it has no `@Auth` decorator, there's no declaring-class metadata problem to
+  work around, so every subclass gets it for free just by inheriting `BaseAuthOIDCRoute`.
+  `OIDCStrategy.buildAuthorizationURI` changed from `protected` to `public` to make this possible —
+  it already had no side effects beyond mutating `req.session` (CSRF/nonce/PKCE state), so exposing
+  it was safe; the actual redirect side effect lives entirely in `authenticate()`, untouched.
+- **Frontend**: `apps/shared/lib/api.ts` gained `getOAuthAuthorizeURL(provider, state)` (→
+  `GET /auth/<provider>/authorize?state=...`, returns `{url}`). `SignInFlow.handleOAuthSignIn` is
+  now `async`: fetches the URL, and only does `window.location.href = url` on success — a failure
+  throws the same `ApiRequestError` every other sign-in method already handles via
+  `err instanceof ApiRequestError ? err.message : "Something went wrong..."`, rendered inline on the
+  identifier step via the existing `error`/`Alert` state, exactly like a failed `discoverAuthMethods`
+  call. Added `oauthLoadingProvider` state (which provider's fetch is in flight) so
+  `IdentifierStep` can show a spinner on that one button and disable the other three during the
+  round trip — mirrors the existing `discoverLoading`/`Continue` button pattern.
+  `extractProviderFromState` and the callback-side `useEffect` in `SignInFlow.tsx` are **completely
+  unchanged** — `redirectURI` is still the frontend sign-in page, `state` still round-trips the
+  provider name the same way, and the callback leg's code was never the problem here.
+- Old direct `window.location.href = "/api/auth/<provider>?state=..."` navigation is gone from
+  `handleOAuthSignIn` entirely — every "Continue with ..." click now goes through `apiFetch` first.
+- This again depends on an unpublished sibling-repo change (the new `authorize()` endpoint +
+  `buildAuthorizationURI` visibility change) — same "land the fix, leave the version alone, JP
+  publishes when ready" workflow as the last two fixes.

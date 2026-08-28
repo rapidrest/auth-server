@@ -286,6 +286,26 @@ export function signInWithPassword(id: string, password: string): Promise<AuthRe
     return apiFetch("/auth/mfa", { method: "POST", body: JSON.stringify({ id, password }) });
 }
 
+export interface OAuthAuthorizeResult {
+    /** The URL to navigate the browser to in order to begin the provider's OAuth/OIDC flow. */
+    url: string;
+}
+
+/**
+ * Asks the backend for the URL to send the browser to in order to begin the given provider's
+ * OAuth/OIDC flow, rather than navigating straight to a backend route that itself issues a
+ * redirect. Fetching this first (instead of a raw top-level navigation to the redirect-issuing
+ * route) means a failure to build that URL — missing session support, provider misconfiguration —
+ * surfaces as a normal `ApiRequestError` this caller can render inline, instead of the browser
+ * silently landing on the API's raw response with no chance for the UI to react. `state` is
+ * forwarded as-is to the backend, which round-trips it through the provider unchanged (see
+ * `SignInFlow`'s `extractProviderFromState` for how the callback recovers it later) — always pass
+ * the provider name itself here, matching `handleOAuthSignIn`'s usage.
+ */
+export function getOAuthAuthorizeURL(provider: string, state: string): Promise<OAuthAuthorizeResult> {
+    return apiFetch(`/auth/${provider}/authorize?state=${encodeURIComponent(state)}`);
+}
+
 /**
  * Completes an OAuth/OIDC sign-in after the provider has redirected the browser back to this page
  * with `?code=...&state=...` (or `?error=...`) appended to the URL. `search` is that query string

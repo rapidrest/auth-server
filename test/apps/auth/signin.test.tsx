@@ -20,6 +20,7 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
         completeOAuthSignIn: vi.fn(),
         discoverAuthMethods: vi.fn(),
         getFido2Challenge: vi.fn(),
+        getOAuthAuthorizeURL: vi.fn(),
         getOtpChallenge: vi.fn(),
         getPasskeyChallenge: vi.fn(),
         signInWithOtp: vi.fn(),
@@ -40,6 +41,7 @@ import {
     DiscoverResult,
     discoverAuthMethods,
     getFido2Challenge,
+    getOAuthAuthorizeURL,
     getOtpChallenge,
     getPasskeyChallenge,
     MfaMethod,
@@ -58,6 +60,7 @@ const mockedBeginMfaChallenge = vi.mocked(beginMfaChallenge);
 const mockedCompleteOAuthSignIn = vi.mocked(completeOAuthSignIn);
 const mockedDiscoverAuthMethods = vi.mocked(discoverAuthMethods);
 const mockedGetFido2Challenge = vi.mocked(getFido2Challenge);
+const mockedGetOAuthAuthorizeURL = vi.mocked(getOAuthAuthorizeURL);
 const mockedGetOtpChallenge = vi.mocked(getOtpChallenge);
 const mockedGetPasskeyChallenge = vi.mocked(getPasskeyChallenge);
 const mockedSignInWithOtp = vi.mocked(signInWithOtp);
@@ -163,41 +166,89 @@ describe("SignInPage — identifier step", () => {
 });
 
 describe("SignInPage — OAuth buttons", () => {
-    // Each button is a real top-level navigation (not a fetch/apiFetch call) to the backend's own
-    // OIDC route, which redirects the browser to the provider. The provider name rides along as the
-    // `state` query param — see "SignInPage — OAuth callback" below for why: the provider redirects
-    // the browser back to this same sign-in page (not the API) with that same `state` value echoed
-    // back, and that's how the page later knows which backend route to forward the returned code to.
-    it("navigates to /api/auth/google with the provider encoded in state when Continue with Google is clicked", async () => {
+    // Each button fetches its authorization URL through the API first (never a raw top-level
+    // navigation straight to a backend route that itself issues a redirect) — this way a failure to
+    // build that URL surfaces as a normal ApiRequestError this page can render inline, same as every
+    // other sign-in method's error handling, instead of the browser landing on the API's raw
+    // response with no chance for React to react. Only once a URL actually comes back does the real
+    // top-level navigation happen. The provider name rides along as the `state` query param — see
+    // "SignInPage — OAuth callback" below for why: the provider redirects the browser back to this
+    // same sign-in page (not the API) with that same `state` value echoed back, and that's how the
+    // page later knows which backend route to forward the returned code to.
+    it("fetches the authorization URL and navigates to it when Continue with Google is clicked", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
+        mockedGetOAuthAuthorizeURL.mockResolvedValueOnce({ url: "https://accounts.google.com/o/oauth2/v2/auth?..." });
         render(<SignInPage />);
         await user.click(screen.getByRole("button", { name: "Continue with Google" }));
-        expect(location.href).toBe("/api/auth/google?state=google");
+        expect(mockedGetOAuthAuthorizeURL).toHaveBeenCalledWith("google", "google");
+        await waitFor(() => expect(location.href).toBe("https://accounts.google.com/o/oauth2/v2/auth?..."));
     });
 
-    it("navigates to /api/auth/microsoft with the provider encoded in state when Continue with Microsoft is clicked", async () => {
+    it("fetches the authorization URL and navigates to it when Continue with Microsoft is clicked", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
+        mockedGetOAuthAuthorizeURL.mockResolvedValueOnce({ url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?..." });
         render(<SignInPage />);
         await user.click(screen.getByRole("button", { name: "Continue with Microsoft" }));
-        expect(location.href).toBe("/api/auth/microsoft?state=microsoft");
+        expect(mockedGetOAuthAuthorizeURL).toHaveBeenCalledWith("microsoft", "microsoft");
+        await waitFor(() => expect(location.href).toBe("https://login.microsoftonline.com/common/oauth2/v2.0/authorize?..."));
     });
 
-    it("navigates to /api/auth/apple with the provider encoded in state when Continue with Apple is clicked", async () => {
+    it("fetches the authorization URL and navigates to it when Continue with Apple is clicked", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
+        mockedGetOAuthAuthorizeURL.mockResolvedValueOnce({ url: "https://appleid.apple.com/auth/authorize?..." });
         render(<SignInPage />);
         await user.click(screen.getByRole("button", { name: "Continue with Apple" }));
-        expect(location.href).toBe("/api/auth/apple?state=apple");
+        expect(mockedGetOAuthAuthorizeURL).toHaveBeenCalledWith("apple", "apple");
+        await waitFor(() => expect(location.href).toBe("https://appleid.apple.com/auth/authorize?..."));
     });
 
-    it("navigates to /api/auth/facebook with the provider encoded in state when Continue with Facebook is clicked", async () => {
+    it("fetches the authorization URL and navigates to it when Continue with Facebook is clicked", async () => {
         const location = mockLocation();
         const user = userEvent.setup();
+        mockedGetOAuthAuthorizeURL.mockResolvedValueOnce({ url: "https://www.facebook.com/v21.0/dialog/oauth?..." });
         render(<SignInPage />);
         await user.click(screen.getByRole("button", { name: "Continue with Facebook" }));
-        expect(location.href).toBe("/api/auth/facebook?state=facebook");
+        expect(mockedGetOAuthAuthorizeURL).toHaveBeenCalledWith("facebook", "facebook");
+        await waitFor(() => expect(location.href).toBe("https://www.facebook.com/v21.0/dialog/oauth?..."));
+    });
+
+    it("shows the server's error message inline instead of navigating when the URL fetch fails", async () => {
+        mockLocation();
+        const user = userEvent.setup();
+        mockedGetOAuthAuthorizeURL.mockRejectedValueOnce(new ApiRequestError("OIDC is not configured.", 500));
+        render(<SignInPage />);
+        await user.click(screen.getByRole("button", { name: "Continue with Google" }));
+        expect(await screen.findByRole("alert")).toHaveTextContent("OIDC is not configured.");
+        // Still on the identifier step — a failed fetch must not navigate anywhere.
+        expect(screen.getByLabelText("Account ID, e-mail, or phone")).toBeInTheDocument();
+    });
+
+    it("shows a generic message when the URL fetch fails with a non-API error", async () => {
+        mockLocation();
+        const user = userEvent.setup();
+        mockedGetOAuthAuthorizeURL.mockRejectedValueOnce(new Error("network down"));
+        render(<SignInPage />);
+        await user.click(screen.getByRole("button", { name: "Continue with Microsoft" }));
+        expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    });
+
+    it("disables the other OAuth buttons while one provider's URL fetch is in flight", async () => {
+        mockLocation();
+        const user = userEvent.setup();
+        let resolveFetch: (result: { url: string }) => void;
+        mockedGetOAuthAuthorizeURL.mockReturnValueOnce(new Promise((resolve) => (resolveFetch = resolve)));
+        render(<SignInPage />);
+
+        await user.click(screen.getByRole("button", { name: "Continue with Google" }));
+        expect(screen.getByRole("button", { name: "Continue with Microsoft" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "Continue with Apple" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "Continue with Facebook" })).toBeDisabled();
+
+        resolveFetch!({ url: "https://accounts.google.com/o/oauth2/v2/auth?..." });
+        await waitFor(() => expect(window.location.href).toBe("https://accounts.google.com/o/oauth2/v2/auth?..."));
     });
 });
 
