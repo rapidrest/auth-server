@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import { createRequire } from "module";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 import nconf from "nconf";
 import { join } from "path";
 import {
@@ -22,6 +24,8 @@ import {
     DEFAULT_SESSION_SECRET,
 } from "./config.defaults.js";
 
+const _filename = fileURLToPath(import.meta.url);
+const _dirname = dirname(_filename);
 const _require = createRequire(import.meta.url);
 const packageInfo = _require(join(process.cwd(), "package.json"));
 
@@ -37,7 +41,7 @@ conf.use("memory");
 conf.defaults({
     service_name: packageInfo.name,
     version: packageInfo.version,
-    base_path: join(__dirname, "mongo"),
+    base_path: join(_dirname, "mongo"),
     cookie_secret: DEFAULT_COOKIE_SECRET,
     cors: {
         origins: ["http://localhost:3000"],
