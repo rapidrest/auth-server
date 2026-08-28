@@ -23,6 +23,7 @@ const PKG_PATH = path.join(ROOT, "package.json");
 const RELEASE_NOTES_PATH = path.join(ROOT, "RELEASE_NOTES.md");
 const CHANGELOG_PATH = path.join(ROOT, "CHANGELOG.md");
 const HELM_VALUES_PATH = path.join(ROOT, "helm", "values.yaml");
+const HELM_CHART_PATH = path.join(ROOT, "helm", "Chart.yaml");
 const SINGLE_NODE_INSTALL_PATH = path.join(ROOT, "single_node_install.sh");
 const README_PATH = path.join(ROOT, "README.md");
 /** Files touched by `updateHelmVersion()`, staged alongside the version bump. */
@@ -253,6 +254,10 @@ function updateHelmVersion(version: string): void {
     const values = loadYaml(readFileSync(HELM_VALUES_PATH, "utf-8")) as { service: { image: { tag: string } } };
     values.service.image.tag = version;
     writeFileSync(HELM_VALUES_PATH, dumpYaml(values));
+
+    const chart = loadYaml(readFileSync(HELM_CHART_PATH, "utf-8")) as { appVersion: string };
+    chart.appVersion = version;
+    writeFileSync(HELM_CHART_PATH, dumpYaml(chart));
 
     const installScriptRegex = /VERSION="?\b\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\b"?/g;
     const installScript = readFileSync(SINGLE_NODE_INSTALL_PATH, "utf-8");

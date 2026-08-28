@@ -135,7 +135,6 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
             });
         // Deliberately empty: this is a one-time check of the URL this component mounted with, not a
         // reaction to any state/prop this effect would otherwise need to depend on.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     async function handleOAuthSignIn(provider: string) {

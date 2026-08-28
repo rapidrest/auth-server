@@ -46,8 +46,8 @@ git clone github/auth-server
 | Docker Image |                       |
 | ------------ | :-------------------: |
 | Registry     | ghcr.io |
-| Repository   | /rapidrest/petstore |
-| Tag          | 1.1.2 |
+| Repository   | /rapidrest/auth-server |
+| Tag          | 1.0.0 |
 
 This project provides scripts for running in Docker or Kubernetes. For Docker, you will find *docker-compose* scripts
 in the project source. For Kubernetes, a *helm* chart is available both in the project source and via GitHub Container
@@ -76,7 +76,7 @@ is easy using either the published helm chart in GitHub or install from the helm
 #### From GHCR
 
 ```bash
-helm install --create-namespace --namespace petstore petstore oci://ghcr.io/rapidrest/charts/petstore --version 1.1.2
+helm install --create-namespace --namespace auth-server auth-server oci://ghcr.io/rapidrest/charts/auth-server --version 1.0.0
 ```
 
 #### From Local
@@ -84,13 +84,13 @@ helm install --create-namespace --namespace petstore petstore oci://ghcr.io/rapi
 ```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm dep up ./helm
-helm install --create-namespace --namespace petstore petstore ./helm
+helm install --create-namespace --namespace auth-server auth-server ./helm
 ```
 
 #### Single Node Cluster
 
 If you would like to run the project in a single-node Kubernetes cluster, the `single_node_install.sh` script is a
-great way to get started. This script will automatically set up everything needed to run *petstore* in a Kubernetes
+great way to get started. This script will automatically set up everything needed to run *auth-server* in a Kubernetes
 environment, including ingress with TLS support. Simply run the script from any linux compatible machine.
 
 ```bash
