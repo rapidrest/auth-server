@@ -4,9 +4,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
-import { dirname } from "path";
+import { dirname, join } from "path";
 import nconf from "nconf";
-import { join } from "path";
 import {
     DEFAULT_AUTH_SECRET,
     DEFAULT_APPLE_CLIENT_ID,
