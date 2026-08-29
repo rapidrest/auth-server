@@ -79,6 +79,11 @@ conf.defaults({
     },
     // Specifies the group names that are considered to be trusted with administrative privileges.
     trusted_roles: ["admin"],
+    react: {
+        // Path to the Vite manifest produced by `rapidrest build`, used to resolve hashed
+        // client bundle URLs for hydrated pages (see apps/www, apps/admin).
+        manifestPath: "dist/public/.vite/manifest.json",
+    },
     // Settings pertaining to the signing and verification of authentication tokens
     auth: {
         // The default authentication strategy to use
