@@ -38,6 +38,10 @@ zZvwdJPaqYxCEXrMfzDL+Z2zbs7tiSka1ab6dG5FH3pPrFcqC36TfbGf
  * `assertProductionSecretsAreSet()` can recognize them. */
 export const DEFAULT_FACEBOOK_CLIENT_ID = "1234567890123456";
 export const DEFAULT_FACEBOOK_CLIENT_SECRET = "f32fa983732aq9rf7ab39f";
+/** Placeholder AES-256 key (64 hex chars) used to encrypt OAuth authorization-server signing key private
+ * material at rest (see `SigningKeyUtils`). Like `DEFAULT_AUTH_SECRET`/etc. above, this is a real secret
+ * (not a third-party placeholder), so `assertProductionSecretsAreSet()` hard-fails on it in production. */
+export const DEFAULT_OAUTH_SERVER_ENCRYPTION_KEY = "96aa4879e304e525b74141bf1bc072c17e2b90c5b35250a2d18cbd2b8d4172ac";
 
 /** Minimal shape of the `nconf` config object this guard needs — matches `config.sql.ts`/`config.mongo.ts`'s export. */
 export interface SecretsConfig {
@@ -64,6 +68,11 @@ export function assertProductionSecretsAreSet(config: SecretsConfig, environment
         { envVar: "COOKIE_SECRET", value: config.get("cookie_secret"), expected: DEFAULT_COOKIE_SECRET },
         { envVar: "AUTH__SECRET", value: config.get("auth:secret"), expected: DEFAULT_AUTH_SECRET },
         { envVar: "SESSION__SECRET", value: config.get("session:secret"), expected: DEFAULT_SESSION_SECRET },
+        {
+            envVar: "AUTH__OAUTH_SERVER__KEYS__ENCRYPTION_KEY",
+            value: config.get("auth:oauth_server:keys:encryption_key"),
+            expected: DEFAULT_OAUTH_SERVER_ENCRYPTION_KEY,
+        },
     ].filter((entry) => entry.value === entry.expected);
 
     if (insecureDefaults.length > 0) {

@@ -12,7 +12,13 @@ Keep entries terse — this is a reference, not a transcript.
 ## Standing decisions
 
 - **Commit discipline.** Don't `git commit` unless explicitly asked, even after a full
-  review-and-fix cycle with passing tests. Leave changes staged/unstaged and say so.
+  review-and-fix cycle with passing tests. Leave changes staged/unstaged and say so. Approval for
+  one task doesn't carry over to the next one in the same session — re-check every time.
+- **Commit message style: one line per task/feature/fix, no multi-line explanations.** Each line of
+  a commit message body gets appended as its own row in `CHANGELOG.md` by this org's release
+  tooling — a multi-sentence or multi-paragraph line pollutes the generated changelog directly, not
+  just `git log`. Put real explanations in `RELEASE_NOTES.md` (human-curated) instead. Keep the
+  `Co-Authored-By` trailer as usual.
 - **This is a monorepo checkout, not isolated packages.** `auth-server` sits alongside its own
   `@rapidrest/*` dependencies as sibling directories under `d:\github\rapidrest\`: `auth`,
   `core`, `react`, `service-core`, `cli`. All are owned by the same author (Jean-Philippe
@@ -126,6 +132,72 @@ Keep entries terse — this is a reference, not a transcript.
   editor's diagnostics, for this directory.
 
 ## Session Log
+
+### 2026-09-05 — Phase B: wired `@rapidrest/auth`'s OAuth 2.0/OIDC authorization server into this app (backend only)
+
+Bumped `@rapidrest/auth` to `^2.0.0-beta.2` (published; see the sibling `auth` repo's own
+`.claude/NOTES.md` for how the library-side work — signing keys, `Client` model,
+`BaseOAuthClientRoute`, full Authorization Code/PKCE/refresh/client_credentials/revoke/introspect/
+discovery/userinfo surface — got there). This session only did the backend wiring (Phase B of the
+cross-repo plan); the admin-console CRUD UI (Phase C) and public consent screen (Phase D) are not
+started yet.
+
+- **New model re-exports**: `src/sql/Models.ts`/`src/mongo/Models.ts` gained `Client`,
+  `AuthorizationCode`, `ConsentGrant`, `OAuthRefreshToken`, `SigningKey` (SQL/Mongo variants),
+  matching the existing `export { UserSQL, ... }` shape.
+- **New route files** (one per datastore, 8 total): `OAuthAuthorizeRoute`, `OAuthTokenRoute`,
+  `OAuthJwksRoute`, `OAuthRevokeRoute`, `OAuthIntrospectRoute`, `OAuthUserInfoRoute`,
+  `OAuthDiscoveryRoute`, `OAuthClientRoute`, all under `src/{sql,mongo}/routes/`.
+- **Important routing decision: used the bare `@Route(...)` decorator, NOT `@ApiRoute(...)`, for
+  every one of these.** `@ApiRoute` unconditionally prepends `/api` (see
+  `RouteDecorators.ApiRoute` in `service-core`) — fine for this app's existing CRUD resources
+  (`/api/users`, etc.), but wrong here: `/.well-known/openid-configuration`,
+  `/.well-known/oauth-authorization-server`, and `/.well-known/jwks.json` are RFC 5785/8414
+  path-mandated to live at the site root, and the plan's own path table lists every other OAuth
+  endpoint (`/oauth/authorize`, `/oauth/token`, `/oauth/clients`, etc.) the same way. **If a future
+  OAuth-surface route is added here, use `@Route(...)` like these, not `@ApiRoute(...)`.**
+- Only `OAuthAuthorizeRoute` and `OAuthDiscoveryRoute` needed any code beyond a one-line class
+  binding: the former sets `resourceOwnerStrategies = ["jwt"]` (sufficient on its own — any
+  successful sign-in this app supports, including a federated Google/Microsoft/Apple/Facebook
+  login, already populates the session `resolveUserUid()`'s fast path reads); the latter overrides
+  `endpoints` as a getter built from `this.issuer` (itself `@Config`-injected by the base class),
+  since TS allows an accessor to satisfy an abstract property. Every other new file is a one-line
+  `@Route(path) class X extends BaseXRouteSQL/Mongo {}` binding — the SQL/Mongo split classes
+  upstream already bind every model-class abstract field.
+- **New config**: `auth:oauth_server` block added to both `config.sql.ts`/`config.mongo.ts` (right
+  after the existing `totp` block, alongside the other `auth:*` provider blocks) —
+  `issuer` (default `http://localhost:3001`, matching `rapidrest dev`'s first-choice port; must be
+  overridden to the real deployment origin), `keys.{encryption_key,rotationIntervalDays,
+  retirementGraceDays}`, `codeTTL`/`consentTicketTTL`/`accessTokenTTL`/`idTokenTTL`/
+  `refreshTokenTTL`, `supportedScopes`. **Verified every one of these config key names/shapes by
+  reading the installed `@rapidrest/auth` package's own compiled source/`.d.ts` files directly**
+  (`grep -n "@Config" node_modules/@rapidrest/auth/dist/lib/**/*.js`) rather than trusting the
+  original cross-repo plan's speculative names — this caught that the plan's guessed
+  `pendingRequestTTL`/`dynamicRegistration.*` keys don't actually exist (the real key is
+  `consentTicketTTL`; dynamic registration is still deferred so has no config surface yet). Do this
+  same verification step again for any future `auth:oauth_server:*` key before wiring it in.
+- Added `DEFAULT_OAUTH_SERVER_ENCRYPTION_KEY` (a real, checked-in-plaintext 64-hex-char placeholder,
+  machine-verified length via `wc -c`/regex before committing to it) to `config.defaults.ts`, and
+  added it to `assertProductionSecretsAreSet()`'s **hard-fail** set (same treatment as
+  `auth:secret`/`cookie_secret`/`session:secret` — this is real key material, not a third-party
+  placeholder like the OAuth provider credentials, which only warn).
+- No seed job added for a first `Client` — Phase C's admin UI will be how the first one gets
+  created, same as this app's existing admin *user* seeding is sufficient to reach the admin
+  console today.
+- **Coverage gap found and fixed**: `OAuthDiscoveryRoute`'s `endpoints` getter was never exercised
+  by any existing test (`Server.sql.test.ts`/`Server.mongo.test.ts` prove routes register/start
+  cleanly, but never call this specific endpoint) — added
+  `test/OAuthDiscoveryRoute.{sql,mongo}.test.ts`, isolated unit tests in the same style as
+  `test/AuthGoogleRoute.sql.test.ts`, asserting the exact URLs built from a manually-set `issuer`.
+  Full suite: 568/568 passing, 100% coverage on all four metrics after this fix.
+- Did not do a live manual `server.sql.ts`/`server.mongo.ts` run + curl against
+  `/.well-known/openid-configuration`/`jwks.json` (the plan's own suggested verification step) —
+  `Server.sql.test.ts`/`Server.mongo.test.ts` already start a real in-process server with every new
+  route registered via the real `ObjectFactory`/`ClassLoader` path (against sqlite + a fake-Redis,
+  not real infra) and pass cleanly, which already rules out the failure mode a manual run would
+  have caught (a missing abstract field or bad `@Config` path throwing at startup). Offered to do
+  the live check anyway if asked.
+- Nothing committed yet — per standing decision, left staged/unstaged for review.
 
 ### 2026-08-25 — Docker/Helm deployment review, chart adapted from petstore scaffold to a real one
 

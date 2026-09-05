@@ -20,6 +20,7 @@ import {
     DEFAULT_MICROSOFT_CLIENT_ID,
     DEFAULT_MICROSOFT_CLIENT_SECRET,
     DEFAULT_MICROSOFT_TENANT,
+    DEFAULT_OAUTH_SERVER_ENCRYPTION_KEY,
     DEFAULT_SESSION_SECRET,
 } from "./config.defaults.js";
 
@@ -166,6 +167,30 @@ conf.defaults({
             period: 30,
             algorithm: "sha1",
             epochTolerance: [5, 0],
+        },
+        // Settings for this deployment acting as its own OAuth 2.0 / OpenID Connect authorization
+        // server (as opposed to the `google`/`microsoft`/`apple`/`facebook` blocks above, which are
+        // this app acting as a *relying party* against someone else's IdP).
+        oauth_server: {
+            // This server's own public origin — stamped into every issued token's `iss` claim and
+            // used to build the absolute endpoint URLs in the discovery document. Must be overridden
+            // to the deployment's real public base URL; the default matches `rapidrest dev`'s
+            // first-choice port.
+            issuer: "http://localhost:3001",
+            keys: {
+                // 64-character hex AES-256 key encrypting signing-key private material at rest. Real
+                // secret, not a placeholder — see `DEFAULT_OAUTH_SERVER_ENCRYPTION_KEY`'s own doc
+                // comment and `assertProductionSecretsAreSet()`.
+                encryption_key: DEFAULT_OAUTH_SERVER_ENCRYPTION_KEY,
+                rotationIntervalDays: 30,
+                retirementGraceDays: 7,
+            },
+            codeTTL: "60s",
+            consentTicketTTL: "10m",
+            accessTokenTTL: "15m",
+            idTokenTTL: "15m",
+            refreshTokenTTL: "30d",
+            supportedScopes: ["openid", "profile", "email", "phone", "offline_access"],
         },
     },
     oauth_provider: {
