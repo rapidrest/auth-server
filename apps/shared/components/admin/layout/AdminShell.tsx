@@ -94,6 +94,7 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
                                 <span>RapidREST Admin</span>
                             </a>
                             <a href="/admin">Users</a>
+                            <a href="/admin/oauth-clients">OAuth Clients</a>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                             {currentUser && <span className="rr-hint">{currentUser.uid}</span>}

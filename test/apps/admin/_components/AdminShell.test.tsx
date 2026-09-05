@@ -81,6 +81,7 @@ describe("AdminShell", () => {
         expect(await screen.findByText("content")).toBeInTheDocument();
         expect(screen.getByText("admin-1")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute("href", "/admin");
+        expect(screen.getByRole("link", { name: "OAuth Clients" })).toHaveAttribute("href", "/admin/oauth-clients");
 
         await user.click(screen.getByRole("button", { name: "Sign out" }));
         expect(location.href).toBe("/auth/signin");

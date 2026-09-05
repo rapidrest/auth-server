@@ -219,3 +219,98 @@ export function upsertUserProfile(uid: string, input: UserProfileInput, existing
 export function ensureElevated(): Promise<unknown> {
     return apiFetch("/admin/release-notes");
 }
+
+/**
+ * A registered OAuth 2.0 / OpenID Connect client application. Mirrors `@rapidrest/auth`'s `Client`
+ * interface. `clientSecret` is only ever present in the response to `createClient()`/
+ * `regenerateClientSecret()` — the plaintext secret is shown exactly once and never persisted or
+ * retrievable again after that (see `BaseOAuthClientRoute`'s own doc comments upstream).
+ */
+export interface AdminClient {
+    uid: string;
+    version: number;
+    dateCreated: string;
+    dateModified: string;
+    clientId: string;
+    clientType: "confidential" | "public";
+    clientName: string;
+    redirectUris: string[];
+    grantTypes: string[];
+    responseTypes: string[];
+    scope: string;
+    tokenEndpointAuthMethod: "client_secret_basic" | "client_secret_post" | "private_key_jwt" | "none";
+    requirePkce: boolean;
+    ownerUid?: string;
+    firstParty: boolean;
+    disabled?: boolean;
+    clientSecret?: string;
+}
+
+export interface ListClientsParams {
+    page?: number;
+    limit?: number;
+}
+
+const DEFAULT_CLIENT_PAGE_SIZE = 25;
+
+/** Lists OAuth clients — every client for an admin caller, only the caller's own for a non-admin owner. */
+export function listClients(params: ListClientsParams = {}): Promise<AdminClient[]> {
+    const limit = params.limit ?? DEFAULT_CLIENT_PAGE_SIZE;
+    return apiFetch(`/oauth/clients?limit=${limit}&page=${params.page ?? 0}`);
+}
+
+/** Fetches a single OAuth client by its record `uid` (not its `clientId`). */
+export function getClient(uid: string): Promise<AdminClient> {
+    return apiFetch(`/oauth/clients/${encodeURIComponent(uid)}`);
+}
+
+export interface CreateClientInput {
+    clientName: string;
+    clientType: "confidential" | "public";
+    redirectUris: string[];
+    grantTypes: string[];
+    responseTypes: string[];
+    scope: string;
+    tokenEndpointAuthMethod: "client_secret_basic" | "client_secret_post" | "none";
+    firstParty: boolean;
+}
+
+/**
+ * Registers a new OAuth client. For a `confidential` client, the response's `clientSecret` is the
+ * plaintext secret — display it once (see `RevealSecretModal`) and never fetch it again.
+ */
+export function createClient(input: CreateClientInput): Promise<AdminClient> {
+    return apiFetch("/oauth/clients", { method: "POST", body: JSON.stringify(input) });
+}
+
+export interface UpdateClientInput {
+    uid: string;
+    /** Must be the `version` from the most recently fetched copy of this client (optimistic concurrency). */
+    version: number;
+    clientName?: string;
+    redirectUris?: string[];
+    grantTypes?: string[];
+    responseTypes?: string[];
+    scope?: string;
+    tokenEndpointAuthMethod?: "client_secret_basic" | "client_secret_post" | "none";
+    firstParty?: boolean;
+    disabled?: boolean;
+}
+
+export function updateClient(input: UpdateClientInput): Promise<AdminClient> {
+    return apiFetch(`/oauth/clients/${encodeURIComponent(input.uid)}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+/** Deletes an OAuth client. `purge` bypasses the soft-delete and permanently erases the record. */
+export function deleteClient(uid: string, version: number, purge = false): Promise<void> {
+    const query = `version=${version}${purge ? "&purge=true" : ""}`;
+    return apiFetch(`/oauth/clients/${encodeURIComponent(uid)}?${query}`, { method: "DELETE" });
+}
+
+/**
+ * Generates a new secret for a `confidential` client, invalidating the previous one. The returned
+ * `clientSecret` is the new plaintext secret, shown once — same one-time-reveal contract as `createClient()`.
+ */
+export function regenerateClientSecret(uid: string): Promise<{ clientSecret: string }> {
+    return apiFetch(`/oauth/clients/${encodeURIComponent(uid)}/regenerate-secret`, { method: "POST" });
+}

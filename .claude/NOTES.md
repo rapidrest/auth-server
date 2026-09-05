@@ -133,6 +133,47 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-05 (later) — Phase C: admin console CRUD UI for OAuth Clients
+
+Built the `apps/admin/oauth-clients/*` screens on top of Phase B's backend wiring, mirroring the
+existing Users admin screens file-for-file (list/new/detail pages, table/form/modal components,
+`adminApi.ts` functions, `AdminShell` nav link).
+
+- **New `apps/shared/lib/adminApi.ts` exports**: `AdminClient` type, `listClients`/`getClient`/
+  `createClient`/`updateClient`/`deleteClient`/`regenerateClientSecret` — same
+  `apiFetch`-wrapper shape as the existing `list/get/create/update/deleteUser` functions.
+- **New components** under `apps/shared/components/admin/oauth-clients/`: `ClientTable` (mirrors
+  `UserTable`), `CreateClientForm` (mirrors `CreateUserForm`), `DeleteClientModal` (mirrors
+  `DeleteUserModal`), `ClientOverviewCard` (mirrors `UserOverviewCard` — edit-in-place for name/
+  redirect URIs/grant types/response types/scope/firstParty/disabled), `ClientSecretCard` (new —
+  the "Regenerate secret" button, only rendered for a `confidential` client), `RevealSecretModal`
+  (new — the one-time plaintext-secret display, styled after `TotpSecretForm`'s existing "shown
+  once, plain `<code>` text, no copy-to-clipboard" precedent in `apps/shared/components/account/
+  secrets/`).
+- **New pages**: `apps/admin/oauth-clients/index.tsx` (list + pagination + delete, no search bar —
+  not asked for), `.../new/index.tsx`, `.../detail/index.tsx` (`?uid=` query param, same
+  `readTargetUid()`/SSR-guard pattern as `apps/admin/users/detail/index.tsx`).
+- **One UX wrinkle `apps/admin/users/new` doesn't have to solve**: a *public* client's
+  `createClient()` response never carries a `clientSecret` (none is ever generated for one), so
+  `NewOAuthClientPage.handleCreated()` branches — reveal-then-redirect for a confidential client's
+  secret, immediate redirect for a public client. Don't assume every "create" response needs the
+  reveal-modal treatment when adding a similar flow elsewhere.
+- Added the `OAuth Clients` nav link to `AdminShell.tsx` next to the existing `Users` link, and
+  extended `AdminShell.test.tsx`'s existing render test to assert on it too rather than adding a
+  whole separate test for one link.
+- Full test suite added under `test/apps/admin/_components/*.test.tsx` and
+  `test/apps/admin/oauth-clients/*.test.tsx`, mirroring the Users equivalents test-for-test
+  (including the `detail.ssr.test.tsx` no-`window` guard test). **Three coverage gaps found on the
+  first full-suite run** (all "the exact one branch nobody clicked" cases, not logic bugs): the
+  `disabled` checkbox's `onChange`, `RevealSecretModal`'s `onClose` handler wired from
+  `ClientSecretCard` (never closed once opened, in the original test), and
+  `CreateClientForm`'s `client_secret_post` option (only `client_secret_basic`, the default, was
+  ever selected). Fixed by adding one targeted test each — same "did the last full-suite run
+  actually hit every branch" habit that mattered for Phase A/B too.
+- Final: 637/637 tests passing, 100% coverage on all four metrics, clean `yarn build`. Nothing
+  committed yet at the time this entry was written — per standing decision, left staged/unstaged
+  for review; check current `git status`/history for whether that's since changed.
+
 ### 2026-09-05 — Phase B: wired `@rapidrest/auth`'s OAuth 2.0/OIDC authorization server into this app (backend only)
 
 Bumped `@rapidrest/auth` to `^2.0.0-beta.2` (published; see the sibling `auth` repo's own
@@ -149,13 +190,24 @@ started yet.
   `OAuthJwksRoute`, `OAuthRevokeRoute`, `OAuthIntrospectRoute`, `OAuthUserInfoRoute`,
   `OAuthDiscoveryRoute`, `OAuthClientRoute`, all under `src/{sql,mongo}/routes/`.
 - **Important routing decision: used the bare `@Route(...)` decorator, NOT `@ApiRoute(...)`, for
-  every one of these.** `@ApiRoute` unconditionally prepends `/api` (see
+  every protocol-mandated OAuth/OIDC endpoint** (`OAuthAuthorizeRoute`, `OAuthTokenRoute`,
+  `OAuthJwksRoute`, `OAuthRevokeRoute`, `OAuthIntrospectRoute`, `OAuthUserInfoRoute`,
+  `OAuthDiscoveryRoute`). `@ApiRoute` unconditionally prepends `/api` (see
   `RouteDecorators.ApiRoute` in `service-core`) — fine for this app's existing CRUD resources
   (`/api/users`, etc.), but wrong here: `/.well-known/openid-configuration`,
   `/.well-known/oauth-authorization-server`, and `/.well-known/jwks.json` are RFC 5785/8414
-  path-mandated to live at the site root, and the plan's own path table lists every other OAuth
-  endpoint (`/oauth/authorize`, `/oauth/token`, `/oauth/clients`, etc.) the same way. **If a future
-  OAuth-surface route is added here, use `@Route(...)` like these, not `@ApiRoute(...)`.**
+  path-mandated to live at the site root, and the other bare `/oauth/*` endpoints need to match what
+  the discovery document actually advertises. **`OAuthClientRoute` is the one exception** — it's
+  reverted back to `@ApiRoute("/oauth/clients")` (→ `/api/oauth/clients`), added during Phase C.
+  Unlike the others, `Client` CRUD isn't a spec-mandated endpoint at all (RFC 6749/8414 never
+  mention client-management) — it's an ordinary admin/owner-managed REST resource whose only
+  consumer is this app's own admin console via `apiFetch()`, which (a) hardcodes the `/api` prefix
+  (see its own doc comment: "`path` is the route as declared by `@ApiRoute`") and (b) is what gives
+  every call its transparent `@RequiresElevation` retry handling — `BaseOAuthClientRoute`'s
+  mutating endpoints all carry that decorator, so reaching it any other way would silently lose
+  step-up re-auth handling in the admin UI. **If a future OAuth-surface route is added here: use
+  bare `@Route(...)` for a real protocol endpoint, `@ApiRoute(...)` for an admin-only management
+  resource like this one.**
 - Only `OAuthAuthorizeRoute` and `OAuthDiscoveryRoute` needed any code beyond a one-line class
   binding: the former sets `resourceOwnerStrategies = ["jwt"]` (sufficient on its own — any
   successful sign-in this app supports, including a federated Google/Microsoft/Apple/Facebook
