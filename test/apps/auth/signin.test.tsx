@@ -53,7 +53,7 @@ import {
     verifyMfaFido2,
     verifyPasskeySignIn,
 } from "../../../apps/shared/lib/api.js";
-import SignInPage from "../../../apps/www/auth/signin/index.js";
+import SignInPage, { isSafeReturnTo, readReturnTo } from "../../../apps/www/auth/signin/index.js";
 
 const mockedStartAuthentication = vi.mocked(startAuthentication);
 const mockedBeginMfaChallenge = vi.mocked(beginMfaChallenge);
@@ -553,6 +553,78 @@ describe("SignInPage — password method", () => {
         await user.click(screen.getByRole("button", { name: "Sign in" }));
 
         expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    });
+});
+
+describe("SignInPage — returnTo hand-off", () => {
+    function stubLocationWithSearch(search: string): { href: string; search: string } {
+        const location = { href: "", search };
+        Object.defineProperty(window, "location", { configurable: true, writable: true, value: location });
+        return location;
+    }
+
+    it("redirects to a safe returnTo target after signing in", async () => {
+        const location = stubLocationWithSearch(`?returnTo=${encodeURIComponent("/auth/authorize?client_id=abc")}`);
+        const user = userEvent.setup();
+        await goToChallenge(user, "Password", ALL_METHODS, "a@example.com");
+        mockedSignInWithPassword.mockResolvedValueOnce(AUTH_RESULT);
+
+        await user.type(screen.getByLabelText("Password"), "hunter2");
+        await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+        await waitFor(() => expect(location.href).toBe("/auth/authorize?client_id=abc"));
+    });
+
+    it("falls back to /account when returnTo is an open-redirect attempt", async () => {
+        const location = stubLocationWithSearch(`?returnTo=${encodeURIComponent("//evil.com")}`);
+        const user = userEvent.setup();
+        await goToChallenge(user, "Password", ALL_METHODS, "a@example.com");
+        mockedSignInWithPassword.mockResolvedValueOnce(AUTH_RESULT);
+
+        await user.type(screen.getByLabelText("Password"), "hunter2");
+        await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+        await waitFor(() => expect(location.href).toBe("/account"));
+    });
+});
+
+describe("isSafeReturnTo", () => {
+    it("accepts a plain same-origin relative path", () => {
+        expect(isSafeReturnTo("/account")).toBe(true);
+        expect(isSafeReturnTo("/auth/authorize?client_id=abc")).toBe(true);
+    });
+
+    it("rejects a value that isn't a relative path at all", () => {
+        expect(isSafeReturnTo("https://evil.com")).toBe(false);
+        expect(isSafeReturnTo("javascript:alert(1)")).toBe(false);
+    });
+
+    it("rejects a protocol-relative URL (//host)", () => {
+        expect(isSafeReturnTo("//evil.com")).toBe(false);
+    });
+
+    it("rejects a leading-backslash variant some browsers normalize to //host", () => {
+        expect(isSafeReturnTo("/\\evil.com")).toBe(false);
+    });
+
+    it("rejects a tab-injected variant that would still parse as //host once tabs are stripped", () => {
+        expect(isSafeReturnTo("/\t/evil.com")).toBe(false);
+    });
+});
+
+describe("readReturnTo", () => {
+    it("returns the returnTo query param when present", () => {
+        Object.defineProperty(window, "location", {
+            configurable: true,
+            writable: true,
+            value: { search: "?returnTo=%2Faccount" },
+        });
+        expect(readReturnTo()).toBe("/account");
+    });
+
+    it("returns null when there is no returnTo param", () => {
+        Object.defineProperty(window, "location", { configurable: true, writable: true, value: { search: "" } });
+        expect(readReturnTo()).toBeNull();
     });
 });
 

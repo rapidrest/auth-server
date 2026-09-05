@@ -133,6 +133,67 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-05 (later still) — Phase D: public `/authorize` consent screen + `returnTo` on sign-in
+
+Final phase of the cross-repo OAuth wiring plan — the public-facing side, on top of Phase B's backend
+and Phase C's admin console.
+
+- **New page `apps/www/auth/authorize/index.tsx`**: reads the OAuth request's own query params via
+  `fetchProps(req)` (`response_type`/`client_id`/`redirect_uri`/`scope`/`state`/`code_challenge`/
+  `code_challenge_method`/`nonce`/`prompt`, passed through unmodified), plus the framework-injected
+  `userUid`. No `userUid` → `window.location.replace` to `/auth/signin?returnTo=<this page's own
+  URL, re-encoded>`. With a session, calls the new `requestAuthorization()` and branches on the
+  outcome: `{redirectTo}` → navigate immediately (covers both a successful code issuance and a
+  spec-shaped `?error=...` redirect — `BaseOAuthAuthorizeRoute.buildErrorRedirect()` returns the same
+  shape as success); `{loginRequired:true}` → same sign-in redirect (defensive — session may have
+  expired between page load and the call); `{consentRequired:true, requestId, client}` → renders the
+  consent card (client name/logo, a human-readable scope list via a small `describeScope()` map,
+  Approve/Deny). Approve/Deny both call `submitConsent(requestId, approved)`, which always resolves
+  to `{redirectTo}` (a denial redirects with `?error=access_denied` rather than throwing) — passed
+  `consent.requestId` directly from the already-narrowed value at the call site rather than
+  re-deriving it from state inside the handler, so there's no unreachable "shouldn't happen" branch
+  to leave uncovered.
+- **New `apps/shared/lib/api.ts` additions**: `AuthorizeQueryParams`/`AuthorizeClientSummary`/
+  `AuthorizeOutcome` types, `requestAuthorization()`, `submitConsent()`, and a new internal
+  `oauthFetch()` helper. **`oauthFetch` exists because `apiFetch()` can't be reused as-is** — it
+  hardcodes an `/api` prefix, but `/oauth/authorize`/`/oauth/authorize/consent` are deliberately bare
+  paths (see Phase B's note above on `@Route` vs `@ApiRoute`). `oauthFetch` duplicates `apiFetch`'s
+  error-decoding (including the same `res.json().catch(() => undefined)` malformed-body guard — don't
+  forget a test for that specific branch when copying this pattern again, it's easy to miss) but
+  intentionally does NOT replicate the `api-104` elevation-retry logic, since neither endpoint is
+  `@RequiresElevation`-gated.
+- **All exact query-param names, response shapes, and error semantics were verified by reading
+  `@rapidrest/auth`'s compiled `BaseOAuthAuthorizeRoute.js` directly**, not assumed from the original
+  plan — confirmed e.g. that `buildErrorRedirect()` returns the same `{redirectTo}` shape as success
+  (so the page needs only one navigate-away branch, not a separate error-redirect case).
+- **`returnTo` added to `apps/www/auth/signin/index.tsx`**: `readReturnTo()` reads `?returnTo=`;
+  `isSafeReturnTo()` gates it before ever assigning to `window.location.href` — same-origin relative
+  paths only. Rejects: no leading `/` at all (an absolute URL, `javascript:`, etc.), a leading `//`
+  (protocol-relative URL — same scheme, different host), a leading `/\` (some browsers normalize a
+  leading backslash to a second forward slash). **Also strips tab/CR/LF characters before those
+  checks**, matching the WHATWG URL parser's own preprocessing — otherwise something like
+  `"/\t/evil.com"` would pass a naive prefix check here but still get parsed by the browser as
+  `"//evil.com"` once assigned. This is a real, known bypass class for exactly this kind of check, not
+  a hypothetical — don't drop the stripping step if this logic is ever touched again.
+- Full test suite added: `test/apps/auth/authorize.test.tsx` (jsdom, interactive), `test/apps/_lib/
+  authorize.test.ts` (the two new `api.ts` functions, including bare-path assertions and every
+  `oauthFetch` error-decoding branch), plus a `returnTo`-focused block added to the existing
+  `signin.test.tsx` and a `signin.ssr.test.tsx` for `readReturnTo()`'s no-`window` branch.
+- **Two rounds of coverage gaps found and fixed on full-suite runs** (same "did the last run actually
+  hit every branch" habit as every prior phase): (1) the unreachable `handleDecision` guard mentioned
+  above — fixed by removing the guard entirely rather than contriving a test for dead code; (2) the
+  `email`/`phone`/`offline_access` branches of `describeScope()` were never exercised (only
+  `openid`/`profile`/the unknown-scope fallback were); (3) `oauthFetch`'s malformed-JSON-despite-
+  `application/json`-header fallback (mirrors `apiFetch`'s own equivalent, already tested elsewhere in
+  `api.test.ts` — easy to forget to re-test when duplicating the pattern, as it was here).
+- Final: 674/674 tests passing, 100% coverage on all four metrics, clean `yarn build`. **This
+  completes all four phases of the OAuth wiring plan** (backend routes, admin Client CRUD, public
+  consent screen). Not yet done: the plan's own end-to-end manual verification step (register a test
+  `Client` via the admin UI, drive the full authorize→consent→token→userinfo flow through a real
+  browser or script against a running server) — automated tests give strong confidence but this
+  hasn't been exercised against a live deployment. Nothing committed yet at the time this entry was
+  written — check current `git status`/history for whether that's since changed.
+
 ### 2026-09-05 (later) — Phase C: admin console CRUD UI for OAuth Clients
 
 Built the `apps/admin/oauth-clients/*` screens on top of Phase B's backend wiring, mirroring the

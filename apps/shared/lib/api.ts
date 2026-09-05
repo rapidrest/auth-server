@@ -648,3 +648,81 @@ export function getAccount(id = "me"): Promise<AccountData> {
 export function deleteAccount(id = "me"): Promise<void> {
     return apiFetch(`/accounts/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
+
+/**
+ * `fetch()` against this app's own OAuth 2.0 / OpenID Connect authorization-server endpoints
+ * (`/oauth/...`) — unlike every other route in this app, these are deliberately mounted at bare paths
+ * rather than under `/api`, matching the absolute URLs this server's own discovery document advertises
+ * (see `BaseOAuthDiscoveryRoute` upstream). `apiFetch()` can't be reused as-is since it hardcodes the
+ * `/api` prefix; the error-decoding behavior is otherwise identical. Elevation retry (`apiFetch`'s own
+ * `api-104` handling) is intentionally not replicated — neither `/oauth/authorize` nor
+ * `/oauth/authorize/consent` is `@RequiresElevation`-gated.
+ */
+async function oauthFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+    const headers = new Headers(init.headers);
+    headers.set("Content-Type", "application/json");
+
+    const res = await fetch(path, { ...init, headers });
+    const contentType = res.headers.get("content-type") ?? "";
+    const body = contentType.includes("application/json") ? await res.json().catch(() => undefined) : undefined;
+
+    if (!res.ok) {
+        const message = (body && (body.message || body.error)) || res.statusText || "Request failed.";
+        throw new ApiRequestError(message, res.status, body?.code);
+    }
+
+    return body as T;
+}
+
+/** The subset of an OAuth 2.0 authorization request's query parameters this app's `/authorize` page forwards as-is. */
+export interface AuthorizeQueryParams {
+    response_type?: string;
+    client_id?: string;
+    redirect_uri?: string;
+    scope?: string;
+    state?: string;
+    code_challenge?: string;
+    code_challenge_method?: string;
+    nonce?: string;
+    prompt?: string;
+}
+
+/** The registered client's own consent-screen-facing details, as returned alongside a pending consent decision. */
+export interface AuthorizeClientSummary {
+    clientName: string;
+    logoUri?: string;
+    /** Space-delimited, already down-selected to the intersection of what was requested and what the client may ask for. */
+    scope: string;
+}
+
+export type AuthorizeOutcome =
+    | { redirectTo: string }
+    | { consentRequired: true; requestId: string; client: AuthorizeClientSummary }
+    | { loginRequired: true };
+
+/**
+ * Submits an OAuth 2.0 authorization request on behalf of the currently signed-in resource owner (cookie
+ * auth rides along automatically, same as every other same-origin request in this app). Resolves to
+ * exactly one of: `{redirectTo}` (nothing further needed — go there immediately, whether that's the
+ * client's own `redirect_uri` on success or a spec-shaped `?error=...` redirect), `{consentRequired,
+ * requestId, client}` (render the consent card), or `{loginRequired}` (the session isn't authenticated
+ * after all — defensive; the page's own `userUid` check should normally catch this first).
+ */
+export function requestAuthorization(params: AuthorizeQueryParams): Promise<AuthorizeOutcome> {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (value) {
+            query.set(key, value);
+        }
+    }
+    return oauthFetch(`/oauth/authorize?${query.toString()}`);
+}
+
+/**
+ * Records the resource owner's approve/deny decision for a pending consent request (`requestId` from
+ * `requestAuthorization()`'s `consentRequired` outcome). Always resolves to `{redirectTo}` — a denial
+ * redirects to the client's `redirect_uri` with `?error=access_denied` rather than throwing.
+ */
+export function submitConsent(requestId: string, approved: boolean): Promise<{ redirectTo: string }> {
+    return oauthFetch("/oauth/authorize/consent", { method: "POST", body: JSON.stringify({ requestId, approved }) });
+}
