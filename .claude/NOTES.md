@@ -133,6 +133,60 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-06 — real end-to-end OAuth integration test; found and fixed two real bugs along the way
+
+Built `test/OAuthIntegration.{sql,mongo}.test.ts`: a genuine end-to-end test against a real (if
+lightweight) running server — register a client via the owner API → `/oauth/authorize` (no session →
+consent required) → approve consent → exchange the code at `/oauth/token` with real PKCE → verify the
+access token's signature against the live `/.well-known/jwks.json` → call `/oauth/userinfo` with the
+bearer token and check it reflects a *genuinely OTP-verified* profile contact → redeem the refresh
+token (rotation) → confirm reusing the retired one is rejected. This is the manual checklist from the
+original cross-repo wiring plan, now automated. Both pass; full suite still 676/676, 100% coverage.
+
+**Two real bugs found and fixed via this test — this is exactly the kind of gap a "wire it all
+together" integration test exists to catch, that mocked unit/component tests structurally cannot:**
+
+1. **`@rapidrest/auth`'s `BaseOAuthClientRoute` never generated a `clientId`** — it silently persisted
+   the model's empty-string default on every create. Since `clientId` has a **unique index**, the
+   *second* client ever created in a real deployment would have failed outright.
+   **Superseded same day**: rather than just generating one server-side, the upstream `auth` repo
+   removed the separate `clientId` field from `Client` entirely — `Client.uid` (already unique,
+   auto-generated, exposed in every API response) is now the OAuth `client_id` everywhere (see the
+   `auth` repo's own `.claude/NOTES.md`, 2026-09-06 entry, "`Client.clientId` removed entirely").
+   **Propagated here same day**: this repo's `node_modules/@rapidrest/auth` dist was refreshed
+   wholesale from `auth`'s own freshly-built `dist/` (superseding the now-obsolete
+   generate-a-clientId patch), and `test/OAuthIntegration.{sql,mongo}.test.ts` updated to read
+   `createClientRes.body.uid` instead of `.clientId`. `yarn build` clean; both integration test
+   files pass; full suite 676/676 at 100% coverage on all four metrics. **Still not published** —
+   the `node_modules` dist refresh is local-testing-only and will revert to the stale published
+   `2.0.0-beta.2` behavior on the next clean `yarn install`, same caveat as before. Once
+   `@rapidrest/auth` is actually published with this refactor: bump `package.json`'s version
+   constraint and `yarn install` for real — no further test changes needed at that point, since
+   they already reflect the `uid`-based model.
+2. **`auth-server` itself was still on the pre-fix `@rapidrest/core@^5.1.0`** — the real
+   `"algorithms" is not allowed in "options"` JWT-signing bug (see [[project_rapidrest_core_sibling]])
+   was published as a fix in `5.2.0` back on 2026-09-05, but nothing in this app's own dependency
+   range had ever required bumping to it, because nothing here ever signed a token with an asymmetric
+   (RSA) key before the OAuth authorization-server work — every prior use of `JWTUtils` in this app
+   used a shared HMAC secret, where the bug never triggers. **Fixed**: bumped `@rapidrest/core` to
+   `^5.2.0` in `package.json` and reinstalled — this one **is** a real, permanent fix in this repo,
+   not a local-only patch.
+
+**Also found and fixed a real bare-path query-encoding gotcha**, not a product bug but worth
+remembering for any future test/client hitting `/oauth/authorize` directly: `URLSearchParams`'s
+`.toString()` encodes a space as `+`, and this server's query parser does not decode `+` back to a
+space — so a scope param built via `URLSearchParams` silently arrives as one single mangled token
+that matches nothing, and `/authorize` computes an empty granted scope with no error at all. Build
+OAuth query strings by hand with `encodeURIComponent` (`%20` for a space) instead.
+
+**Extended the shared `test/helpers/FakeRedis.ts` mock** with `exists()` (a bog-standard Redis
+command, missing entirely before this) — needed by `AccessTokenDenylist`'s jti-revocation check,
+which the `/oauth/userinfo` bearer-auth path exercises for the first time in this app's test suite.
+Genuinely generic and safe to have added for any future test. By contrast, `RateLimiter`'s atomic
+`INCREX`-based command is NOT implemented in the fake (a bespoke compound operation, not a standard
+command) — rate limiting is disabled outright (`auth:rateLimit: {enabled: false}`) in both new
+integration test files rather than extending the fake for that one case.
+
 ### 2026-09-05 (later still) — Phase D: public `/authorize` consent screen + `returnTo` on sign-in
 
 Final phase of the cross-repo OAuth wiring plan — the public-facing side, on top of Phase B's backend

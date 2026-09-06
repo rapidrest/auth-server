@@ -2,7 +2,7 @@
 // Copyright (C) 2020-2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 // A minimal in-memory fake of the `redis` (node-redis v4+) client, covering exactly the subset of the API
-// this codebase actually uses: get/set/setEx/ttl/del/unlink/scanIterator/multi(...).execAsPipeline[Typed](),
+// this codebase actually uses: get/set/setEx/ttl/exists/del/unlink/scanIterator/multi(...).execAsPipeline[Typed](),
 // publish/subscribe/unsubscribe, and connect/disconnect/duplicate/isOpen. Used in place of the no-longer
 // relevant `ioredis-mock` package now that the codebase talks to `redis` instead of `ioredis`.
 
@@ -56,6 +56,14 @@ export class FakeRedisServer {
             return -1;
         }
         return Math.max(0, Math.round((entry.expiresAt - Date.now()) / 1000));
+    }
+
+    public exists(key: string): number {
+        const entry: Entry | undefined = this.store.get(key);
+        if (!entry || this.isExpired(entry)) {
+            return 0;
+        }
+        return 1;
     }
 
     public del(keys: string | string[]): number {
@@ -197,6 +205,10 @@ export class FakeRedisClient {
 
     public async ttl(key: string): Promise<number> {
         return this.server.ttl(key);
+    }
+
+    public async exists(key: string): Promise<number> {
+        return this.server.exists(key);
     }
 
     public async del(keys: string | string[]): Promise<number> {
