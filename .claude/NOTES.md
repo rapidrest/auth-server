@@ -132,6 +132,33 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-06 (latest) — build broken by an automated dependency-bump reverting `@rapidrest/auth`; fixed
+
+Right after the `clientId`→`uid` propagation below was committed, two more commits landed on `main`
+(`abc61e7 "Upgrading @rapidrest/auth dep"`, `2135479 "Upgrading @rapidrest/react dep"`) with the exact
+mechanical shape of an automated dependency-updater (single-package `package.json`+`yarn.lock` diff, no
+other changes) — author attribution is JP's, but these were almost certainly bot-driven, not typed by
+hand. **The `@rapidrest/auth` one silently reverted the version constraint from `^2.0.0-beta.2` all the
+way back to `^1.3.0`** — a release that predates every phase of the OAuth authorization-server work.
+Likely cause: `@rapidrest/auth`'s `2.0.0` line has only ever been published as `beta.x` prereleases,
+never tagged `latest` on the registry — a naive auto-updater that only considers the `latest` dist-tag
+would see `1.3.0` as the "latest stable" and "upgrade" a beta-pinned range down to it, which is a real
+downgrade in this case. This broke `yarn build` outright (every `Models.ts`/OAuth route file failed
+with "has no exported member" — the exports were never missing from the library, the installed
+dependency was just years-old relative to this repo's own code).
+
+**Fixed**: bumped `package.json` back up — and in the process discovered `@rapidrest/auth@2.0.0-beta.3`
+is now actually published (JP must have run the release between sessions) and **already includes** the
+`Client.clientId` removal from the entry below, making this repo's local `node_modules` dist-copy
+workaround unnecessary. Constraint set to `^2.0.0-beta.3`, `yarn install`, `yarn build` clean, full
+suite 676/676 at 100% coverage on all four metrics.
+
+**Risk to watch**: whatever ran those two "Upgrading X dep" commits can silently downgrade
+`@rapidrest/auth` again the next time it runs, as long as `2.0.0` stays on prereleases only (a `beta.4`
+still won't be `latest`-tagged). If the build mysteriously breaks again with "has no exported member"
+errors for anything OAuth-related, check `git log -- package.json` for another one of these commits
+before assuming a real regression in the library.
+
 ### 2026-09-06 — real end-to-end OAuth integration test; found and fixed two real bugs along the way
 
 Built `test/OAuthIntegration.{sql,mongo}.test.ts`: a genuine end-to-end test against a real (if
