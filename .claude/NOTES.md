@@ -14,11 +14,10 @@ Keep entries terse — this is a reference, not a transcript.
 - **Commit discipline.** Don't `git commit` unless explicitly asked, even after a full
   review-and-fix cycle with passing tests. Leave changes staged/unstaged and say so. Approval for
   one task doesn't carry over to the next one in the same session — re-check every time.
-- **Commit message style: one line per task/feature/fix, no multi-line explanations.** Each line of
-  a commit message body gets appended as its own row in `CHANGELOG.md` by this org's release
-  tooling — a multi-sentence or multi-paragraph line pollutes the generated changelog directly, not
-  just `git log`. Put real explanations in `RELEASE_NOTES.md` (human-curated) instead. Keep the
-  `Co-Authored-By` trailer as usual.
+- **Commit message style: concise, one line per task/bug/feature — no verbose prose.** A commit
+  message is a short list of one-line bullets, one per item. Never a paragraph explaining what was
+  done or why for any single item — that belongs in the diff/code comments/NOTES.md, not the commit
+  message. This mirrors JP's standing convention across his other repos.
 - **This is a monorepo checkout, not isolated packages.** `auth-server` sits alongside its own
   `@rapidrest/*` dependencies as sibling directories under `d:\github\rapidrest\`: `auth`,
   `core`, `react`, `service-core`, `cli`. All are owned by the same author (Jean-Philippe
