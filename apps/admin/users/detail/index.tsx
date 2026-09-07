@@ -80,11 +80,6 @@ function UserDetailContent() {
     }
 
     async function handleImpersonate() {
-        // Only reachable via the button below, which is only rendered (and therefore only clickable) once
-        // `user` is already loaded — same reasoning as `handleConfirmDelete` above.
-        if (!window.confirm(`Impersonate '${user!.uid}'? You'll be signed in as this account until you sign out.`)) {
-            return;
-        }
         setImpersonating(true);
         setImpersonateError(null);
         try {

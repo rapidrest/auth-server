@@ -74,9 +74,6 @@ function UsersListContent() {
     }
 
     async function handleImpersonate(user: AdminUser) {
-        if (!window.confirm(`Impersonate '${user.uid}'? You'll be signed in as this account until you sign out.`)) {
-            return;
-        }
         setError(null);
         try {
             await impersonateUser(user.uid);
