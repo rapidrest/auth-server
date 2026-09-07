@@ -7,6 +7,7 @@ import { ApiRequestError, ApiUser, getCurrentUser, logout } from "../../../lib/a
 import { ensureElevated } from "../../../lib/adminApi.js";
 import { useSessionRefresh } from "../../../lib/useSessionRefresh.js";
 import ElevationHost from "../../elevation/ElevationHost.js";
+import ImpersonationBanner from "../../impersonation/ImpersonationBanner.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
 
@@ -68,6 +69,7 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
         content = (
             <div className="rr-page">
                 <div className="rr-container">
+                    <ImpersonationBanner />
                     <Alert>You do not have administrator access.</Alert>
                     <p className="rr-hint">
                         <a href="/">Return home</a>
@@ -79,6 +81,7 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
         content = (
             <div className="rr-page">
                 <div className="rr-container">
+                    <ImpersonationBanner />
                     <Alert>{error}</Alert>
                 </div>
             </div>
@@ -87,6 +90,7 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
         content = (
             <div className="rr-page">
                 <div className="rr-container rr-container--wide">
+                    <ImpersonationBanner />
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
                             <a href="/admin" className="rr-brand" style={{ flexDirection: "row", gap: "0.5rem" }}>

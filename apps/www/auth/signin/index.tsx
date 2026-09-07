@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React from "react";
+import { clearImpersonatingMarker } from "../../../shared/lib/api.js";
 import AuthShell from "../../../shared/components/layout/AuthShell.js";
 import SignInFlow from "../../../shared/components/sign-in/SignInFlow.js";
 
@@ -28,6 +29,9 @@ export function isSafeReturnTo(value: string): boolean {
 }
 
 function completeSignIn() {
+    // A fresh, non-impersonated sign-in — clears any marker left over from a previous impersonated
+    // session in this browser that was never explicitly stopped (see `isImpersonating()`'s doc comment).
+    clearImpersonatingMarker();
     const returnTo = readReturnTo();
     window.location.href = returnTo && isSafeReturnTo(returnTo) ? returnTo : "/account";
 }

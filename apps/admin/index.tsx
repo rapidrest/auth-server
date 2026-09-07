@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
-import { Alias, ApiRequestError } from "../shared/lib/api.js";
-import { AdminUser, deleteUser, listAliasesForUsers, listUsers, searchUsers } from "../shared/lib/adminApi.js";
+import { Alias, ApiRequestError, markImpersonating } from "../shared/lib/api.js";
+import { AdminUser, deleteUser, impersonateUser, listAliasesForUsers, listUsers, searchUsers } from "../shared/lib/adminApi.js";
 import AdminShell from "../shared/components/admin/layout/AdminShell.js";
 import UserSearchBar, { DEFAULT_USER_FILTERS, UserFilters } from "../shared/components/admin/users/UserSearchBar.js";
 import UserTable from "../shared/components/admin/users/UserTable.js";
@@ -73,6 +73,20 @@ function UsersListContent() {
         setDeleteTarget(user);
     }
 
+    async function handleImpersonate(user: AdminUser) {
+        if (!window.confirm(`Impersonate '${user.uid}'? You'll be signed in as this account until you sign out.`)) {
+            return;
+        }
+        setError(null);
+        try {
+            await impersonateUser(user.uid);
+            markImpersonating();
+            window.location.href = "/account";
+        } catch (err) {
+            setError(err instanceof ApiRequestError ? err.message : "Could not impersonate this account.");
+        }
+    }
+
     async function handleConfirmDelete(purge: boolean) {
         // Only reachable via DeleteUserModal's own confirm button, which renders (and is therefore only
         // clickable) once `deleteTarget` is already set — DeleteUserModal returns null while `user` is null.
@@ -112,7 +126,7 @@ function UsersListContent() {
             {loading ? (
                 <p className="rr-hint">Loading&hellip;</p>
             ) : (
-                <UserTable users={users} aliasesByUid={aliasesByUid} onDelete={openDeleteModal} />
+                <UserTable users={users} aliasesByUid={aliasesByUid} onDelete={openDeleteModal} onImpersonate={handleImpersonate} />
             )}
 
             {!isSearch && (

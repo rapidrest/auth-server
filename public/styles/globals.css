@@ -13,6 +13,7 @@
     --rr-color-primary-lightest: #67e8f9;
     --rr-color-accent: #f0b429;
     --rr-color-accent-dark: #c98a0a;
+    --rr-color-accent-bg: #fdf6e3;
 
     --rr-color-danger: #dc2626;
     --rr-color-danger-bg: #fef2f2;
@@ -51,6 +52,7 @@
         --rr-color-primary-lightest: #cffafe;
         --rr-color-accent: #fbbf24;
         --rr-color-accent-dark: #f59e0b;
+        --rr-color-accent-bg: #3f2d0d;
 
         --rr-color-danger: #f87171;
         --rr-color-danger-bg: #3f1d1d;
@@ -521,6 +523,11 @@ a {
 .rr-alert--error {
     background: var(--rr-color-danger-bg);
     color: var(--rr-color-danger);
+}
+
+.rr-alert--warning {
+    background: var(--rr-color-accent-bg);
+    color: var(--rr-color-accent-dark);
 }
 
 .rr-steps {

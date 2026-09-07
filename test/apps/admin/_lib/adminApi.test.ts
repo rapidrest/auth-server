@@ -12,6 +12,7 @@ import {
     ensureElevated,
     getUser,
     getUserProfile,
+    impersonateUser,
     listAliasesForUsers,
     listUserAliases,
     listUsers,
@@ -113,6 +114,17 @@ describe("getUser / createUser / updateUser / deleteUser", () => {
         expect(fetchMock).toHaveBeenCalledWith(
             "/api/users/u1?version=3&purge=true",
             expect.objectContaining({ method: "DELETE" }),
+        );
+    });
+});
+
+describe("impersonateUser", () => {
+    it("posts the target uid to /admin/impersonate", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { token: "tok", user: adminUser }));
+        await impersonateUser("u1");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/admin/impersonate",
+            expect.objectContaining({ method: "POST", body: JSON.stringify({ userUid: "u1" }) }),
         );
     });
 });

@@ -13,6 +13,7 @@ export interface UserTableProps {
     /** This account's registered identifiers (email/phone/username/oauth), keyed by `uid`. */
     aliasesByUid: Record<string, Alias[]>;
     onDelete: (user: AdminUser) => void;
+    onImpersonate: (user: AdminUser) => void;
 }
 
 function formatDate(iso: string | undefined): string {
@@ -39,7 +40,7 @@ function ChipList({ values }: { values: string[] }) {
     );
 }
 
-export default function UserTable({ users, aliasesByUid, onDelete }: UserTableProps) {
+export default function UserTable({ users, aliasesByUid, onDelete, onImpersonate }: UserTableProps) {
     if (users.length === 0) {
         return <p className="rr-hint">No accounts found.</p>;
     }
@@ -75,6 +76,14 @@ export default function UserTable({ users, aliasesByUid, onDelete }: UserTablePr
                             <td>{formatDate(user.dateCreated)}</td>
                             <td style={{ whiteSpace: "nowrap" }}>
                                 <a href={`/admin/users/detail?uid=${encodeURIComponent(user.uid)}`}>View</a>
+                                <Button
+                                    variant="text"
+                                    type="button"
+                                    onClick={() => onImpersonate(user)}
+                                    style={{ marginLeft: "0.75rem" }}
+                                >
+                                    Impersonate
+                                </Button>
                                 <Button variant="text" type="button" onClick={() => onDelete(user)} style={{ marginLeft: "0.75rem" }}>
                                     Delete
                                 </Button>

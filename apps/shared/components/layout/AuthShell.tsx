@@ -4,6 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React, { PropsWithChildren } from "react";
 import ElevationHost from "../elevation/ElevationHost.js";
+import ImpersonationBanner from "../impersonation/ImpersonationBanner.js";
 
 export interface AuthShellProps {
     /** Shows the RapidREST logo + wordmark above the content. Omit on pages that don't want it (e.g. account). */
@@ -19,6 +20,7 @@ export default function AuthShell({ brand, wide, children }: PropsWithChildren<A
     return (
         <div className="rr-page">
             <div className={"rr-container" + (wide ? " rr-container--wide" : "")}>
+                <ImpersonationBanner />
                 {brand && (
                     <div className="rr-brand">
                         <img src="/images/logo.svg" width="128" height="128" alt="" />

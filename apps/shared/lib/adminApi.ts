@@ -97,6 +97,17 @@ export function deleteUser(uid: string, version: number, purge = false): Promise
 }
 
 /**
+ * Impersonates the given account: mints a non-elevated token for it (the same roles/scopes it would get
+ * from a normal sign-in) and swaps the server's `jwt` session cookie to it, stashing the caller's own
+ * token in a separate cookie to be restored later. The browser's next request — including the redirect
+ * to `/account` right after this resolves — is therefore already authenticated as the target account; the
+ * returned `AuthResult` itself doesn't need to be read.
+ */
+export function impersonateUser(userUid: string): Promise<AuthResult> {
+    return apiFetch("/admin/impersonate", { method: "POST", body: JSON.stringify({ userUid }) });
+}
+
+/**
  * Finds accounts matching a free-text query: substring-matches `uid` directly, and separately resolves any
  * `Alias`es (email/phone/username) whose value contains the query, merging in the accounts they belong to.
  * Not paginated the same way `listUsers()` is — intended for a search box, not the main paged listing.

@@ -18,6 +18,7 @@ vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
         ...actual,
         getUser: vi.fn(),
         deleteUser: vi.fn(),
+        impersonateUser: vi.fn(),
         getUserProfile: vi.fn(),
         listUserAliases: vi.fn(),
         listUserSecrets: vi.fn(),
@@ -32,6 +33,7 @@ import {
     ensureElevated,
     getUser,
     getUserProfile,
+    impersonateUser,
     listUserAliases,
     listUserSecrets,
 } from "../../../../apps/shared/lib/adminApi.js";
@@ -40,6 +42,7 @@ import UserDetailPage from "../../../../apps/admin/users/detail/index.js";
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedGetUser = vi.mocked(getUser);
 const mockedDeleteUser = vi.mocked(deleteUser);
+const mockedImpersonateUser = vi.mocked(impersonateUser);
 const mockedGetUserProfile = vi.mocked(getUserProfile);
 const mockedListUserAliases = vi.mocked(listUserAliases);
 const mockedListUserSecrets = vi.mocked(listUserSecrets);
@@ -67,6 +70,7 @@ beforeEach(() => {
     mockedGetCurrentUser.mockReset();
     mockedGetUser.mockReset();
     mockedDeleteUser.mockReset();
+    mockedImpersonateUser.mockReset();
     mockedGetUserProfile.mockReset();
     mockedListUserAliases.mockReset();
     mockedListUserSecrets.mockReset();
@@ -153,6 +157,59 @@ describe("UserDetailPage", () => {
 
         expect(await screen.findByText("Could not delete this account.")).toBeInTheDocument();
         expect(location.href).toBe("");
+    });
+
+    it("impersonates the account after confirming, then redirects to /account", async () => {
+        mockedGetUser.mockResolvedValue(targetUser);
+        mockedImpersonateUser.mockResolvedValue({ token: "t", user: { uid: "target-1", version: 4, roles: [], scopes: [] } });
+        const location = stubLocation("?uid=target-1");
+        const user = userEvent.setup();
+        render(<UserDetailPage userUid="admin-1" />);
+        await screen.findByText("target-1");
+
+        await user.click(screen.getByRole("button", { name: "Impersonate user" }));
+
+        expect(window.confirm).toHaveBeenCalled();
+        expect(mockedImpersonateUser).toHaveBeenCalledWith("target-1");
+        await waitFor(() => expect(location.href).toBe("/account"));
+    });
+
+    it("does not impersonate when the confirmation is declined", async () => {
+        mockedGetUser.mockResolvedValue(targetUser);
+        window.confirm = vi.fn(() => false);
+        const user = userEvent.setup();
+        render(<UserDetailPage userUid="admin-1" />);
+        await screen.findByText("target-1");
+
+        await user.click(screen.getByRole("button", { name: "Impersonate user" }));
+
+        expect(mockedImpersonateUser).not.toHaveBeenCalled();
+    });
+
+    it("shows an error and does not redirect when impersonation fails", async () => {
+        mockedGetUser.mockResolvedValue(targetUser);
+        mockedImpersonateUser.mockRejectedValue(new ApiRequestError("nope", 403));
+        const location = stubLocation("?uid=target-1");
+        const user = userEvent.setup();
+        render(<UserDetailPage userUid="admin-1" />);
+        await screen.findByText("target-1");
+
+        await user.click(screen.getByRole("button", { name: "Impersonate user" }));
+
+        expect(await screen.findByText("nope")).toBeInTheDocument();
+        expect(location.href).toBe("");
+    });
+
+    it("shows a generic message when impersonation fails with a non-API error", async () => {
+        mockedGetUser.mockResolvedValue(targetUser);
+        mockedImpersonateUser.mockRejectedValue(new TypeError("boom"));
+        const user = userEvent.setup();
+        render(<UserDetailPage userUid="admin-1" />);
+        await screen.findByText("target-1");
+
+        await user.click(screen.getByRole("button", { name: "Impersonate user" }));
+
+        expect(await screen.findByText("Could not impersonate this account.")).toBeInTheDocument();
     });
 
     it("closes the delete modal without deleting when Cancel is clicked", async () => {

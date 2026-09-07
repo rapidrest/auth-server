@@ -19,6 +19,7 @@ vi.mock("../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
         listUsers: vi.fn(),
         searchUsers: vi.fn(),
         deleteUser: vi.fn(),
+        impersonateUser: vi.fn(),
         listAliasesForUsers: vi.fn(),
         ensureElevated: vi.fn(),
     };
@@ -29,6 +30,7 @@ import {
     AdminUser,
     deleteUser,
     ensureElevated,
+    impersonateUser,
     listAliasesForUsers,
     listUsers,
     searchUsers,
@@ -39,6 +41,7 @@ const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedListUsers = vi.mocked(listUsers);
 const mockedSearchUsers = vi.mocked(searchUsers);
 const mockedDeleteUser = vi.mocked(deleteUser);
+const mockedImpersonateUser = vi.mocked(impersonateUser);
 const mockedListAliasesForUsers = vi.mocked(listAliasesForUsers);
 const mockedEnsureElevated = vi.mocked(ensureElevated);
 
@@ -48,11 +51,19 @@ function makeUser(uid: string): AdminUser {
     return { uid, roles: [], scopes: [], verified: false, version: 0, dateCreated: "", dateModified: "" };
 }
 
+/** Stubs `window.location` with a writable `href` (like `detail.test.tsx`'s `stubLocation`). */
+function stubLocation(): { href: string } {
+    const location = { href: "" };
+    Object.defineProperty(window, "location", { configurable: true, writable: true, value: location });
+    return location;
+}
+
 beforeEach(() => {
     mockedGetCurrentUser.mockReset();
     mockedListUsers.mockReset();
     mockedSearchUsers.mockReset();
     mockedDeleteUser.mockReset();
+    mockedImpersonateUser.mockReset();
     mockedListAliasesForUsers.mockReset();
     mockedEnsureElevated.mockReset();
     mockedGetCurrentUser.mockResolvedValue(adminSelf);
@@ -186,5 +197,58 @@ describe("UsersListPage", () => {
         await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
         expect(await within(dialog).findByText("Could not delete this account.")).toBeInTheDocument();
+    });
+
+    it("impersonates a user after confirming, then redirects to /account", async () => {
+        mockedListUsers.mockResolvedValue([makeUser("u1")]);
+        mockedImpersonateUser.mockResolvedValue({ token: "t", user: { uid: "u1", version: 0, roles: [], scopes: [] } });
+        const location = stubLocation();
+        const user = userEvent.setup();
+        render(<UsersListPage userUid="admin-1" />);
+        await screen.findByRole("link", { name: "View" });
+
+        await user.click(screen.getByRole("button", { name: "Impersonate" }));
+
+        expect(window.confirm).toHaveBeenCalled();
+        expect(mockedImpersonateUser).toHaveBeenCalledWith("u1");
+        await waitFor(() => expect(location.href).toBe("/account"));
+    });
+
+    it("does not impersonate when the confirmation is declined", async () => {
+        mockedListUsers.mockResolvedValue([makeUser("u1")]);
+        window.confirm = vi.fn(() => false);
+        const user = userEvent.setup();
+        render(<UsersListPage userUid="admin-1" />);
+        await screen.findByRole("link", { name: "View" });
+
+        await user.click(screen.getByRole("button", { name: "Impersonate" }));
+
+        expect(mockedImpersonateUser).not.toHaveBeenCalled();
+    });
+
+    it("shows an error and does not redirect when impersonation fails", async () => {
+        mockedListUsers.mockResolvedValue([makeUser("u1")]);
+        mockedImpersonateUser.mockRejectedValue(new ApiRequestError("nope", 403));
+        const location = stubLocation();
+        const user = userEvent.setup();
+        render(<UsersListPage userUid="admin-1" />);
+        await screen.findByRole("link", { name: "View" });
+
+        await user.click(screen.getByRole("button", { name: "Impersonate" }));
+
+        expect(await screen.findByText("nope")).toBeInTheDocument();
+        expect(location.href).toBe("");
+    });
+
+    it("shows a generic message when impersonation fails with a non-API error", async () => {
+        mockedListUsers.mockResolvedValue([makeUser("u1")]);
+        mockedImpersonateUser.mockRejectedValue(new TypeError("boom"));
+        const user = userEvent.setup();
+        render(<UsersListPage userUid="admin-1" />);
+        await screen.findByRole("link", { name: "View" });
+
+        await user.click(screen.getByRole("button", { name: "Impersonate" }));
+
+        expect(await screen.findByText("Could not impersonate this account.")).toBeInTheDocument();
     });
 });

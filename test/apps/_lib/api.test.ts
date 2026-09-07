@@ -10,6 +10,7 @@ import {
     beginElevationChallenge,
     beginMfaChallenge,
     beginRegistration,
+    clearImpersonatingMarker,
     completeElevationChallenge,
     completeElevationFido2,
     completeOAuthSignIn,
@@ -34,11 +35,13 @@ import {
     getPasswordRequirements,
     getProfile,
     hasSecondFactor,
+    isImpersonating,
     isMfaChallenge,
     listAliases,
     listElevationMethods,
     listSecrets,
     logout,
+    markImpersonating,
     refreshAccessToken,
     registerFido2,
     registerPasskey,
@@ -46,6 +49,7 @@ import {
     signInWithOtp,
     signInWithPassword,
     signInWithTotp,
+    stopImpersonating,
     updateProfile,
     updateSecret,
     updateSelfUser,
@@ -95,6 +99,62 @@ describe("logout", () => {
             throw new TypeError("network down");
         });
         await expect(logout()).resolves.toBeUndefined();
+    });
+
+    it("clears the impersonation marker", async () => {
+        markImpersonating();
+        mockFetch(() => emptyResponse(200));
+        await logout();
+        expect(isImpersonating()).toBe(false);
+    });
+});
+
+describe("impersonation", () => {
+    afterEach(() => {
+        localStorage.clear();
+    });
+
+    it("stopImpersonating GETs /admin/impersonate/stop", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { restored: true }));
+        const result = await stopImpersonating();
+        expect(fetchMock).toHaveBeenCalledWith("/api/admin/impersonate/stop", expect.anything());
+        expect(result).toEqual({ restored: true });
+    });
+
+    it("isImpersonating is false until markImpersonating is called", () => {
+        expect(isImpersonating()).toBe(false);
+        markImpersonating();
+        expect(isImpersonating()).toBe(true);
+    });
+
+    it("clearImpersonatingMarker clears the marker", () => {
+        markImpersonating();
+        clearImpersonatingMarker();
+        expect(isImpersonating()).toBe(false);
+    });
+
+    it("markImpersonating swallows a storage error", () => {
+        const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+            throw new Error("storage disabled");
+        });
+        expect(() => markImpersonating()).not.toThrow();
+        spy.mockRestore();
+    });
+
+    it("clearImpersonatingMarker swallows a storage error", () => {
+        const spy = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+            throw new Error("storage disabled");
+        });
+        expect(() => clearImpersonatingMarker()).not.toThrow();
+        spy.mockRestore();
+    });
+
+    it("isImpersonating returns false when storage access throws", () => {
+        const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+            throw new Error("storage disabled");
+        });
+        expect(isImpersonating()).toBe(false);
+        spy.mockRestore();
     });
 });
 

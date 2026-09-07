@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
-import { ApiRequestError } from "../../../shared/lib/api.js";
-import { AdminUser, deleteUser, getUser } from "../../../shared/lib/adminApi.js";
+import { ApiRequestError, markImpersonating } from "../../../shared/lib/api.js";
+import { AdminUser, deleteUser, getUser, impersonateUser } from "../../../shared/lib/adminApi.js";
 import AdminShell from "../../../shared/components/admin/layout/AdminShell.js";
 import UserOverviewCard from "../../../shared/components/admin/users/detail/UserOverviewCard.js";
 import UserProfileCard from "../../../shared/components/admin/users/detail/UserProfileCard.js";
@@ -51,6 +51,9 @@ function UserDetailContent() {
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
+    const [impersonating, setImpersonating] = useState(false);
+    const [impersonateError, setImpersonateError] = useState<string | null>(null);
+
     useEffect(() => {
         if (!targetUid) {
             setLoaded(true);
@@ -76,6 +79,24 @@ function UserDetailContent() {
         }
     }
 
+    async function handleImpersonate() {
+        // Only reachable via the button below, which is only rendered (and therefore only clickable) once
+        // `user` is already loaded — same reasoning as `handleConfirmDelete` above.
+        if (!window.confirm(`Impersonate '${user!.uid}'? You'll be signed in as this account until you sign out.`)) {
+            return;
+        }
+        setImpersonating(true);
+        setImpersonateError(null);
+        try {
+            await impersonateUser(user!.uid);
+            markImpersonating();
+            window.location.href = "/account";
+        } catch (err) {
+            setImpersonateError(err instanceof ApiRequestError ? err.message : "Could not impersonate this account.");
+            setImpersonating(false);
+        }
+    }
+
     return (
         <>
             {!targetUid && <Alert>No account specified.</Alert>}
@@ -91,6 +112,22 @@ function UserDetailContent() {
                     <UserProfileCard uid={user.uid} />
                     <UserIdentifiersCard uid={user.uid} />
                     <UserSecretsCard uid={user.uid} />
+
+                    <div className="rr-card">
+                        <div className="rr-card__title">Impersonate</div>
+                        <p className="rr-card__subtitle">Sign in as this account to see exactly what it sees.</p>
+                        {impersonateError && <Alert>{impersonateError}</Alert>}
+                        <Button
+                            variant="secondary"
+                            type="button"
+                            style={{ width: "auto" }}
+                            loading={impersonating}
+                            disabled={impersonating}
+                            onClick={handleImpersonate}
+                        >
+                            Impersonate user
+                        </Button>
+                    </div>
 
                     <div className="rr-card">
                         <div className="rr-card__title">Danger zone</div>

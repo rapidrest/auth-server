@@ -57,10 +57,62 @@ const AUTH_REQUIRES_ELEVATION = "api-104";
  * authenticated page than strand them on it because the logout call itself didn't reach the server.
  */
 export async function logout(): Promise<void> {
+    clearImpersonatingMarker();
     try {
         await apiFetch("/auth/logout", { method: "POST" });
     } catch {
         // Best-effort — see doc comment above.
+    }
+}
+
+/**
+ * Restores the caller's own session from the `jwt_impersonator` cookie stashed by `impersonateUser()`
+ * (see `adminApi.ts`), if one is present — the counterpart to it. Like `impersonateUser()`, the response
+ * itself doesn't need to be read: the server swaps the `jwt` cookie back in as a side effect, so the
+ * browser's next request is already authenticated as the original caller again.
+ */
+export function stopImpersonating(): Promise<{ restored: boolean }> {
+    return apiFetch("/admin/impersonate/stop");
+}
+
+/**
+ * `localStorage` key backing `markImpersonating()`/`isImpersonating()` — a purely client-side hint that
+ * this browser is currently viewing an impersonated session, used only to decide whether
+ * `ImpersonationBanner` renders. It is NOT the source of truth for whether impersonation is actually
+ * active — that's the server's own `jwt`/`jwt_impersonator` cookies (`HttpOnly`, unreadable from JS),
+ * which independently and authoritatively govern every request regardless of this flag. Shared via
+ * `localStorage` (rather than `sessionStorage`) so the banner still shows up in a second tab opened while
+ * impersonating, since cookies — unlike `sessionStorage` — aren't scoped to one tab.
+ */
+const IMPERSONATING_STORAGE_KEY = "rr_impersonating";
+
+/** Marks this browser as viewing an impersonated session — call right after a successful `impersonateUser()`. */
+export function markImpersonating(): void {
+    try {
+        localStorage.setItem(IMPERSONATING_STORAGE_KEY, "1");
+    } catch {
+        // Storage disabled/unavailable — the banner just won't show; the real session is unaffected.
+    }
+}
+
+/** Clears the impersonation marker set by `markImpersonating()` — called on sign-out, a fresh sign-in, and after `stopImpersonating()` succeeds. */
+export function clearImpersonatingMarker(): void {
+    try {
+        localStorage.removeItem(IMPERSONATING_STORAGE_KEY);
+    } catch {
+        // See markImpersonating().
+    }
+}
+
+/** Whether this browser is currently marked as viewing an impersonated session. Always `false` during SSR. */
+export function isImpersonating(): boolean {
+    if (typeof window === "undefined") {
+        return false;
+    }
+    try {
+        return localStorage.getItem(IMPERSONATING_STORAGE_KEY) === "1";
+    } catch {
+        return false;
     }
 }
 
