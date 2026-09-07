@@ -132,7 +132,68 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
-### 2026-09-06 (latest) — build broken by an automated dependency-bump reverting `@rapidrest/auth`; fixed
+### 2026-09-06 (latest) — `logger.error(err)` always prints "error: undefined", hiding real errors; fixed at the source
+
+JP reported a login failure while testing the OAuth work, with only `[DerivedLogger.emit] ... error:
+undefined` in the log — no actual message. Root-caused (confirmed with a standalone repro script, not
+guessed): `@rapidrest/core`'s `src/Logger.ts` builds its format chain as `combine(format.splat(),
+format.simple(), timestamp(), source(), logFormat)`, with no `format.errors()` step. Winston's
+`Logger.log()` uses an `Error` passed directly to `.error(err)` *as the `info` object itself* (its
+`arguments.length === 2` fast path), and `Error.prototype.message`/`.stack` are non-enumerable own
+properties — so every format step downstream that copies via `Object.assign({}, info, ...)`
+(`format.simple()` among them) silently drops `message` before `logFormat`'s `printf` ever sees it.
+**Every `logger.error(someError)` call anywhere in this app (or any app using this `Logger`) prints
+`error: undefined` regardless of what the error actually says** — this is a real, standalone,
+100%-reproducible bug in `core`, not specific to OAuth or login at all; `Server.js`'s catch-all
+error-handling middleware (`this.logger.error(err)` for any non-`ApiError` or `>=500` `ApiError`) hits
+it on every uncaught route error. `logger.info`/`.warn`/etc. with a plain string are unaffected.
+
+**Fixed at the source** in the sibling `core` repo (per the standing decision — not worked around only
+in `auth-server`): added `errors({ stack: true })` as the *first* step in the combine chain in
+`src/Logger.ts`, which re-hydrates `message`/`stack` as real enumerable properties before anything else
+touches `info`. Added a regression test to `core`'s own `test/Logger.test.ts` (logs a real `Error` via
+`.error()`, asserts the message lands in the file transport and `error: undefined` never appears). Full
+`core` suite: 509/509 passing (5 pre-existing skips), clean build. **Not published** — per the version
+standing decision, left for JP to version/publish `core` himself; propagated locally into
+`auth-server/node_modules/@rapidrest/core/dist/lib/Logger.{js,js.map}` only (not the rest of `dist/`,
+which has unrelated in-progress drift in `core`'s `ClassLoader.js` not part of this fix) so local
+dev/testing sees real error messages immediately. This local `node_modules` copy reverts on a clean
+`yarn install`, same caveat as every other pre-publish sibling-repo fix noted elsewhere in this file —
+bump `auth-server`'s `@rapidrest/core` constraint for real once JP publishes the fix.
+
+**Did not reproduce an actual login failure**, despite trying hard to: built a full live-server repro
+(sqlite + fake-redis, same harness `OAuthIntegration.sql.test.ts` uses) that signs in an admin-role
+account, hits `/api/admin/release-notes` (correctly 403s pre-elevation), elevates, creates both a
+first-party and a non-first-party `Client`, and drives the *full* `/oauth/authorize` → consent →
+`/oauth/token` (PKCE) exchange as that admin-role user end-to-end — every step returned exactly the
+expected response, no errors logged at all, with the fixed logger in place to prove it (an unfixed
+logger would have shown `error: undefined` for any failure here, same as JP's report, and didn't).
+So the request-handling code path itself checks out clean for this exact scenario. **Leading theory**,
+not yet confirmed: JP's real dev Postgres database predates today's `@rapidrest/auth` bump to
+`2.0.0-beta.3` (the `Client.clientId` column removal — see the entry below) — TypeORM's
+`synchronize: true` does not drop columns it no longer recognizes, so a lingering NOT-NULL legacy
+`clientId` column would make *any* insert into `Client` (or possibly other OAuth tables) throw a real,
+raw driver-level error (not an `ApiError`), which is exactly the shape that hits the buggy log line.
+Unconfirmed because this session has no access to JP's actual Postgres/Redis instance. **Next step**:
+JP should retry the failing login now that the logger fix is in place locally and share the resulting
+(now-real) error message/stack — if the Postgres-drift theory is right, dropping/recreating the
+dev database's `Client`/`ConsentGrant`/`AuthorizationCode`/`OAuthRefreshToken`/`SigningKey` tables (or
+the whole dev DB, since it's local/disposable) should resolve it.
+
+**Follow-up, same session**: the Postgres-drift theory above was wrong — JP retried with the logger
+fix in place and got the real error immediately: `ERR unknown command 'INCREX', with args beginning
+with: 'auth:ratelimit:admin' 'EX' '300' 'ENX'`. Root cause and fix are the sibling `auth` repo's
+`RateLimiter` (see its own `.claude/NOTES.md`, same date, for the full writeup) — `INCREX` is a Redis
+8.8+ command with **no fallback** in `incrementRedis()`, and JP runs `yarn dev` (the `cli` repo's
+`redis-memory-server`-backed ephemeral Redis), which on Windows downloads Memurai, currently cached at
+a Redis-7.4-equivalent build with no stable Redis-8-compatible release available yet. Confirmed via
+Redis's own docs that this isn't Windows/Memurai-specific: Redis Software and Redis Cloud don't support
+`INCREX` yet either, so this would have broken login on most real production Redis deployments too, not
+just local dev. Fixed at the source in `auth` (graceful fallback to the in-memory counter on this
+specific error, with a one-time warning), propagated locally into `auth-server/node_modules/@rapidrest/
+auth/dist` the same way as the `core` fix above. Not published — same caveat.
+
+### 2026-09-06 — build broken by an automated dependency-bump reverting `@rapidrest/auth`; fixed
 
 Right after the `clientId`→`uid` propagation below was committed, two more commits landed on `main`
 (`abc61e7 "Upgrading @rapidrest/auth dep"`, `2135479 "Upgrading @rapidrest/react dep"`) with the exact

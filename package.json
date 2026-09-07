@@ -33,7 +33,7 @@
     "trailingComma": "es5"
   },
   "dependencies": {
-    "@rapidrest/auth": "^2.0.0-beta.3",
+    "@rapidrest/auth": "^2.0.0-beta.4",
     "@rapidrest/core": "^5.2.0",
     "@rapidrest/react": "^1.1.0",
     "@rapidrest/service-core": "^1.4.0",
