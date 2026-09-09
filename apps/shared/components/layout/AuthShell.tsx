@@ -22,8 +22,7 @@ export interface AuthShellProps {
  */
 export default function AuthShell({ brand, wide, children }: PropsWithChildren<AuthShellProps>) {
     const settings = useSiteSettings();
-    const brandTitle = settings?.companyName || settings?.siteTitle || "RapidREST";
-    const brandLogo = (settings && effectiveLogoUrl(settings)) || "/images/logo.svg";
+    const logo = (settings && effectiveLogoUrl(settings)) || "/images/logo.svg";
 
     return (
         <div className="rr-page">
@@ -34,9 +33,7 @@ export default function AuthShell({ brand, wide, children }: PropsWithChildren<A
                 )}
                 {brand && (
                     <div className="rr-brand">
-                        <img src={brandLogo} width="128" height="128" alt="" />
-                        <br />
-                        <span>{brandTitle}</span>
+                        <img src={logo} height="128" alt="" />
                     </div>
                 )}
                 {children}
