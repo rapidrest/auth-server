@@ -21,7 +21,7 @@ vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
 import { getCurrentUser, getPasswordRequirements } from "../../../../apps/shared/lib/api.js";
 import { createUser, createUserAlias, ensureElevated } from "../../../../apps/shared/lib/adminApi.js";
 import { FALLBACK_PASSWORD_REQUIREMENTS } from "../../../../apps/shared/lib/passwordCriteria.js";
-import NewUserPage from "../../../../apps/admin/users/new/index.js";
+import NewUserPage from "../../../../apps/admin/users/new.js";
 
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedGetPasswordRequirements = vi.mocked(getPasswordRequirements);
@@ -70,6 +70,6 @@ describe("NewUserPage", () => {
         render(<NewUserPage userUid="admin-1" />);
         await user.type(await screen.findByLabelText("Identifier"), "ada@example.com");
         await user.click(screen.getByRole("button", { name: "Create account" }));
-        expect(location.href).toBe("/admin/users/detail?uid=new-1");
+        expect(location.href).toBe("/admin/users/new-1");
     });
 });

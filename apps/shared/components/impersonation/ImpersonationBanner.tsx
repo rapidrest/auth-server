@@ -18,8 +18,8 @@ const BAR_HEIGHT = "2.25rem";
  * A sibling spacer of the same fixed `BAR_HEIGHT` is rendered right alongside it, in normal document flow,
  * so the fixed bar doesn't cover the content that follows — that content simply starts `BAR_HEIGHT` lower.
  *
- * Seeded from a lazy `useState` initializer (mirrors `readTargetUid()`/`readReturnTo()`'s own SSR-safe
- * pattern elsewhere in this app) so it renders correctly on the very first client render pass instead of
+ * Seeded from a lazy `useState` initializer (mirrors `readReturnTo()`'s own SSR-safe pattern elsewhere
+ * in this app) so it renders correctly on the very first client render pass instead of
  * popping in after a post-hydration effect. See `isImpersonating()`'s doc comment for why this is a
  * client-side hint rather than server-derived.
  */

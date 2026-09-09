@@ -42,7 +42,7 @@ describe("ClientTable", () => {
         expect(screen.getByText("Enabled")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
             "href",
-            "/admin/oauth-clients/detail?uid=c1",
+            "/admin/oauth-clients/c1",
         );
     });
 

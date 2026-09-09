@@ -31,7 +31,7 @@ import {
     getPasswordRequirements,
     verifyRegistration,
 } from "../../../apps/shared/lib/api.js";
-import SignUpPage, { fetchProps } from "../../../apps/www/auth/signup/index.js";
+import SignUpPage, { fetchProps } from "../../../apps/www/auth/signup.js";
 
 const mockedBeginRegistration = vi.mocked(beginRegistration);
 const mockedVerifyRegistration = vi.mocked(verifyRegistration);

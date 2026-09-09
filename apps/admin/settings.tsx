@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
-import { ApiRequestError } from "../../shared/lib/api.js";
-import { getSiteSettings, PublicSiteSettings } from "../../shared/lib/siteSettings.js";
-import AdminShell from "../../shared/components/admin/layout/AdminShell.js";
-import BrandingCard from "../../shared/components/admin/settings/BrandingCard.js";
-import ContentCard from "../../shared/components/admin/settings/ContentCard.js";
-import StylesheetCard from "../../shared/components/admin/settings/StylesheetCard.js";
-import Alert from "../../shared/components/feedback/Alert.js";
+import { ApiRequestError } from "../shared/lib/api.js";
+import { getSiteSettings, PublicSiteSettings } from "../shared/lib/siteSettings.js";
+import AdminShell from "../shared/components/admin/layout/AdminShell.js";
+import BrandingCard from "../shared/components/admin/settings/BrandingCard.js";
+import ContentCard from "../shared/components/admin/settings/ContentCard.js";
+import StylesheetCard from "../shared/components/admin/settings/StylesheetCard.js";
+import Alert from "../shared/components/feedback/Alert.js";
 
 interface SettingsPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */

@@ -82,7 +82,7 @@ export default function ClientTable({ clients, onDelete }: ClientTableProps) {
                             </td>
                             <td>{formatDate(client.dateCreated)}</td>
                             <td style={{ whiteSpace: "nowrap" }}>
-                                <a href={`/admin/oauth-clients/detail?uid=${encodeURIComponent(client.uid)}`}>View</a>
+                                <a href={`/admin/oauth-clients/${encodeURIComponent(client.uid)}`}>View</a>
                                 <Button variant="text" type="button" onClick={() => onDelete(client)} style={{ marginLeft: "0.75rem" }}>
                                     Delete
                                 </Button>

@@ -158,7 +158,52 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
-### 2026-09-06 (latest) — `logger.error(err)` always prints "error: undefined", hiding real errors; fixed at the source
+### 2026-09-09 (latest) — `@rapidrest/react` 2.0.0-beta.0: dynamic `[id].tsx` routes + nested non-index pages; refactored every page onto them
+
+`@rapidrest/react` 2.0.0-beta.0 (already the installed dependency version, bumped by a prior automated
+dep-bump commit before this session started) added two file-based-routing features this app previously
+had no way to use: (1) a nested page no longer needs its own `index.tsx` — `apps/foo/bar.tsx` is now a
+valid leaf page exactly like `apps/foo/bar/index.tsx` was; (2) bracketed filenames capture a dynamic
+path segment — `apps/foo/[id].tsx` serves `GET /foo/:id`, with the captured value exposed as
+`props.params.id` on the page component (see `ReactRoute.tsx`'s own class-doc-comment for the full
+convention). Both together retire the old workaround this app used for a per-record "detail" page: no
+dynamic segments meant the target uid had to travel as a `?uid=` query string, read back out via a
+`readTargetUid()`/`typeof window === "undefined"` SSR guard on every such page.
+
+**Flattened folder+`index.tsx` pages that had no other reason to be nested** (7): `.../oauth-clients/new/
+index.tsx` → `.../new.tsx`, `.../users/new/index.tsx` → `.../new.tsx`, `.../settings/index.tsx` →
+`settings.tsx`, `apps/www/account/index.tsx` → `account.tsx`, `.../auth/{authorize,signin,signup}/
+index.tsx` → `.../auth/{authorize,signin,signup}.tsx`. **Deliberately left `apps/admin/oauth-clients/
+index.tsx` nested** (tried flattening it to a sibling `oauth-clients.tsx` first — confirmed it resolves
+fine against `ReactRoute`'s own resolution order — but JP reverted it during this same session: when a
+resource's folder already has to exist for its sub-routes (here, `.../oauth-clients/new.tsx` and `.../
+oauth-clients/[uid].tsx`), its own list page reads better as that folder's `index.tsx` than as a flat file
+sitting beside its own subfolder. Apply this same call the next time a similar "list page whose resource
+folder must exist anyway" case comes up — don't reflexively flatten it just because the framework allows it.
+
+**Converted the two query-param "detail" pages to real dynamic routes**: `apps/admin/oauth-clients/
+detail/index.tsx` → `apps/admin/oauth-clients/[uid].tsx`, `apps/admin/users/detail/index.tsx` → `apps/
+admin/users/[uid].tsx`. Both now take `params: { uid: string }` as a normal prop — no more
+`readTargetUid()`, no more `useState(lazyInitializer)` to smuggle a window-read value past SSR, no more
+"no uid specified" empty-state branch (structurally unreachable now — a bare `/oauth-clients` or
+`/users` request resolves to that folder's own list page, not to `[uid].tsx` with an empty capture). Every
+internal link/redirect building the old `/…/detail?uid=X` URL (list-table "View" links, post-create
+redirects in the two `new.tsx` pages) now builds `/…/X` instead. Left the **other** `?query=` usages in
+this app alone — `/auth/authorize`'s OAuth request params (`client_id`/`redirect_uri`/`scope`/etc., spec-
+mandated query-string shape, not an internal workaround), `/auth/signin`'s `?returnTo=` hand-off (an
+arbitrary redirect URL, not a resource id), and `/auth/signup`'s `?type=`/`?id=`/`?autosend=1` hand-off
+from sign-in (transient flow state, not a route-addressable resource) — none of those are "an identifier
+that should have been a path segment," so converting them would misuse the feature, not use it correctly.
+
+Verified with `tsc --noEmit` against `tsconfig.client.json` (apps/) and `tsconfig.test.json` (src+test+
+apps) — zero new errors introduced (the handful of pre-existing `tsconfig.test.json` errors, e.g.
+`objectFactory.newInstance(RepoUtils, ...)` typing to `unknown`, predate this session and aren't enforced
+by any actual script — there's no `typecheck` script in `package.json`, only `yarn lint`, which passed
+clean) — plus a full `yarn vitest run`: 816/816 passing, 100% coverage maintained (4 fewer tests than
+before this session's start, exactly the 2 now-unreachable "no uid specified" tests + 2 `readTargetUid()`
+SSR tests removed along with the dead code they covered).
+
+### 2026-09-06 — `logger.error(err)` always prints "error: undefined", hiding real errors; fixed at the source
 
 JP reported a login failure while testing the OAuth work, with only `[DerivedLogger.emit] ... error:
 undefined` in the log — no actual message. Root-caused (confirmed with a standalone repro script, not
@@ -378,9 +423,10 @@ existing Users admin screens file-for-file (list/new/detail pages, table/form/mo
   (new — the one-time plaintext-secret display, styled after `TotpSecretForm`'s existing "shown
   once, plain `<code>` text, no copy-to-clipboard" precedent in `apps/shared/components/account/
   secrets/`).
-- **New pages**: `apps/admin/oauth-clients/index.tsx` (list + pagination + delete, no search bar —
-  not asked for), `.../new/index.tsx`, `.../detail/index.tsx` (`?uid=` query param, same
-  `readTargetUid()`/SSR-guard pattern as `apps/admin/users/detail/index.tsx`).
+- **New pages**: `apps/admin/oauth-clients.tsx` (list + pagination + delete, no search bar — not
+  asked for), `.../new.tsx`, `.../[uid].tsx` (dynamic route segment, `@rapidrest/react` >=2.0.0-beta.0 —
+  see `apps/admin/users/[uid].tsx` for the same pattern; superseded the old `?uid=` query-param +
+  `readTargetUid()`/SSR-guard workaround once dynamic segments landed).
 - **One UX wrinkle `apps/admin/users/new` doesn't have to solve**: a *public* client's
   `createClient()` response never carries a `clientSecret` (none is ever generated for one), so
   `NewOAuthClientPage.handleCreated()` branches — reveal-then-redirect for a confidential client's

@@ -13,7 +13,7 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
 });
 
 import { ApiRequestError, requestAuthorization, submitConsent } from "../../../apps/shared/lib/api.js";
-import AuthorizePage, { fetchProps } from "../../../apps/www/auth/authorize/index.js";
+import AuthorizePage, { fetchProps } from "../../../apps/www/auth/authorize.js";
 
 const mockedRequestAuthorization = vi.mocked(requestAuthorization);
 const mockedSubmitConsent = vi.mocked(submitConsent);

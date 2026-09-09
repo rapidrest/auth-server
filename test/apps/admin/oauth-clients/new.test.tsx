@@ -20,7 +20,7 @@ vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
 
 import { getCurrentUser } from "../../../../apps/shared/lib/api.js";
 import { createClient, ensureElevated } from "../../../../apps/shared/lib/adminApi.js";
-import NewOAuthClientPage from "../../../../apps/admin/oauth-clients/new/index.js";
+import NewOAuthClientPage from "../../../../apps/admin/oauth-clients/new.js";
 
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedCreateClient = vi.mocked(createClient);
@@ -68,7 +68,7 @@ describe("NewOAuthClientPage", () => {
         render(<NewOAuthClientPage userUid="admin-1" />);
         await fillRequiredFields(user);
         await user.click(screen.getByRole("button", { name: "Register client" }));
-        expect(location.href).toBe("/admin/oauth-clients/detail?uid=new-1");
+        expect(location.href).toBe("/admin/oauth-clients/new-1");
     });
 
     it("reveals the plaintext secret for a confidential client, then redirects once dismissed", async () => {
@@ -99,6 +99,6 @@ describe("NewOAuthClientPage", () => {
         expect(location.href).toBe("");
 
         await user.click(screen.getByRole("button", { name: "Done" }));
-        expect(location.href).toBe("/admin/oauth-clients/detail?uid=new-2");
+        expect(location.href).toBe("/admin/oauth-clients/new-2");
     });
 });

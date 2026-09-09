@@ -3,39 +3,32 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
-import { ApiRequestError } from "../../../shared/lib/api.js";
-import { AdminClient, deleteClient, getClient } from "../../../shared/lib/adminApi.js";
-import AdminShell from "../../../shared/components/admin/layout/AdminShell.js";
-import ClientOverviewCard from "../../../shared/components/admin/oauth-clients/ClientOverviewCard.js";
-import ClientSecretCard from "../../../shared/components/admin/oauth-clients/ClientSecretCard.js";
-import DeleteClientModal from "../../../shared/components/admin/oauth-clients/DeleteClientModal.js";
-import Alert from "../../../shared/components/feedback/Alert.js";
-import Button from "../../../shared/components/buttons/Button.js";
+import { ApiRequestError } from "../../shared/lib/api.js";
+import { AdminClient, deleteClient, getClient } from "../../shared/lib/adminApi.js";
+import AdminShell from "../../shared/components/admin/layout/AdminShell.js";
+import ClientOverviewCard from "../../shared/components/admin/oauth-clients/ClientOverviewCard.js";
+import ClientSecretCard from "../../shared/components/admin/oauth-clients/ClientSecretCard.js";
+import DeleteClientModal from "../../shared/components/admin/oauth-clients/DeleteClientModal.js";
+import Alert from "../../shared/components/feedback/Alert.js";
+import Button from "../../shared/components/buttons/Button.js";
 
 interface DetailPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
     userUid?: string;
+    /** The `:uid` dynamic segment captured from this file's `[uid].tsx` name — see `@rapidrest/react`'s
+     * `ReactRoute` doc comment for the convention. Always present when this route matched. */
+    params: { uid: string };
 }
 
-/**
- * This framework has no dynamic route segments — the target client's `uid` is passed as `?uid=`. See
- * `apps/admin/users/detail/index.tsx`'s own `readTargetUid` for why this is exported and safe under SSR.
- */
-export function readTargetUid(): string | null {
-    if (typeof window === "undefined") return null;
-    return new URLSearchParams(window.location.search).get("uid");
-}
-
-export default function OAuthClientDetailPage({ userUid }: DetailPageProps) {
+export default function OAuthClientDetailPage({ userUid, params }: DetailPageProps) {
     return (
         <AdminShell userUid={userUid}>
-            <OAuthClientDetailContent />
+            <OAuthClientDetailContent uid={params.uid} />
         </AdminShell>
     );
 }
 
-function OAuthClientDetailContent() {
-    const [targetUid] = useState<string | null>(readTargetUid);
+function OAuthClientDetailContent({ uid }: { uid: string }) {
     const [client, setClient] = useState<AdminClient | null>(null);
     const [loaded, setLoaded] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,20 +38,15 @@ function OAuthClientDetailContent() {
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!targetUid) {
-            setLoaded(true);
-            return;
-        }
-        getClient(targetUid)
+        getClient(uid)
             .then(setClient)
             .catch((err) => setError(err instanceof ApiRequestError ? err.message : "Could not load this client."))
             .finally(() => setLoaded(true));
-    }, [targetUid]);
+    }, [uid]);
 
     async function handleConfirmDelete(purge: boolean) {
         // Only reachable via DeleteClientModal's own confirm button, which is only rendered (and
-        // therefore only clickable) once `client` is already loaded — see the `targetUid && loaded &&
-        // client` guard below.
+        // therefore only clickable) once `client` is already loaded — see the `loaded && client` guard below.
         setDeleting(true);
         setDeleteError(null);
         try {
@@ -72,10 +60,9 @@ function OAuthClientDetailContent() {
 
     return (
         <>
-            {!targetUid && <Alert>No client specified.</Alert>}
-            {targetUid && !loaded && <p className="rr-hint">Loading&hellip;</p>}
-            {targetUid && loaded && error && <Alert>{error}</Alert>}
-            {targetUid && loaded && client && (
+            {!loaded && <p className="rr-hint">Loading&hellip;</p>}
+            {loaded && error && <Alert>{error}</Alert>}
+            {loaded && client && (
                 <>
                     <div style={{ marginBottom: "1rem" }}>
                         <a href="/admin/oauth-clients">&larr; Back to clients</a>

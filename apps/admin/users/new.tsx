@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React from "react";
-import AdminShell from "../../../shared/components/admin/layout/AdminShell.js";
-import CreateUserForm from "../../../shared/components/admin/users/CreateUserForm.js";
+import AdminShell from "../../shared/components/admin/layout/AdminShell.js";
+import CreateUserForm from "../../shared/components/admin/users/CreateUserForm.js";
 
 interface NewUserPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
@@ -13,7 +13,7 @@ interface NewUserPageProps {
 
 export default function NewUserPage({ userUid }: NewUserPageProps) {
     function handleCreated(uid: string) {
-        window.location.href = `/admin/users/detail?uid=${encodeURIComponent(uid)}`;
+        window.location.href = `/admin/users/${encodeURIComponent(uid)}`;
     }
 
     return (

@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React from "react";
-import { clearImpersonatingMarker } from "../../../shared/lib/api.js";
-import AuthShell from "../../../shared/components/layout/AuthShell.js";
-import SignInFlow from "../../../shared/components/sign-in/SignInFlow.js";
+import { clearImpersonatingMarker } from "../../shared/lib/api.js";
+import AuthShell from "../../shared/components/layout/AuthShell.js";
+import SignInFlow from "../../shared/components/sign-in/SignInFlow.js";
 
 /** Reads the `?returnTo=` hand-off (e.g. from `/auth/authorize`) — see `isSafeReturnTo()` below for why this is never trusted as-is. */
 export function readReturnTo(): string | null {

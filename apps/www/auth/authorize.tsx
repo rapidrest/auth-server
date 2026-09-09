@@ -9,10 +9,10 @@ import {
     AuthorizeQueryParams,
     requestAuthorization,
     submitConsent,
-} from "../../../shared/lib/api.js";
-import AuthShell from "../../../shared/components/layout/AuthShell.js";
-import Alert from "../../../shared/components/feedback/Alert.js";
-import Button from "../../../shared/components/buttons/Button.js";
+} from "../../shared/lib/api.js";
+import AuthShell from "../../shared/components/layout/AuthShell.js";
+import Alert from "../../shared/components/feedback/Alert.js";
+import Button from "../../shared/components/buttons/Button.js";
 
 const OAUTH_QUERY_KEYS = [
     "response_type",

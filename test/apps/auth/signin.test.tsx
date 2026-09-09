@@ -53,7 +53,7 @@ import {
     verifyMfaFido2,
     verifyPasskeySignIn,
 } from "../../../apps/shared/lib/api.js";
-import SignInPage, { isSafeReturnTo, readReturnTo } from "../../../apps/www/auth/signin/index.js";
+import SignInPage, { isSafeReturnTo, readReturnTo } from "../../../apps/www/auth/signin.js";
 
 const mockedStartAuthentication = vi.mocked(startAuthentication);
 const mockedBeginMfaChallenge = vi.mocked(beginMfaChallenge);

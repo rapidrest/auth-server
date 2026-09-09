@@ -3,16 +3,16 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
-import { Alias, ApiRequestError, ApiUser, getAccount, hasSecondFactor, logout, Profile, SecretSummary } from "../../shared/lib/api.js";
-import { useSessionRefresh } from "../../shared/lib/useSessionRefresh.js";
-import AuthShell from "../../shared/components/layout/AuthShell.js";
-import AccountHeader from "../../shared/components/account/header/AccountHeader.js";
-import UsernameCard from "../../shared/components/account/username/UsernameCard.js";
-import ProfileCard from "../../shared/components/account/profile/ProfileCard.js";
-import ContactsCard from "../../shared/components/account/contacts/ContactsCard.js";
-import SecretsCard from "../../shared/components/account/secrets/SecretsCard.js";
-import SecurityCard from "../../shared/components/account/security/SecurityCard.js";
-import RequireMfaSetupModal from "../../shared/components/account/security/RequireMfaSetupModal.js";
+import { Alias, ApiRequestError, ApiUser, getAccount, hasSecondFactor, logout, Profile, SecretSummary } from "../shared/lib/api.js";
+import { useSessionRefresh } from "../shared/lib/useSessionRefresh.js";
+import AuthShell from "../shared/components/layout/AuthShell.js";
+import AccountHeader from "../shared/components/account/header/AccountHeader.js";
+import UsernameCard from "../shared/components/account/username/UsernameCard.js";
+import ProfileCard from "../shared/components/account/profile/ProfileCard.js";
+import ContactsCard from "../shared/components/account/contacts/ContactsCard.js";
+import SecretsCard from "../shared/components/account/secrets/SecretsCard.js";
+import SecurityCard from "../shared/components/account/security/SecurityCard.js";
+import RequireMfaSetupModal from "../shared/components/account/security/RequireMfaSetupModal.js";
 
 interface AccountPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */

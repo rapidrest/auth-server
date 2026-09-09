@@ -75,7 +75,7 @@ export default function UserTable({ users, aliasesByUid, onDelete, onImpersonate
                             </td>
                             <td>{formatDate(user.dateCreated)}</td>
                             <td style={{ whiteSpace: "nowrap" }}>
-                                <a href={`/admin/users/detail?uid=${encodeURIComponent(user.uid)}`}>View</a>
+                                <a href={`/admin/users/${encodeURIComponent(user.uid)}`}>View</a>
                                 <Button
                                     variant="text"
                                     type="button"

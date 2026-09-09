@@ -43,7 +43,7 @@ describe("UserTable", () => {
         expect(screen.getByText("Verified")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
             "href",
-            "/admin/users/detail?uid=u1",
+            "/admin/users/u1",
         );
     });
 

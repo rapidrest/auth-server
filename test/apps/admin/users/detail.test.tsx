@@ -6,6 +6,7 @@ import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockLocation } from "../../testUtils.js";
 
 vi.mock("../../../../apps/shared/lib/api.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../../apps/shared/lib/api.js")>();
@@ -37,7 +38,7 @@ import {
     listUserAliases,
     listUserSecrets,
 } from "../../../../apps/shared/lib/adminApi.js";
-import UserDetailPage from "../../../../apps/admin/users/detail/index.js";
+import UserDetailPage from "../../../../apps/admin/users/[uid].js";
 
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedGetUser = vi.mocked(getUser);
@@ -59,13 +60,6 @@ const targetUser: AdminUser = {
     dateModified: "",
 };
 
-/** Stubs `window.location` with a writable `href`/`replace` (like testUtils' `mockLocation`) plus a fixed `search`. */
-function stubLocation(search: string): { href: string; replace: ReturnType<typeof vi.fn> } {
-    const location = { href: "", replace: vi.fn(), search };
-    Object.defineProperty(window, "location", { configurable: true, writable: true, value: location });
-    return location;
-}
-
 beforeEach(() => {
     mockedGetCurrentUser.mockReset();
     mockedGetUser.mockReset();
@@ -80,42 +74,34 @@ beforeEach(() => {
     mockedListUserAliases.mockResolvedValue([]);
     mockedListUserSecrets.mockResolvedValue([]);
     mockedEnsureElevated.mockResolvedValue(undefined);
-    stubLocation("?uid=target-1");
 });
 
 describe("UserDetailPage", () => {
-    it("shows a message when no uid was specified", async () => {
-        stubLocation("");
-        render(<UserDetailPage userUid="admin-1" />);
-        expect(await screen.findByText("No account specified.")).toBeInTheDocument();
-        expect(mockedGetUser).not.toHaveBeenCalled();
-    });
-
     it("loads and renders the target account's overview", async () => {
         mockedGetUser.mockResolvedValue(targetUser);
-        render(<UserDetailPage userUid="admin-1" />);
+        render(<UserDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         expect(await screen.findByText("target-1")).toBeInTheDocument();
         expect(mockedGetUser).toHaveBeenCalledWith("target-1");
     });
 
     it("shows an error when the account fails to load", async () => {
         mockedGetUser.mockRejectedValue(new ApiRequestError("not found", 404));
-        render(<UserDetailPage userUid="admin-1" />);
+        render(<UserDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         expect(await screen.findByText("not found")).toBeInTheDocument();
     });
 
     it("shows a generic error for a non-API load failure", async () => {
         mockedGetUser.mockRejectedValue(new Error("network down"));
-        render(<UserDetailPage userUid="admin-1" />);
+        render(<UserDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         expect(await screen.findByText("Could not load this account.")).toBeInTheDocument();
     });
 
     it("deletes the account via the danger-zone modal and redirects to /admin", async () => {
         mockedGetUser.mockResolvedValue(targetUser);
         mockedDeleteUser.mockResolvedValue(undefined);
-        const location = stubLocation("?uid=target-1");
+        const location = mockLocation();
         const user = userEvent.setup();
-        render(<UserDetailPage userUid="admin-1" />);
+        render(<UserDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete account" }));
@@ -129,9 +115,9 @@ describe("UserDetailPage", () => {
     it("shows an error in the modal when deletion fails, without redirecting", async () => {
         mockedGetUser.mockResolvedValue(targetUser);
         mockedDeleteUser.mockRejectedValue(new ApiRequestError("nope", 500));
-        const location = stubLocation("?uid=target-1");
+        const location = mockLocation();
         const user = userEvent.setup();
-        render(<UserDetailPage userUid="admin-1" />);
+        render(<UserDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete account" }));
@@ -145,9 +131,9 @@ describe("UserDetailPage", () => {
     it("shows a generic message in the modal when deletion fails with a non-API error", async () => {
         mockedGetUser.mockResolvedValue(targetUser);
         mockedDeleteUser.mockRejectedValue(new TypeError("boom"));
-        const location = stubLocation("?uid=target-1");
+        const location = mockLocation();
         const user = userEvent.setup();
-        render(<UserDetailPage userUid="admin-1" />);
+        render(<UserDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete account" }));
@@ -161,9 +147,9 @@ describe("UserDetailPage", () => {
     it("impersonates the account immediately on click, then redirects to /account", async () => {
         mockedGetUser.mockResolvedValue(targetUser);
         mockedImpersonateUser.mockResolvedValue({ token: "t", user: { uid: "target-1", version: 4, roles: [], scopes: [] } });
-        const location = stubLocation("?uid=target-1");
+        const location = mockLocation();
         const user = userEvent.setup();
-        render(<UserDetailPage userUid="admin-1" />);
+        render(<UserDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Impersonate user" }));
@@ -175,9 +161,9 @@ describe("UserDetailPage", () => {
     it("shows an error and does not redirect when impersonation fails", async () => {
         mockedGetUser.mockResolvedValue(targetUser);
         mockedImpersonateUser.mockRejectedValue(new ApiRequestError("nope", 403));
-        const location = stubLocation("?uid=target-1");
+        const location = mockLocation();
         const user = userEvent.setup();
-        render(<UserDetailPage userUid="admin-1" />);
+        render(<UserDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Impersonate user" }));
@@ -190,7 +176,7 @@ describe("UserDetailPage", () => {
         mockedGetUser.mockResolvedValue(targetUser);
         mockedImpersonateUser.mockRejectedValue(new TypeError("boom"));
         const user = userEvent.setup();
-        render(<UserDetailPage userUid="admin-1" />);
+        render(<UserDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Impersonate user" }));
@@ -201,7 +187,7 @@ describe("UserDetailPage", () => {
     it("closes the delete modal without deleting when Cancel is clicked", async () => {
         mockedGetUser.mockResolvedValue(targetUser);
         const user = userEvent.setup();
-        render(<UserDetailPage userUid="admin-1" />);
+        render(<UserDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete account" }));

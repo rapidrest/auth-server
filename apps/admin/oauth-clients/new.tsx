@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useState } from "react";
-import AdminShell from "../../../shared/components/admin/layout/AdminShell.js";
-import CreateClientForm from "../../../shared/components/admin/oauth-clients/CreateClientForm.js";
-import RevealSecretModal from "../../../shared/components/admin/oauth-clients/RevealSecretModal.js";
-import { AdminClient } from "../../../shared/lib/adminApi.js";
+import AdminShell from "../../shared/components/admin/layout/AdminShell.js";
+import CreateClientForm from "../../shared/components/admin/oauth-clients/CreateClientForm.js";
+import RevealSecretModal from "../../shared/components/admin/oauth-clients/RevealSecretModal.js";
+import { AdminClient } from "../../shared/lib/adminApi.js";
 
 interface NewOAuthClientPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
@@ -21,7 +21,7 @@ export default function NewOAuthClientPage({ userUid }: NewOAuthClientPageProps)
     const [createdClient, setCreatedClient] = useState<AdminClient | null>(null);
 
     function goToDetail(uid: string) {
-        window.location.href = `/admin/oauth-clients/detail?uid=${encodeURIComponent(uid)}`;
+        window.location.href = `/admin/oauth-clients/${encodeURIComponent(uid)}`;
     }
 
     function handleCreated(client: AdminClient) {

@@ -11,14 +11,14 @@ import {
     createUsernameAlias,
     RegistrationIdentifierType,
     verifyRegistration,
-} from "../../../shared/lib/api.js";
-import { isPasswordValid, usePasswordRequirements } from "../../../shared/lib/passwordCriteria.js";
-import AuthShell from "../../../shared/components/layout/AuthShell.js";
-import Alert from "../../../shared/components/feedback/Alert.js";
-import StepDots from "../../../shared/components/sign-up/progress/StepDots.js";
-import IdentifierStep from "../../../shared/components/sign-up/steps/IdentifierStep.js";
-import CodeStep from "../../../shared/components/sign-up/steps/CodeStep.js";
-import ProfileStep from "../../../shared/components/sign-up/steps/ProfileStep.js";
+} from "../../shared/lib/api.js";
+import { isPasswordValid, usePasswordRequirements } from "../../shared/lib/passwordCriteria.js";
+import AuthShell from "../../shared/components/layout/AuthShell.js";
+import Alert from "../../shared/components/feedback/Alert.js";
+import StepDots from "../../shared/components/sign-up/progress/StepDots.js";
+import IdentifierStep from "../../shared/components/sign-up/steps/IdentifierStep.js";
+import CodeStep from "../../shared/components/sign-up/steps/CodeStep.js";
+import ProfileStep from "../../shared/components/sign-up/steps/ProfileStep.js";
 
 type Step = "identifier" | "code" | "profile";
 

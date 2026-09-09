@@ -8,7 +8,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import SiteSettingsPage from "../../../../apps/admin/settings/index.js";
+import SiteSettingsPage from "../../../apps/admin/settings.js";
 
 describe("SiteSettingsPage SSR guard (no window)", () => {
     it("renders without throwing when there is no window global", () => {

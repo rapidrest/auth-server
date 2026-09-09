@@ -6,6 +6,7 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mockLocation } from "../testUtils.js";
 
 vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../apps/shared/lib/api.js")>();
@@ -16,13 +17,6 @@ import { ApiRequestError, isImpersonating, markImpersonating, stopImpersonating 
 import ImpersonationBanner from "../../../apps/shared/components/impersonation/ImpersonationBanner.js";
 
 const mockedStopImpersonating = vi.mocked(stopImpersonating);
-
-/** Stubs `window.location` with a writable `href` (see `test/apps/admin/users/detail.test.tsx`'s own helper). */
-function stubLocation(): { href: string } {
-    const location = { href: "" };
-    Object.defineProperty(window, "location", { configurable: true, writable: true, value: location });
-    return location;
-}
 
 beforeEach(() => {
     mockedStopImpersonating.mockReset();
@@ -48,7 +42,7 @@ describe("ImpersonationBanner", () => {
     it("stops impersonating, clears the marker, and redirects to /admin", async () => {
         markImpersonating();
         mockedStopImpersonating.mockResolvedValue({ restored: true });
-        const location = stubLocation();
+        const location = mockLocation();
         const user = userEvent.setup();
         render(<ImpersonationBanner />);
 
@@ -62,7 +56,7 @@ describe("ImpersonationBanner", () => {
     it("shows an error and does not redirect or clear the marker when stopping fails", async () => {
         markImpersonating();
         mockedStopImpersonating.mockRejectedValue(new ApiRequestError("nope", 500));
-        const location = stubLocation();
+        const location = mockLocation();
         const user = userEvent.setup();
         render(<ImpersonationBanner />);
 
@@ -79,7 +73,7 @@ describe("ImpersonationBanner", () => {
     it("shows a generic message for a non-API failure", async () => {
         markImpersonating();
         mockedStopImpersonating.mockRejectedValue(new TypeError("boom"));
-        stubLocation();
+        mockLocation();
         const user = userEvent.setup();
         render(<ImpersonationBanner />);
 

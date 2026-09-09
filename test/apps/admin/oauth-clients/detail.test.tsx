@@ -6,6 +6,7 @@ import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockLocation } from "../../testUtils.js";
 
 vi.mock("../../../../apps/shared/lib/api.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../../apps/shared/lib/api.js")>();
@@ -19,7 +20,7 @@ vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
 
 import { ApiRequestError, getCurrentUser } from "../../../../apps/shared/lib/api.js";
 import { AdminClient, deleteClient, ensureElevated, getClient } from "../../../../apps/shared/lib/adminApi.js";
-import OAuthClientDetailPage from "../../../../apps/admin/oauth-clients/detail/index.js";
+import OAuthClientDetailPage from "../../../../apps/admin/oauth-clients/[uid].js";
 
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedGetClient = vi.mocked(getClient);
@@ -44,13 +45,6 @@ const targetClient: AdminClient = {
     firstParty: false,
 };
 
-/** Stubs `window.location` with a writable `href`/`replace` (like testUtils' `mockLocation`) plus a fixed `search`. */
-function stubLocation(search: string): { href: string; replace: ReturnType<typeof vi.fn> } {
-    const location = { href: "", replace: vi.fn(), search };
-    Object.defineProperty(window, "location", { configurable: true, writable: true, value: location });
-    return location;
-}
-
 beforeEach(() => {
     mockedGetCurrentUser.mockReset();
     mockedGetClient.mockReset();
@@ -58,42 +52,34 @@ beforeEach(() => {
     mockedEnsureElevated.mockReset();
     mockedGetCurrentUser.mockResolvedValue(adminSelf);
     mockedEnsureElevated.mockResolvedValue(undefined);
-    stubLocation("?uid=target-1");
 });
 
 describe("OAuthClientDetailPage", () => {
-    it("shows a message when no uid was specified", async () => {
-        stubLocation("");
-        render(<OAuthClientDetailPage userUid="admin-1" />);
-        expect(await screen.findByText("No client specified.")).toBeInTheDocument();
-        expect(mockedGetClient).not.toHaveBeenCalled();
-    });
-
     it("loads and renders the target client's overview", async () => {
         mockedGetClient.mockResolvedValue(targetClient);
-        render(<OAuthClientDetailPage userUid="admin-1" />);
+        render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         expect(await screen.findByText("client-target-1")).toBeInTheDocument();
         expect(mockedGetClient).toHaveBeenCalledWith("target-1");
     });
 
     it("shows an error when the client fails to load", async () => {
         mockedGetClient.mockRejectedValue(new ApiRequestError("not found", 404));
-        render(<OAuthClientDetailPage userUid="admin-1" />);
+        render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         expect(await screen.findByText("not found")).toBeInTheDocument();
     });
 
     it("shows a generic error for a non-API load failure", async () => {
         mockedGetClient.mockRejectedValue(new Error("network down"));
-        render(<OAuthClientDetailPage userUid="admin-1" />);
+        render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         expect(await screen.findByText("Could not load this client.")).toBeInTheDocument();
     });
 
     it("deletes the client via the danger-zone modal and redirects to the list", async () => {
         mockedGetClient.mockResolvedValue(targetClient);
         mockedDeleteClient.mockResolvedValue(undefined);
-        const location = stubLocation("?uid=target-1");
+        const location = mockLocation();
         const user = userEvent.setup();
-        render(<OAuthClientDetailPage userUid="admin-1" />);
+        render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("client-target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete client" }));
@@ -107,9 +93,9 @@ describe("OAuthClientDetailPage", () => {
     it("shows an error in the modal when deletion fails, without redirecting", async () => {
         mockedGetClient.mockResolvedValue(targetClient);
         mockedDeleteClient.mockRejectedValue(new ApiRequestError("nope", 500));
-        const location = stubLocation("?uid=target-1");
+        const location = mockLocation();
         const user = userEvent.setup();
-        render(<OAuthClientDetailPage userUid="admin-1" />);
+        render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("client-target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete client" }));
@@ -123,9 +109,9 @@ describe("OAuthClientDetailPage", () => {
     it("shows a generic message in the modal when deletion fails with a non-API error", async () => {
         mockedGetClient.mockResolvedValue(targetClient);
         mockedDeleteClient.mockRejectedValue(new TypeError("boom"));
-        const location = stubLocation("?uid=target-1");
+        const location = mockLocation();
         const user = userEvent.setup();
-        render(<OAuthClientDetailPage userUid="admin-1" />);
+        render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("client-target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete client" }));
@@ -139,7 +125,7 @@ describe("OAuthClientDetailPage", () => {
     it("closes the delete modal without deleting when Cancel is clicked", async () => {
         mockedGetClient.mockResolvedValue(targetClient);
         const user = userEvent.setup();
-        render(<OAuthClientDetailPage userUid="admin-1" />);
+        render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
         await screen.findByText("client-target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete client" }));

@@ -3,46 +3,34 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
-import { ApiRequestError, markImpersonating } from "../../../shared/lib/api.js";
-import { AdminUser, deleteUser, getUser, impersonateUser } from "../../../shared/lib/adminApi.js";
-import AdminShell from "../../../shared/components/admin/layout/AdminShell.js";
-import UserOverviewCard from "../../../shared/components/admin/users/detail/UserOverviewCard.js";
-import UserProfileCard from "../../../shared/components/admin/users/detail/UserProfileCard.js";
-import UserIdentifiersCard from "../../../shared/components/admin/users/detail/UserIdentifiersCard.js";
-import UserSecretsCard from "../../../shared/components/admin/users/detail/UserSecretsCard.js";
-import DeleteUserModal from "../../../shared/components/admin/users/DeleteUserModal.js";
-import Alert from "../../../shared/components/feedback/Alert.js";
-import Button from "../../../shared/components/buttons/Button.js";
+import { ApiRequestError, markImpersonating } from "../../shared/lib/api.js";
+import { AdminUser, deleteUser, getUser, impersonateUser } from "../../shared/lib/adminApi.js";
+import AdminShell from "../../shared/components/admin/layout/AdminShell.js";
+import UserOverviewCard from "../../shared/components/admin/users/detail/UserOverviewCard.js";
+import UserProfileCard from "../../shared/components/admin/users/detail/UserProfileCard.js";
+import UserIdentifiersCard from "../../shared/components/admin/users/detail/UserIdentifiersCard.js";
+import UserSecretsCard from "../../shared/components/admin/users/detail/UserSecretsCard.js";
+import DeleteUserModal from "../../shared/components/admin/users/DeleteUserModal.js";
+import Alert from "../../shared/components/feedback/Alert.js";
+import Button from "../../shared/components/buttons/Button.js";
 
 interface DetailPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
     userUid?: string;
+    /** The `:uid` dynamic segment captured from this file's `[uid].tsx` name — see `@rapidrest/react`'s
+     * `ReactRoute` doc comment for the convention. Always present when this route matched. */
+    params: { uid: string };
 }
 
-/**
- * This framework has no dynamic route segments — the target account's uid is passed as `?uid=`. Exported
- * so its `typeof window === "undefined"` guard can be exercised directly in a `node`-environment test:
- * `UserDetailContent` (which calls this as a `useState` lazy initializer) is always mounted inside
- * `AdminShell`, which renders only its own "checking" placeholder — never `children` — during SSR (its
- * `status` only ever leaves `"checking"` via a `useEffect`, which doesn't run under
- * `renderToStaticMarkup`). So this function never actually runs with no `window` global as part of the
- * real page tree; the guard only gets exercised by calling it directly.
- */
-export function readTargetUid(): string | null {
-    if (typeof window === "undefined") return null;
-    return new URLSearchParams(window.location.search).get("uid");
-}
-
-export default function UserDetailPage({ userUid }: DetailPageProps) {
+export default function UserDetailPage({ userUid, params }: DetailPageProps) {
     return (
         <AdminShell userUid={userUid}>
-            <UserDetailContent />
+            <UserDetailContent uid={params.uid} />
         </AdminShell>
     );
 }
 
-function UserDetailContent() {
-    const [targetUid] = useState<string | null>(readTargetUid);
+function UserDetailContent({ uid }: { uid: string }) {
     const [user, setUser] = useState<AdminUser | null>(null);
     const [loaded, setLoaded] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -55,19 +43,15 @@ function UserDetailContent() {
     const [impersonateError, setImpersonateError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!targetUid) {
-            setLoaded(true);
-            return;
-        }
-        getUser(targetUid)
+        getUser(uid)
             .then(setUser)
             .catch((err) => setError(err instanceof ApiRequestError ? err.message : "Could not load this account."))
             .finally(() => setLoaded(true));
-    }, [targetUid]);
+    }, [uid]);
 
     async function handleConfirmDelete(purge: boolean) {
         // Only reachable via DeleteUserModal's own confirm button, which is only rendered (and therefore
-        // only clickable) once `user` is already loaded — see the `targetUid && loaded && user` guard below.
+        // only clickable) once `user` is already loaded — see the `loaded && user` guard below.
         setDeleting(true);
         setDeleteError(null);
         try {
@@ -94,10 +78,9 @@ function UserDetailContent() {
 
     return (
         <>
-            {!targetUid && <Alert>No account specified.</Alert>}
-            {targetUid && !loaded && <p className="rr-hint">Loading&hellip;</p>}
-            {targetUid && loaded && error && <Alert>{error}</Alert>}
-            {targetUid && loaded && user && (
+            {!loaded && <p className="rr-hint">Loading&hellip;</p>}
+            {loaded && error && <Alert>{error}</Alert>}
+            {loaded && user && (
                 <>
                     <div style={{ marginBottom: "1rem" }}>
                         <a href="/admin">&larr; Back to users</a>

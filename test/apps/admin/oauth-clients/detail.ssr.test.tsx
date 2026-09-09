@@ -8,18 +8,14 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import OAuthClientDetailPage, { readTargetUid } from "../../../../apps/admin/oauth-clients/detail/index.js";
+import OAuthClientDetailPage from "../../../../apps/admin/oauth-clients/[uid].js";
 
 describe("OAuthClientDetailPage SSR guard (no window)", () => {
     it("renders without throwing when there is no window global", () => {
-        // See `apps/admin/users/detail/index.tsx`'s own SSR test for why this never actually reaches
-        // `readTargetUid()` — `AdminShell` renders only its "checking" placeholder during SSR.
+        // `AdminShell` renders only its own "checking" placeholder during SSR (the admin-role check
+        // itself is only ever done client-side), so this never actually reaches `params.uid`, only
+        // proves the outer SSR call path doesn't throw.
         expect(typeof window).toBe("undefined");
-        expect(() => renderToStaticMarkup(<OAuthClientDetailPage userUid="admin-1" />)).not.toThrow();
-    });
-
-    it("readTargetUid() returns null when there is no window global", () => {
-        expect(typeof window).toBe("undefined");
-        expect(readTargetUid()).toBeNull();
+        expect(() => renderToStaticMarkup(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />)).not.toThrow();
     });
 });

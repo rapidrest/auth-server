@@ -79,7 +79,7 @@ import {
     updateUsernameAlias,
     verifyContact,
 } from "../../apps/shared/lib/api.js";
-import AccountPage from "../../apps/www/account/index.js";
+import AccountPage from "../../apps/www/account.js";
 
 const mockedStartRegistration = vi.mocked(startRegistration);
 const mockedToDataURL = vi.mocked(QRCode.toDataURL);

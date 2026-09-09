@@ -6,6 +6,7 @@ import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockLocation } from "../testUtils.js";
 
 vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../apps/shared/lib/api.js")>();
@@ -51,13 +52,6 @@ function makeUser(uid: string): AdminUser {
     return { uid, roles: [], scopes: [], verified: false, version: 0, dateCreated: "", dateModified: "" };
 }
 
-/** Stubs `window.location` with a writable `href` (like `detail.test.tsx`'s `stubLocation`). */
-function stubLocation(): { href: string } {
-    const location = { href: "" };
-    Object.defineProperty(window, "location", { configurable: true, writable: true, value: location });
-    return location;
-}
-
 beforeEach(() => {
     mockedGetCurrentUser.mockReset();
     mockedListUsers.mockReset();
@@ -75,7 +69,7 @@ describe("UsersListPage", () => {
     it("loads and renders the first page of users", async () => {
         mockedListUsers.mockResolvedValue([makeUser("u1")]);
         render(<UsersListPage userUid="admin-1" />);
-        expect(await screen.findByRole("link", { name: "View" })).toHaveAttribute("href", "/admin/users/detail?uid=u1");
+        expect(await screen.findByRole("link", { name: "View" })).toHaveAttribute("href", "/admin/users/u1");
         expect(mockedListUsers).toHaveBeenCalledWith({ page: 0, limit: 25, role: undefined, verified: undefined });
         expect(screen.getByRole("link", { name: "+ New user" })).toHaveAttribute("href", "/admin/users/new");
         expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
@@ -150,7 +144,7 @@ describe("UsersListPage", () => {
 
         expect(await screen.findByRole("link", { name: "View" })).toHaveAttribute(
             "href",
-            "/admin/users/detail?uid=found-1",
+            "/admin/users/found-1",
         );
         expect(mockedSearchUsers).toHaveBeenCalledWith("found", expect.objectContaining({ page: 0 }));
         expect(screen.queryByRole("button", { name: "Previous" })).not.toBeInTheDocument();
@@ -201,7 +195,7 @@ describe("UsersListPage", () => {
     it("impersonates a user immediately on click, then redirects to /account", async () => {
         mockedListUsers.mockResolvedValue([makeUser("u1")]);
         mockedImpersonateUser.mockResolvedValue({ token: "t", user: { uid: "u1", version: 0, roles: [], scopes: [] } });
-        const location = stubLocation();
+        const location = mockLocation();
         const user = userEvent.setup();
         render(<UsersListPage userUid="admin-1" />);
         await screen.findByRole("link", { name: "View" });
@@ -215,7 +209,7 @@ describe("UsersListPage", () => {
     it("shows an error and does not redirect when impersonation fails", async () => {
         mockedListUsers.mockResolvedValue([makeUser("u1")]);
         mockedImpersonateUser.mockRejectedValue(new ApiRequestError("nope", 403));
-        const location = stubLocation();
+        const location = mockLocation();
         const user = userEvent.setup();
         render(<UsersListPage userUid="admin-1" />);
         await screen.findByRole("link", { name: "View" });

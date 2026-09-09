@@ -62,7 +62,7 @@ describe("OAuthClientsListPage", () => {
         render(<OAuthClientsListPage userUid="admin-1" />);
         expect(await screen.findByRole("link", { name: "View" })).toHaveAttribute(
             "href",
-            "/admin/oauth-clients/detail?uid=c1",
+            "/admin/oauth-clients/c1",
         );
         expect(mockedListClients).toHaveBeenCalledWith({ page: 0, limit: 25 });
         expect(screen.getByRole("link", { name: "+ New client" })).toHaveAttribute("href", "/admin/oauth-clients/new");

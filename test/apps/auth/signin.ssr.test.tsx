@@ -6,7 +6,7 @@
 // `test/apps/**` uses) via the `@vitest-environment` docblock above, so `window` is genuinely undefined
 // here, the way it is under real SSR.
 import { describe, expect, it } from "vitest";
-import { readReturnTo } from "../../../apps/www/auth/signin/index.js";
+import { readReturnTo } from "../../../apps/www/auth/signin.js";
 
 describe("readReturnTo() SSR guard (no window)", () => {
     it("returns null when there is no window global", () => {

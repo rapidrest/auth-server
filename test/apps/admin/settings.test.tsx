@@ -6,25 +6,25 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../../apps/shared/lib/api.js", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../../../apps/shared/lib/api.js")>();
+vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../apps/shared/lib/api.js")>();
     return { ...actual, getCurrentUser: vi.fn() };
 });
 
-vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../../../apps/shared/lib/adminApi.js")>();
+vi.mock("../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../apps/shared/lib/adminApi.js")>();
     return { ...actual, ensureElevated: vi.fn() };
 });
 
-vi.mock("../../../../apps/shared/lib/siteSettings.js", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../../../apps/shared/lib/siteSettings.js")>();
+vi.mock("../../../apps/shared/lib/siteSettings.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../apps/shared/lib/siteSettings.js")>();
     return { ...actual, getSiteSettings: vi.fn() };
 });
 
-import { ApiRequestError, getCurrentUser } from "../../../../apps/shared/lib/api.js";
-import { ensureElevated } from "../../../../apps/shared/lib/adminApi.js";
-import { getSiteSettings, PublicSiteSettings } from "../../../../apps/shared/lib/siteSettings.js";
-import SiteSettingsPage from "../../../../apps/admin/settings/index.js";
+import { ApiRequestError, getCurrentUser } from "../../../apps/shared/lib/api.js";
+import { ensureElevated } from "../../../apps/shared/lib/adminApi.js";
+import { getSiteSettings, PublicSiteSettings } from "../../../apps/shared/lib/siteSettings.js";
+import SiteSettingsPage from "../../../apps/admin/settings.js";
 
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 const mockedEnsureElevated = vi.mocked(ensureElevated);
