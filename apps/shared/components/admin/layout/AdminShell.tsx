@@ -103,7 +103,7 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
                         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
                             <a href="/admin" className="rr-brand" style={{ flexDirection: "row", gap: "0.5rem" }}>
                                 <img src={brandLogo} height="64" alt="" />
-                                <span>Admin Console</span>
+                                <span>{brandTitle} Admin</span>
                             </a>
                             <a href="/admin">Users</a>
                             <a href="/admin/oauth-clients">OAuth Clients</a>

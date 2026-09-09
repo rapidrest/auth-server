@@ -44,11 +44,7 @@ export default defineConfig({
         include: ['test/**/*.test.ts', 'test/**/*.test.tsx'],
         fileParallelism: false,
         pool: 'forks',
-        poolOptions: {
-            forks: {
-                execArgv: ['--no-experimental-strip-types'],
-            },
-        },
+        execArgv: ['--no-experimental-strip-types'],
         clearMocks: true,
         coverage: {
             enabled: true,
