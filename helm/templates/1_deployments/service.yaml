@@ -40,15 +40,15 @@ spec:
           {{- end }}
           envFrom:
             - configMapRef:
-                name: service-config
+                name: {{ include "rrst.fullname" . }}-service-config
             {{- if $.Values.redis.create }}
             - secretRef:
                 name: db-redis-info
             {{- end }}
             - secretRef:
-                name: jwt-auth
+                name: {{ include "rrst.fullname" . }}-jwt-auth
             - secretRef:
-                name: service-db-info
+                name: {{ include "rrst.fullname" . }}-service-db-info
           ports:
             - containerPort: 3000
           resources:

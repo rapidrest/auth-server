@@ -1,4 +1,11 @@
-{{- if and (eq "api-gateway" (tpl $.Values.gateway.name $)) (eq $.Release.Namespace (tpl $.Values.gateway.namespace $)) }}
+{{- /*
+gateway.create (default true) lets a parent chart that depends on this one as a subchart - sharing one
+Gateway across both, rather than each independently trying to create a resource literally named
+"api-gateway" - suppress this chart's own creation while still pointing its own HTTPRoute below at
+whichever Gateway the parent actually created (gateway.name/gateway.namespace still resolve normally
+either way; this only gates the `if` below).
+*/}}
+{{- if and $.Values.gateway.create (eq "api-gateway" (tpl $.Values.gateway.name $)) (eq $.Release.Namespace (tpl $.Values.gateway.namespace $)) }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -27,7 +34,11 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: api-httproute
+  # Chart-name-qualified (not a bare "api-httproute") so a parent chart depending on this one as a
+  # subchart - each with its own hostname/backendRefs attached to one shared Gateway - doesn't have both
+  # charts' HTTPRoutes collide under the same literal resource name, silently clobbering one route with
+  # the other on every `helm upgrade`.
+  name: {{ include "rrst.fullname" . }}-httproute
 spec:
   parentRefs:
   - name: {{ tpl $.Values.gateway.name $ }}

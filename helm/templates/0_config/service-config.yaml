@@ -2,7 +2,10 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: service-config
+  # Chart-name-qualified (not bare "service-config") so a parent chart depending on this one as a
+  # subchart - each with its own, genuinely different config values - doesn't have one silently
+  # overwrite the other's ConfigMap under the same literal resource name.
+  name: {{ include "rrst.fullname" . }}-service-config
 data:
   cookie_secret: {{ tpl $.Values.cookies.secret . | quote }}
   session__secret: {{ tpl $.Values.sessions.secret . | quote }}
@@ -25,7 +28,8 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: service-db-info
+  # Chart-name-qualified - see the ConfigMap above for why.
+  name: {{ include "rrst.fullname" . }}-service-db-info
 type: Opaque
 data:
   {{- $mongoRootUser := "" }}
