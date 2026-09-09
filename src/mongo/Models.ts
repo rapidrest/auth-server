@@ -12,3 +12,4 @@ export {
     OAuthRefreshTokenMongo,
     SigningKeyMongo,
 } from "@rapidrest/auth/mongo";
+export { SiteSettingsMongo } from "../models/mongo/SiteSettingsMongo.js";

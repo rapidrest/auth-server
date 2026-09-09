@@ -182,6 +182,22 @@ describe("apiFetch", () => {
         expect(headers.has("Authorization")).toBe(false);
     });
 
+    it("defaults Content-Type to application/json when the caller doesn't set one", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, {}));
+        await apiFetch("/whatever");
+        const init = fetchMock.mock.calls[0][1] as RequestInit;
+        const headers = init.headers as Headers;
+        expect(headers.get("Content-Type")).toBe("application/json");
+    });
+
+    it("leaves a caller-supplied Content-Type untouched (e.g. a raw file upload)", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, {}));
+        await apiFetch("/settings/logo", { method: "POST", headers: { "Content-Type": "image/png" } });
+        const init = fetchMock.mock.calls[0][1] as RequestInit;
+        const headers = init.headers as Headers;
+        expect(headers.get("Content-Type")).toBe("image/png");
+    });
+
     it("returns undefined for a non-JSON response body", async () => {
         mockFetch(() => new Response("plain text", { status: 200, headers: { "content-type": "text/plain" } }));
         const result = await apiFetch("/whatever");

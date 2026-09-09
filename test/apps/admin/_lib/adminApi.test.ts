@@ -8,6 +8,8 @@ import {
     createUser,
     createUserAlias,
     createUserPasswordSecret,
+    deleteSiteLogo,
+    deleteSiteStylesheet,
     deleteUser,
     ensureElevated,
     getUser,
@@ -18,7 +20,10 @@ import {
     listUsers,
     listUserSecrets,
     searchUsers,
+    updateSiteSettings,
     updateUser,
+    uploadSiteLogo,
+    uploadSiteStylesheet,
     upsertUserProfile,
 } from "../../../../apps/shared/lib/adminApi.js";
 
@@ -302,5 +307,62 @@ describe("profile", () => {
                 body: JSON.stringify({ uid: "u1", version: 2, givenName: "Ada" }),
             }),
         );
+    });
+});
+
+describe("site settings", () => {
+    const settings = { logoUploaded: false, stylesheetUploaded: false };
+
+    it("updateSiteSettings PUTs the given fields", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { ...settings, siteTitle: "Acme" }));
+        await updateSiteSettings({ siteTitle: "Acme", companyName: null });
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/settings",
+            expect.objectContaining({
+                method: "PUT",
+                body: JSON.stringify({ siteTitle: "Acme", companyName: null }),
+            }),
+        );
+    });
+
+    it("uploadSiteLogo POSTs the file's raw bytes under its own content type", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { ...settings, logoUploaded: true }));
+        const file = new File(["fake-bytes"], "logo.png", { type: "image/png" });
+        await uploadSiteLogo(file);
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/logo", expect.objectContaining({ method: "POST", body: file }));
+        const init = fetchMock.mock.calls[0][1] as RequestInit;
+        expect((init.headers as Headers).get("Content-Type")).toBe("image/png");
+    });
+
+    it("deleteSiteLogo DELETEs /settings/logo", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, settings));
+        await deleteSiteLogo();
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/logo", expect.objectContaining({ method: "DELETE" }));
+    });
+
+    it("uploadSiteStylesheet POSTs the file's raw bytes under its own content type", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { ...settings, stylesheetUploaded: true }));
+        const file = new File(["body { color: red; }"], "style.css", { type: "text/css" });
+        await uploadSiteStylesheet(file);
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/settings/stylesheet",
+            expect.objectContaining({ method: "POST", body: file }),
+        );
+        const init = fetchMock.mock.calls[0][1] as RequestInit;
+        expect((init.headers as Headers).get("Content-Type")).toBe("text/css");
+    });
+
+    it("uploadSiteStylesheet falls back to text/css when the file has no type", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { ...settings, stylesheetUploaded: true }));
+        const file = new File(["body {}"], "style.css", { type: "" });
+        await uploadSiteStylesheet(file);
+        const init = fetchMock.mock.calls[0][1] as RequestInit;
+        expect((init.headers as Headers).get("Content-Type")).toBe("text/css");
+    });
+
+    it("deleteSiteStylesheet DELETEs /settings/stylesheet", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, settings));
+        await deleteSiteStylesheet();
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/stylesheet", expect.objectContaining({ method: "DELETE" }));
     });
 });

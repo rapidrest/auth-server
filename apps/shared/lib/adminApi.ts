@@ -10,6 +10,7 @@
  */
 
 import { Alias, AliasType, apiFetch, ApiRequestError, ApiUser, AuthResult, Profile } from "./api.js";
+import { PublicSiteSettings } from "./siteSettings.js";
 
 export interface AdminUser extends ApiUser {
     dateCreated: string;
@@ -324,4 +325,43 @@ export function deleteClient(uid: string, version: number, purge = false): Promi
  */
 export function regenerateClientSecret(uid: string): Promise<{ clientSecret: string }> {
     return apiFetch(`/oauth/clients/${encodeURIComponent(uid)}/regenerate-secret`, { method: "POST" });
+}
+
+export interface UpdateSiteSettingsInput {
+    /** Omit to leave untouched; `null` clears the field. */
+    siteTitle?: string | null;
+    companyName?: string | null;
+    headerHtml?: string | null;
+    footerHtml?: string | null;
+    logoUrl?: string | null;
+    stylesheetUrl?: string | null;
+}
+
+/** Updates the deployment's branding text fields and/or logo/stylesheet reference URLs. */
+export function updateSiteSettings(input: UpdateSiteSettingsInput): Promise<PublicSiteSettings> {
+    return apiFetch("/settings", { method: "PUT", body: JSON.stringify(input) });
+}
+
+/**
+ * Uploads a logo image directly, taking precedence over any configured `logoUrl` once it succeeds (see
+ * `BaseSiteSettingsRoute`). Sends `file`'s raw bytes under its own MIME type rather than JSON — the one
+ * `apiFetch()` caller in this app that needs to override the default `Content-Type: application/json`.
+ */
+export function uploadSiteLogo(file: File): Promise<PublicSiteSettings> {
+    return apiFetch("/settings/logo", { method: "POST", headers: { "Content-Type": file.type }, body: file });
+}
+
+/** Clears a directly uploaded logo, reverting to `logoUrl` (if configured). */
+export function deleteSiteLogo(): Promise<PublicSiteSettings> {
+    return apiFetch("/settings/logo", { method: "DELETE" });
+}
+
+/** Uploads a custom stylesheet directly, taking precedence over any configured `stylesheetUrl`. */
+export function uploadSiteStylesheet(file: File): Promise<PublicSiteSettings> {
+    return apiFetch("/settings/stylesheet", { method: "POST", headers: { "Content-Type": file.type || "text/css" }, body: file });
+}
+
+/** Clears a directly uploaded stylesheet, reverting to `stylesheetUrl` (if configured). */
+export function deleteSiteStylesheet(): Promise<PublicSiteSettings> {
+    return apiFetch("/settings/stylesheet", { method: "DELETE" });
 }

@@ -6,6 +6,8 @@ import React, { PropsWithChildren, ReactNode, useEffect, useState } from "react"
 import { ApiRequestError, ApiUser, getCurrentUser, logout } from "../../../lib/api.js";
 import { ensureElevated } from "../../../lib/adminApi.js";
 import { useSessionRefresh } from "../../../lib/useSessionRefresh.js";
+import { useSiteSettings } from "../../../lib/useSiteSettings.js";
+import { effectiveLogoUrl } from "../../../lib/siteSettings.js";
 import ElevationHost from "../../elevation/ElevationHost.js";
 import ImpersonationBanner from "../../impersonation/ImpersonationBanner.js";
 import Alert from "../../feedback/Alert.js";
@@ -26,6 +28,9 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
     const [status, setStatus] = useState<Status>("checking");
     const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const settings = useSiteSettings();
+    const brandTitle = settings?.companyName || settings?.siteTitle || "RapidREST";
+    const brandLogo = (settings && effectiveLogoUrl(settings)) || "/images/logo.svg";
 
     // Keeps the access token alive (and this shell usable) for as long as the refresh token is valid —
     // see useSessionRefresh's doc comment. Handles redirecting to sign-in itself when no session can be
@@ -91,14 +96,18 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
             <div className="rr-page">
                 <div className="rr-container rr-container--wide">
                     <ImpersonationBanner />
+                    {settings?.headerHtml && (
+                        <div className="rr-custom-header" dangerouslySetInnerHTML={{ __html: settings.headerHtml }} />
+                    )}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
                             <a href="/admin" className="rr-brand" style={{ flexDirection: "row", gap: "0.5rem" }}>
-                                <img src="/images/logo.svg" width="28" height="28" alt="" />
-                                <span>RapidREST Admin</span>
+                                <img src={brandLogo} width="28" height="28" alt="" />
+                                <span>{brandTitle} Admin</span>
                             </a>
                             <a href="/admin">Users</a>
                             <a href="/admin/oauth-clients">OAuth Clients</a>
+                            <a href="/admin/settings">Settings</a>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                             {currentUser && <span className="rr-hint">{currentUser.uid}</span>}
@@ -108,6 +117,9 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
                         </div>
                     </div>
                     {children}
+                    {settings?.footerHtml && (
+                        <div className="rr-custom-footer" dangerouslySetInnerHTML={{ __html: settings.footerHtml }} />
+                    )}
                 </div>
             </div>
         );

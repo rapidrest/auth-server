@@ -12,3 +12,4 @@ export {
     OAuthRefreshTokenSQL,
     SigningKeySQL,
 } from "@rapidrest/auth/sql";
+export { SiteSettingsSQL } from "../models/sql/SiteSettingsSQL.js";

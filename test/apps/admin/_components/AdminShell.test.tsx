@@ -72,6 +72,9 @@ describe("AdminShell", () => {
             if (url === "/api/auth/logout") {
                 return emptyResponse(200);
             }
+            if (url === "/api/settings") {
+                return jsonResponse(200, { logoUploaded: false, stylesheetUploaded: false });
+            }
             throw new Error(`unexpected ${init?.method ?? "GET"} ${url}`);
         });
         const location = mockLocation();
@@ -82,9 +85,41 @@ describe("AdminShell", () => {
         expect(screen.getByText("admin-1")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute("href", "/admin");
         expect(screen.getByRole("link", { name: "OAuth Clients" })).toHaveAttribute("href", "/admin/oauth-clients");
+        expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/admin/settings");
+        expect(screen.getByText("RapidREST Admin")).toBeInTheDocument();
 
         await user.click(screen.getByRole("button", { name: "Sign out" }));
         expect(location.href).toBe("/auth/signin");
+    });
+
+    it("renders custom branding, header, and footer once site settings resolve", async () => {
+        mockFetch((url, init) => {
+            if (url === "/api/users/me") {
+                return jsonResponse(200, { uid: "admin-1", roles: ["admin"], scopes: [] });
+            }
+            if (url === "/api/admin/release-notes") {
+                return jsonResponse(200, {});
+            }
+            if (url === "/api/settings") {
+                return jsonResponse(200, {
+                    companyName: "Acme Inc",
+                    logoUploaded: true,
+                    headerHtml: "<p>Scheduled maintenance tonight</p>",
+                    footerHtml: "<p>&copy; Acme Inc</p>",
+                    stylesheetUploaded: false,
+                });
+            }
+            throw new Error(`unexpected ${init?.method ?? "GET"} ${url}`);
+        });
+        render(<AdminShell userUid="admin-1">content</AdminShell>);
+
+        expect(await screen.findByText("Acme Inc Admin")).toBeInTheDocument();
+        expect(screen.getByText("Scheduled maintenance tonight")).toBeInTheDocument();
+        expect(screen.getByText((_, el) => el?.tagName === "P" && el.textContent === "© Acme Inc")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Acme Inc Admin" }).querySelector("img")).toHaveAttribute(
+            "src",
+            "/api/settings/logo",
+        );
     });
 
     it("does not render admin content until the elevation prompt (triggered by ensureElevated()'s api-104) is satisfied", async () => {

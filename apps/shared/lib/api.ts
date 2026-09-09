@@ -136,7 +136,11 @@ export function isImpersonating(): boolean {
  */
 export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
     const headers = new Headers(init.headers);
-    headers.set("Content-Type", "application/json");
+    // Only defaults the header — never overrides one a caller already set (e.g. `uploadSiteLogo()`/
+    // `uploadSiteStylesheet()` in `adminApi.ts`, which send a raw file body under its own MIME type).
+    if (!headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+    }
 
     const res = await fetch(`/api${path}`, { ...init, headers });
     const contentType = res.headers.get("content-type") ?? "";
