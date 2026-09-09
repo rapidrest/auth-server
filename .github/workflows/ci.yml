@@ -64,7 +64,7 @@ jobs:
             ${{ runner.os }}-yarn-
       
       - name: Install system dependencies
-        run: apt-get update && apt-get install -y libcurl4t64
+        run: apt-get update && apt-get install -y build-essential python3 libcurl4t64
       
       - name: Install dependencies
         run: export REDISMS_DISABLE_POSTINSTALL=true && yarn install --frozen-lockfile
