@@ -99,12 +99,12 @@ helm install --create-namespace --namespace auth-server auth-server ./helm
 
 #### Single Node Cluster
 
-If you would like to run the project in a single-node Kubernetes cluster, the `single_node_install.sh` script is a
+If you would like to run the project in a single-node Kubernetes cluster (k3s), the `k3s_install.sh` script is a
 great way to get started. This script will automatically set up everything needed to run *auth-server* in a Kubernetes
 environment, including ingress with TLS support. Simply run the script from any linux compatible machine.
 
 ```bash
-./single_node_install.sh
+./scripts/k3s_install.sh
 ```
 
 ## Debugging
