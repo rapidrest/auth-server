@@ -80,7 +80,6 @@ beforeEach(() => {
     mockedListUserAliases.mockResolvedValue([]);
     mockedListUserSecrets.mockResolvedValue([]);
     mockedEnsureElevated.mockResolvedValue(undefined);
-    window.confirm = vi.fn(() => true);
     stubLocation("?uid=target-1");
 });
 
@@ -159,7 +158,7 @@ describe("UserDetailPage", () => {
         expect(location.href).toBe("");
     });
 
-    it("impersonates the account after confirming, then redirects to /account", async () => {
+    it("impersonates the account immediately on click, then redirects to /account", async () => {
         mockedGetUser.mockResolvedValue(targetUser);
         mockedImpersonateUser.mockResolvedValue({ token: "t", user: { uid: "target-1", version: 4, roles: [], scopes: [] } });
         const location = stubLocation("?uid=target-1");
@@ -169,21 +168,8 @@ describe("UserDetailPage", () => {
 
         await user.click(screen.getByRole("button", { name: "Impersonate user" }));
 
-        expect(window.confirm).toHaveBeenCalled();
         expect(mockedImpersonateUser).toHaveBeenCalledWith("target-1");
         await waitFor(() => expect(location.href).toBe("/account"));
-    });
-
-    it("does not impersonate when the confirmation is declined", async () => {
-        mockedGetUser.mockResolvedValue(targetUser);
-        window.confirm = vi.fn(() => false);
-        const user = userEvent.setup();
-        render(<UserDetailPage userUid="admin-1" />);
-        await screen.findByText("target-1");
-
-        await user.click(screen.getByRole("button", { name: "Impersonate user" }));
-
-        expect(mockedImpersonateUser).not.toHaveBeenCalled();
     });
 
     it("shows an error and does not redirect when impersonation fails", async () => {

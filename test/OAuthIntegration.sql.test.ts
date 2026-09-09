@@ -88,10 +88,12 @@ describe("OAuth 2.0 / OIDC end-to-end integration (sql)", () => {
             synchronize: true,
         });
         // This test's `FakeRedis` mock doesn't implement the atomic `INCREX`-based command
-        // `RateLimiter` uses against a real Redis-backed `cache` datastore — and rate limiting itself
-        // isn't what this test is about (it's already covered by `@rapidrest/auth`'s own suite), so
-        // it's disabled outright rather than extending the shared fake for one command.
-        config.set("auth:rateLimit", { enabled: false });
+        // `RateLimiter` (now `@rapidrest/service-core`'s, read from the top-level `rateLimit` config
+        // key rather than `auth:rateLimit`) uses against a real Redis-backed `cache` datastore — and
+        // rate limiting itself isn't what this test is about (it's already covered by
+        // `@rapidrest/auth`'s own suite), so it's disabled outright rather than extending the shared
+        // fake for one command.
+        config.set("rateLimit", { enabled: false });
         await server.start();
     });
 

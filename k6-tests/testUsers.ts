@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 /**
- * `auth:rateLimit` (see `@rapidrest/auth`'s `RateLimiter`) rejects more than 5 sign-in attempts for the
+ * `rateLimit` (see `@rapidrest/service-core`'s `RateLimiter`) rejects more than 5 sign-in attempts for the
  * same identifier within a 5-minute window by default - a single shared identity (e.g. the default admin
  * account) can't be used as the sign-in target for more than a handful of VUs before every later login in
  * the same run gets rejected, not because anything is broken but because the rate limiter is doing exactly
