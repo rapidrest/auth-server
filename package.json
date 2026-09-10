@@ -1,6 +1,6 @@
 {
   "name": "auth-server",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "description": "A reference implementation of a RapidREST authorization server using @rapidrest/auth.",
   "type": "module",
   "repository": "github/auth-server",

@@ -1,34 +1,32 @@
 apiVersion: v2
-description: Installs the RapidREST authentication and authorization server into a Kubernetes cluster
+description: >-
+  Installs the RapidREST authentication and authorization server into a
+  Kubernetes cluster
 name: auth-server
 version: 1.0.0
-appVersion: "0.1.0"
+appVersion: 1.0.0-beta.0
 dependencies:
-
-- name: mongodb
-  repository: "@bitnami"
-  version: ~18.4.4
-  condition: mongodb.create
-  tags:
-    - dbs
-    - mongodb
-  alias: mongodb
-
-- name: postgresql
-  repository: "@bitnami"
-  version: ~18.8.13
-  condition: postgresql.create
-  tags:
-    - dbs
-    - postgresql
-  alias: postgresql
-
-- name: redis
-  version: ~24.1.3
-  repository: "@bitnami"
-  condition: redis.create
-  tags:
-    - cache
-    - redis
-  alias: redis
-
+  - name: mongodb
+    repository: '@bitnami'
+    version: ~18.4.4
+    condition: mongodb.create
+    tags:
+      - dbs
+      - mongodb
+    alias: mongodb
+  - name: postgresql
+    repository: '@bitnami'
+    version: ~18.8.13
+    condition: postgresql.create
+    tags:
+      - dbs
+      - postgresql
+    alias: postgresql
+  - name: redis
+    version: ~24.1.3
+    repository: '@bitnami'
+    condition: redis.create
+    tags:
+      - cache
+      - redis
+    alias: redis
