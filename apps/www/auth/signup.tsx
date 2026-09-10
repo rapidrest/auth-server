@@ -13,6 +13,7 @@ import {
     verifyRegistration,
 } from "../../shared/lib/api.js";
 import { isPasswordValid, usePasswordRequirements } from "../../shared/lib/passwordCriteria.js";
+import { PublicSiteSettings } from "../../shared/lib/siteSettings.js";
 import AuthShell from "../../shared/components/layout/AuthShell.js";
 import Alert from "../../shared/components/feedback/Alert.js";
 import StepDots from "../../shared/components/sign-up/progress/StepDots.js";
@@ -37,6 +38,8 @@ export interface SignUpPageProps {
      * so skip re-entering it and send the verification code immediately on mount.
      */
     autoSend?: boolean;
+    /** Populated automatically by the framework — see `wwwRoute`'s `fetchProps()` override. */
+    siteSettings?: PublicSiteSettings;
 }
 
 /** Reads the sign-in-page hand-off query params (see `SignInFlow`'s redirect-to-sign-up branch). */
@@ -51,7 +54,7 @@ export async function fetchProps(req: { query?: Record<string, string | string[]
     };
 }
 
-export default function SignUpPage({ initialIdentifierType, initialIdentifier, autoSend }: SignUpPageProps) {
+export default function SignUpPage({ initialIdentifierType, initialIdentifier, autoSend, siteSettings }: SignUpPageProps) {
     const [step, setStep] = useState<Step>("identifier");
     const [identifierType, setIdentifierType] = useState<RegistrationIdentifierType>(initialIdentifierType ?? "email");
     const [identifier, setIdentifier] = useState(initialIdentifier ?? "");
@@ -163,7 +166,7 @@ export default function SignUpPage({ initialIdentifierType, initialIdentifier, a
     }
 
     return (
-        <AuthShell brand>
+        <AuthShell brand settings={siteSettings}>
             <StepDots count={STEPS.length} activeIndex={stepIndex} />
 
             <div className="rr-card">

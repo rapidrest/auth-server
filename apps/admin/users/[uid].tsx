@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { ApiRequestError, markImpersonating } from "../../shared/lib/api.js";
 import { AdminUser, deleteUser, getUser, impersonateUser } from "../../shared/lib/adminApi.js";
+import { PublicSiteSettings } from "../../shared/lib/siteSettings.js";
 import AdminShell from "../../shared/components/admin/layout/AdminShell.js";
 import UserOverviewCard from "../../shared/components/admin/users/detail/UserOverviewCard.js";
 import UserProfileCard from "../../shared/components/admin/users/detail/UserProfileCard.js";
@@ -20,11 +21,13 @@ interface DetailPageProps {
     /** The `:uid` dynamic segment captured from this file's `[uid].tsx` name — see `@rapidrest/react`'s
      * `ReactRoute` doc comment for the convention. Always present when this route matched. */
     params: { uid: string };
+    /** Populated automatically by the framework — see `AdminConsoleRoute`'s `fetchProps()` override. */
+    siteSettings?: PublicSiteSettings;
 }
 
-export default function UserDetailPage({ userUid, params }: DetailPageProps) {
+export default function UserDetailPage({ userUid, params, siteSettings }: DetailPageProps) {
     return (
-        <AdminShell userUid={userUid}>
+        <AdminShell userUid={userUid} settings={siteSettings}>
             <UserDetailContent uid={params.uid} />
         </AdminShell>
     );

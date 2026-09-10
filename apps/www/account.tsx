@@ -4,6 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
 import { Alias, ApiRequestError, ApiUser, getAccount, hasSecondFactor, logout, Profile, SecretSummary } from "../shared/lib/api.js";
+import { PublicSiteSettings } from "../shared/lib/siteSettings.js";
 import { useSessionRefresh } from "../shared/lib/useSessionRefresh.js";
 import AuthShell from "../shared/components/layout/AuthShell.js";
 import AccountHeader from "../shared/components/account/header/AccountHeader.js";
@@ -17,9 +18,11 @@ import RequireMfaSetupModal from "../shared/components/account/security/RequireM
 interface AccountPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
     userUid?: string;
+    /** Populated automatically by the framework — see `wwwRoute`'s `fetchProps()` override. */
+    siteSettings?: PublicSiteSettings;
 }
 
-export default function AccountPage({ userUid }: AccountPageProps) {
+export default function AccountPage({ userUid, siteSettings }: AccountPageProps) {
     const [user, setUser] = useState<ApiUser | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [profileExists, setProfileExists] = useState(false);
@@ -82,7 +85,7 @@ export default function AccountPage({ userUid }: AccountPageProps) {
     }
 
     return (
-        <AuthShell wide>
+        <AuthShell wide settings={siteSettings}>
             <AccountHeader profile={profile} onLogout={handleLogout} onAccountDeleted={handleAccountDeleted} isAdmin={isAdmin} />
 
             <UsernameCard aliases={aliases} setAliases={setAliases} />

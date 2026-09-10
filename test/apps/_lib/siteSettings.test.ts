@@ -5,10 +5,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { jsonResponse, mockFetch } from "../testUtils.js";
 import {
+    effectiveIconUrl,
     effectiveLogoUrl,
     effectiveStylesheetUrl,
     getSiteSettings,
     PublicSiteSettings,
+    UPLOADED_ICON_PATH,
     UPLOADED_LOGO_PATH,
     UPLOADED_STYLESHEET_PATH,
 } from "../../../apps/shared/lib/siteSettings.js";
@@ -17,7 +19,7 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
-const base: PublicSiteSettings = { logoUploaded: false, stylesheetUploaded: false };
+const base: PublicSiteSettings = { logoUploaded: false, iconUploaded: false, stylesheetUploaded: false };
 
 describe("getSiteSettings", () => {
     it("fetches /settings", async () => {
@@ -40,6 +42,22 @@ describe("effectiveLogoUrl", () => {
 
     it("returns undefined when neither is set", () => {
         expect(effectiveLogoUrl(base)).toBeUndefined();
+    });
+});
+
+describe("effectiveIconUrl", () => {
+    it("prefers the uploaded asset's serving path when an icon was uploaded", () => {
+        const result = effectiveIconUrl({ ...base, iconUploaded: true, iconUrl: "https://example.com/icon.png" });
+        expect(result).toBe(UPLOADED_ICON_PATH);
+    });
+
+    it("falls back to the configured reference URL when nothing was uploaded", () => {
+        const result = effectiveIconUrl({ ...base, iconUrl: "https://example.com/icon.png" });
+        expect(result).toBe("https://example.com/icon.png");
+    });
+
+    it("returns undefined when neither is set (no fallback to the logo — callers do that themselves)", () => {
+        expect(effectiveIconUrl({ ...base, logoUrl: "https://example.com/logo.png" })).toBeUndefined();
     });
 });
 

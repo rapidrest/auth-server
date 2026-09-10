@@ -4,6 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React from "react";
 import { clearImpersonatingMarker } from "../../shared/lib/api.js";
+import { PublicSiteSettings } from "../../shared/lib/siteSettings.js";
 import AuthShell from "../../shared/components/layout/AuthShell.js";
 import SignInFlow from "../../shared/components/sign-in/SignInFlow.js";
 
@@ -36,9 +37,14 @@ function completeSignIn() {
     window.location.href = returnTo && isSafeReturnTo(returnTo) ? returnTo : "/account";
 }
 
-export default function SignInPage() {
+interface SignInPageProps {
+    /** Populated automatically by the framework — see `wwwRoute`'s `fetchProps()` override. */
+    siteSettings?: PublicSiteSettings;
+}
+
+export default function SignInPage({ siteSettings }: SignInPageProps) {
     return (
-        <AuthShell brand>
+        <AuthShell brand settings={siteSettings}>
             <SignInFlow onSuccess={completeSignIn} />
             <div className="rr-footer-link">
                 Don&rsquo;t have an account? <a href="/auth/signup">Create one</a>

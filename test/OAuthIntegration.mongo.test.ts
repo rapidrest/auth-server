@@ -16,7 +16,7 @@ import config from "../src/config.mongo.js";
 import { Logger } from "@rapidrest/core";
 import { ObjectFactory, RepoUtils, Server } from "@rapidrest/service-core";
 import { agent, request } from "@rapidrest/service-core/test";
-import { importArgon2 } from "@rapidrest/auth";
+import { importArgon2, normalizePasswordSubmission, PasswordConfig } from "@rapidrest/auth";
 import { AliasMongo, SecretMongo, UserMongo } from "@rapidrest/auth/mongo";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
@@ -56,8 +56,12 @@ describe("OAuth 2.0 / OIDC end-to-end integration (mongo)", () => {
         const user = await userRepo.create({ roles: [], scopes: [], verified: true }, { ignoreACL: true });
         await aliasRepo.create({ alias: username, type: "name", userUid: user.uid, verified: true }, { ignoreACL: true });
         const argon = await importArgon2();
+        // See OAuthIntegration.sql.test.ts's own comment: the server now normalizes a submitted password
+        // before its own argon2 hash goes on top, so hashing PASSWORD directly here would store a hash
+        // the real sign-in path below could never verify against.
+        const normalized = await normalizePasswordSubmission(PASSWORD, user.uid, new PasswordConfig());
         await secretRepo.create(
-            { type: "password", data: await argon.hash(PASSWORD), userUid: user.uid },
+            { type: "password", data: await argon.hash(normalized), userUid: user.uid },
             { ignoreACL: true },
         );
 

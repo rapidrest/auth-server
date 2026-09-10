@@ -18,7 +18,7 @@ import { PublicSiteSettings } from "../../../../apps/shared/lib/siteSettings.js"
 import ContentCard from "../../../../apps/shared/components/admin/settings/ContentCard.js";
 
 const mockedUpdateSiteSettings = vi.mocked(updateSiteSettings);
-const baseSettings: PublicSiteSettings = { logoUploaded: false, stylesheetUploaded: false };
+const baseSettings: PublicSiteSettings = { logoUploaded: false, iconUploaded: false, stylesheetUploaded: false };
 
 beforeEach(() => {
     mockedUpdateSiteSettings.mockReset();

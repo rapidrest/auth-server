@@ -8,6 +8,7 @@ import {
     createUser,
     createUserAlias,
     createUserPasswordSecret,
+    deleteSiteIcon,
     deleteSiteLogo,
     deleteSiteStylesheet,
     deleteUser,
@@ -22,6 +23,7 @@ import {
     searchUsers,
     updateSiteSettings,
     updateUser,
+    uploadSiteIcon,
     uploadSiteLogo,
     uploadSiteStylesheet,
     upsertUserProfile,
@@ -316,7 +318,7 @@ describe("profile", () => {
 });
 
 describe("site settings", () => {
-    const settings = { logoUploaded: false, stylesheetUploaded: false };
+    const settings = { logoUploaded: false, iconUploaded: false, stylesheetUploaded: false };
 
     it("updateSiteSettings PUTs the given fields", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, { ...settings, siteTitle: "Acme" }));
@@ -343,6 +345,21 @@ describe("site settings", () => {
         const fetchMock = mockFetch(() => jsonResponse(200, settings));
         await deleteSiteLogo();
         expect(fetchMock).toHaveBeenCalledWith("/api/settings/logo", expect.objectContaining({ method: "DELETE" }));
+    });
+
+    it("uploadSiteIcon POSTs the file's raw bytes under its own content type", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { ...settings, iconUploaded: true }));
+        const file = new File(["fake-bytes"], "icon.png", { type: "image/png" });
+        await uploadSiteIcon(file);
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/icon", expect.objectContaining({ method: "POST", body: file }));
+        const init = fetchMock.mock.calls[0][1] as RequestInit;
+        expect((init.headers as Headers).get("Content-Type")).toBe("image/png");
+    });
+
+    it("deleteSiteIcon DELETEs /settings/icon", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, settings));
+        await deleteSiteIcon();
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/icon", expect.objectContaining({ method: "DELETE" }));
     });
 
     it("uploadSiteStylesheet POSTs the file's raw bytes under its own content type", async () => {

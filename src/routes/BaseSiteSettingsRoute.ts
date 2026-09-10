@@ -23,8 +23,9 @@ const { Auth, Delete, Get, Post, Put, RateLimit, Request, RequiresTrustedRole, R
 export const SITE_SETTINGS_UID = "default";
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+const MAX_ICON_BYTES = 512 * 1024;
 const MAX_STYLESHEET_BYTES = 512 * 1024;
-const ALLOWED_LOGO_CONTENT_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp", "image/gif"];
+const ALLOWED_IMAGE_CONTENT_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp", "image/gif"];
 
 /** The shape shared by `SiteSettingsSQL`/`SiteSettingsMongo` that this route depends on. */
 export interface SiteSettingsEntity extends BaseEntity {
@@ -35,6 +36,9 @@ export interface SiteSettingsEntity extends BaseEntity {
     logoUrl?: string;
     logoData?: string;
     logoContentType?: string;
+    iconUrl?: string;
+    iconData?: string;
+    iconContentType?: string;
     stylesheetUrl?: string;
     stylesheetCss?: string;
 }
@@ -49,6 +53,10 @@ export interface PublicSiteSettings {
     logoUrl?: string;
     /** `true` when a logo was uploaded directly; consumers should prefer `GET .../logo` over `logoUrl` in that case. */
     logoUploaded: boolean;
+    /** The raw configured reference URL for the compact nav-header icon, if any — not resolved against an uploaded asset. */
+    iconUrl?: string;
+    /** `true` when an icon was uploaded directly; consumers should prefer `GET .../icon` over `iconUrl` in that case. */
+    iconUploaded: boolean;
     /** The raw configured reference URL, if any — not resolved against an uploaded asset. */
     stylesheetUrl?: string;
     /** `true` when a stylesheet was uploaded directly; consumers should prefer `GET .../stylesheet` over `stylesheetUrl` in that case. */
@@ -62,13 +70,93 @@ export interface UpdateSiteSettingsInput {
     headerHtml?: string | null;
     footerHtml?: string | null;
     logoUrl?: string | null;
+    iconUrl?: string | null;
     stylesheetUrl?: string | null;
+}
+
+/** Maps a `SiteSettingsEntity` to the `PublicSiteSettings` DTO — shared by `BaseSiteSettingsRoute.toPublicDTO()` and `readPublicSiteSettings()` below. */
+function siteSettingsToPublicDTO(entity: SiteSettingsEntity): PublicSiteSettings {
+    return {
+        siteTitle: entity.siteTitle ?? undefined,
+        companyName: entity.companyName ?? undefined,
+        headerHtml: entity.headerHtml ?? undefined,
+        footerHtml: entity.footerHtml ?? undefined,
+        logoUrl: entity.logoUrl ?? undefined,
+        logoUploaded: !!entity.logoData,
+        iconUrl: entity.iconUrl ?? undefined,
+        iconUploaded: !!entity.iconData,
+        stylesheetUrl: entity.stylesheetUrl ?? undefined,
+        stylesheetUploaded: !!entity.stylesheetCss,
+    };
+}
+
+/**
+ * Reads the current deployment-wide branding settings in-process, without an HTTP round-trip —
+ * for a consumer that isn't itself a `BaseSiteSettingsRoute` (e.g. `wwwRoute`/`AdminConsoleRoute`,
+ * which need `PublicSiteSettings` server-side to feed into `apps/*'s` page props/`_layout.tsx` for
+ * SSR branding — see those classes' own `fetchProps()` overrides). Constructs its own short-lived
+ * `RepoUtils` and replicates `BaseSiteSettingsRoute.getOrCreate()`'s get-or-create-the-singleton-row
+ * logic (including tolerating a concurrent first-request create race) — a small, deliberate
+ * duplication rather than refactoring that already-tested class's internals to accommodate a second,
+ * unrelated caller.
+ */
+export async function readPublicSiteSettings(
+    objectFactory: ObjectFactory,
+    settingsClass: any,
+): Promise<PublicSiteSettings> {
+    const repoUtils: RepoUtils<SiteSettingsEntity> = await objectFactory.newInstance(RepoUtils, {
+        name: settingsClass.name,
+        args: [settingsClass],
+    });
+    const existing = await repoUtils.findOne(SITE_SETTINGS_UID, { ignoreACL: true });
+    if (existing) {
+        return siteSettingsToPublicDTO(existing);
+    }
+    try {
+        const created = await repoUtils.create({ uid: SITE_SETTINGS_UID }, { ignoreACL: true });
+        return siteSettingsToPublicDTO(created);
+    } catch (err) {
+        if (err instanceof ApiError && err.code === ApiErrors.IDENTIFIER_EXISTS) {
+            const recovered = await repoUtils.findOne(SITE_SETTINGS_UID, { ignoreACL: true });
+            if (recovered) {
+                return siteSettingsToPublicDTO(recovered);
+            }
+        }
+        throw err;
+    }
+}
+
+/** A `PublicSiteSettings` with every field at its "nothing configured" default — used when a settings read fails. */
+const DEFAULT_PUBLIC_SITE_SETTINGS: PublicSiteSettings = {
+    logoUploaded: false,
+    iconUploaded: false,
+    stylesheetUploaded: false,
+};
+
+/**
+ * Convenience wrapper around `readPublicSiteSettings()` for `wwwRoute`/`AdminConsoleRoute`'s own
+ * `fetchProps()` overrides (see those classes): never lets a settings-read failure break the whole
+ * page render — falls back to `DEFAULT_PUBLIC_SITE_SETTINGS` instead, the same "safe default" every
+ * other branding consumer in this app already falls back to.
+ */
+export async function fetchSiteSettingsPropsForSSR(
+    objectFactory: ObjectFactory,
+    settingsClass: any,
+): Promise<{ siteSettings: PublicSiteSettings }> {
+    try {
+        return { siteSettings: await readPublicSiteSettings(objectFactory, settingsClass) };
+    } catch {
+        return { siteSettings: DEFAULT_PUBLIC_SITE_SETTINGS };
+    }
 }
 
 /**
  * Deployment-wide branding for `apps/www` and `apps/admin` — site title, company name, header/footer
- * content, and a logo/stylesheet supplied either as an external reference URL or a directly uploaded
- * asset. Read (`GET`) is public and unauthenticated (both console apps, including anonymous `www`
+ * content, and a logo/icon/stylesheet each supplied either as an external reference URL or a directly
+ * uploaded asset. `logoUrl` is the full logo/watermark (sign-in/sign-up/consent pages); `iconUrl` is a
+ * separate, compact mark for navigation headers — independently configurable, with no fallback between
+ * them enforced server-side (consumers decide how to fall back, e.g. `apps/shared/lib/siteSettings.ts`).
+ * Read (`GET`) is public and unauthenticated (both console apps, including anonymous `www`
  * visitors, need it to render their own chrome); every write requires the `admin` trusted role via
  * `@RequiresTrustedRole()`, the same convention `BaseImpersonationRoute`/`BaseOAuthClientRoute` use.
  *
@@ -132,16 +220,7 @@ export abstract class BaseSiteSettingsRoute<T extends SiteSettingsEntity> {
     }
 
     protected toPublicDTO(entity: T): PublicSiteSettings {
-        return {
-            siteTitle: entity.siteTitle ?? undefined,
-            companyName: entity.companyName ?? undefined,
-            headerHtml: entity.headerHtml ?? undefined,
-            footerHtml: entity.footerHtml ?? undefined,
-            logoUrl: entity.logoUrl ?? undefined,
-            logoUploaded: !!entity.logoData,
-            stylesheetUrl: entity.stylesheetUrl ?? undefined,
-            stylesheetUploaded: !!entity.stylesheetCss,
-        };
+        return siteSettingsToPublicDTO(entity);
     }
 
     /**
@@ -170,9 +249,9 @@ export abstract class BaseSiteSettingsRoute<T extends SiteSettingsEntity> {
     @Summary("Get site customization settings")
     @Description(
         "Public, unauthenticated. Returns this deployment's branding for `apps/www`/`apps/admin` to render: " +
-            "site title, company name, header/footer content, and the configured logo/stylesheet reference " +
-            "(plus whether each was instead directly uploaded, in which case `GET .../logo`/`GET .../stylesheet` " +
-            "should be used as the source instead of the `logoUrl`/`stylesheetUrl` fields).",
+            "site title, company name, header/footer content, and the configured logo/icon/stylesheet reference " +
+            "(plus whether each was instead directly uploaded, in which case `GET .../logo`/`GET .../icon`/" +
+            "`GET .../stylesheet` should be used as the source instead of the `logoUrl`/`iconUrl`/`stylesheetUrl` fields).",
     )
     @Returns([Object])
     @Get()
@@ -183,7 +262,7 @@ export abstract class BaseSiteSettingsRoute<T extends SiteSettingsEntity> {
 
     @Summary("Update site customization settings")
     @Description(
-        "Trusted-role-only. Partially updates the deployment's branding text fields and/or logo/stylesheet " +
+        "Trusted-role-only. Partially updates the deployment's branding text fields and/or logo/icon/stylesheet " +
             "reference URLs. An omitted key leaves the field untouched; an explicit `null` clears it.",
     )
     @Returns([Object])
@@ -198,6 +277,7 @@ export abstract class BaseSiteSettingsRoute<T extends SiteSettingsEntity> {
         if (body?.headerHtml !== undefined) changes.headerHtml = body.headerHtml;
         if (body?.footerHtml !== undefined) changes.footerHtml = body.footerHtml;
         if (body?.logoUrl !== undefined) changes.logoUrl = body.logoUrl;
+        if (body?.iconUrl !== undefined) changes.iconUrl = body.iconUrl;
         if (body?.stylesheetUrl !== undefined) changes.stylesheetUrl = body.stylesheetUrl;
         return this.applyUpdate(changes);
     }
@@ -205,7 +285,7 @@ export abstract class BaseSiteSettingsRoute<T extends SiteSettingsEntity> {
     @Summary("Upload a logo image")
     @Description(
         "Trusted-role-only. The request body is the raw image bytes (`Content-Type` must be one of " +
-            ALLOWED_LOGO_CONTENT_TYPES.join(", ") +
+            ALLOWED_IMAGE_CONTENT_TYPES.join(", ") +
             `, max ${MAX_LOGO_BYTES} bytes). Once uploaded, ` +
             "`GET .../logo` serves it and it takes precedence over any configured `logoUrl`.",
     )
@@ -219,11 +299,11 @@ export abstract class BaseSiteSettingsRoute<T extends SiteSettingsEntity> {
             ?.split(";")[0]
             ?.trim()
             .toLowerCase();
-        if (!contentType || !ALLOWED_LOGO_CONTENT_TYPES.includes(contentType)) {
+        if (!contentType || !ALLOWED_IMAGE_CONTENT_TYPES.includes(contentType)) {
             throw new ApiError(
                 ApiErrors.INVALID_REQUEST,
                 400,
-                `Unsupported logo content type. Allowed: ${ALLOWED_LOGO_CONTENT_TYPES.join(", ")}.`,
+                `Unsupported logo content type. Allowed: ${ALLOWED_IMAGE_CONTENT_TYPES.join(", ")}.`,
             );
         }
         const body = req.body;
@@ -261,6 +341,68 @@ export abstract class BaseSiteSettingsRoute<T extends SiteSettingsEntity> {
         res.setHeader("content-type", existing.logoContentType);
         res.setHeader("cache-control", "public, max-age=300");
         res.end(Buffer.from(existing.logoData, "base64"));
+    }
+
+    @Summary("Upload an icon image")
+    @Description(
+        "Trusted-role-only. The compact mark shown in navigation headers, as opposed to the full logo. " +
+            "The request body is the raw image bytes (`Content-Type` must be one of " +
+            ALLOWED_IMAGE_CONTENT_TYPES.join(", ") +
+            `, max ${MAX_ICON_BYTES} bytes). Once uploaded, ` +
+            "`GET .../icon` serves it and it takes precedence over any configured `iconUrl`.",
+    )
+    @Returns([Object])
+    @Auth(["jwt"])
+    @Post("/icon")
+    @RequiresTrustedRole()
+    @RateLimit()
+    public async uploadIcon(@Request req: HttpRequest): Promise<PublicSiteSettings> {
+        const contentType = BaseSiteSettingsRoute.headerValue(req, "content-type")
+            ?.split(";")[0]
+            ?.trim()
+            .toLowerCase();
+        if (!contentType || !ALLOWED_IMAGE_CONTENT_TYPES.includes(contentType)) {
+            throw new ApiError(
+                ApiErrors.INVALID_REQUEST,
+                400,
+                `Unsupported icon content type. Allowed: ${ALLOWED_IMAGE_CONTENT_TYPES.join(", ")}.`,
+            );
+        }
+        const body = req.body;
+        if (!Buffer.isBuffer(body) || body.length === 0) {
+            throw new ApiError(ApiErrors.INVALID_REQUEST, 400, ApiErrorMessages.INVALID_REQUEST);
+        }
+        if (body.length > MAX_ICON_BYTES) {
+            throw new ApiError(ApiErrors.PAYLOAD_TOO_LARGE, 413, ApiErrorMessages.PAYLOAD_TOO_LARGE);
+        }
+
+        return this.applyUpdate({ iconData: body.toString("base64"), iconContentType: contentType });
+    }
+
+    @Summary("Remove the uploaded icon image")
+    @Description("Trusted-role-only. Clears any directly uploaded icon, reverting to `iconUrl` (if configured).")
+    @Returns([Object])
+    @Auth(["jwt"])
+    @Delete("/icon")
+    @RequiresTrustedRole()
+    @RateLimit()
+    public async deleteIcon(): Promise<PublicSiteSettings> {
+        return this.applyUpdate({ iconData: null, iconContentType: null });
+    }
+
+    @Summary("Fetch the uploaded icon image")
+    @Description("Public, unauthenticated. 404s when no icon has been directly uploaded.")
+    @Get("/icon")
+    @RateLimit()
+    public async getIcon(@Response res: HttpResponse): Promise<void> {
+        const existing = await this.getOrCreate();
+        if (!existing.iconData || !existing.iconContentType) {
+            res.status(404).end();
+            return;
+        }
+        res.setHeader("content-type", existing.iconContentType);
+        res.setHeader("cache-control", "public, max-age=300");
+        res.end(Buffer.from(existing.iconData, "base64"));
     }
 
     @Summary("Upload a custom stylesheet")

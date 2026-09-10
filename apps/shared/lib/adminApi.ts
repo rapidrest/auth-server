@@ -340,10 +340,11 @@ export interface UpdateSiteSettingsInput {
     headerHtml?: string | null;
     footerHtml?: string | null;
     logoUrl?: string | null;
+    iconUrl?: string | null;
     stylesheetUrl?: string | null;
 }
 
-/** Updates the deployment's branding text fields and/or logo/stylesheet reference URLs. */
+/** Updates the deployment's branding text fields and/or logo/icon/stylesheet reference URLs. */
 export function updateSiteSettings(input: UpdateSiteSettingsInput): Promise<PublicSiteSettings> {
     return apiFetch("/settings", { method: "PUT", body: JSON.stringify(input) });
 }
@@ -360,6 +361,19 @@ export function uploadSiteLogo(file: File): Promise<PublicSiteSettings> {
 /** Clears a directly uploaded logo, reverting to `logoUrl` (if configured). */
 export function deleteSiteLogo(): Promise<PublicSiteSettings> {
     return apiFetch("/settings/logo", { method: "DELETE" });
+}
+
+/**
+ * Uploads the compact nav-header icon directly, taking precedence over any configured `iconUrl` once it
+ * succeeds — same contract as `uploadSiteLogo()`, for the separate icon asset.
+ */
+export function uploadSiteIcon(file: File): Promise<PublicSiteSettings> {
+    return apiFetch("/settings/icon", { method: "POST", headers: { "Content-Type": file.type }, body: file });
+}
+
+/** Clears a directly uploaded icon, reverting to `iconUrl` (if configured). */
+export function deleteSiteIcon(): Promise<PublicSiteSettings> {
+    return apiFetch("/settings/icon", { method: "DELETE" });
 }
 
 /** Uploads a custom stylesheet directly, taking precedence over any configured `stylesheetUrl`. */

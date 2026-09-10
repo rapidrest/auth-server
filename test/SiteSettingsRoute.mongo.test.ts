@@ -13,7 +13,7 @@ import config from "../src/config.mongo.js";
 import { Logger } from "@rapidrest/core";
 import { ObjectFactory, RepoUtils, Server } from "@rapidrest/service-core";
 import { agent, request } from "@rapidrest/service-core/test";
-import { importArgon2 } from "@rapidrest/auth";
+import { importArgon2, normalizePasswordSubmission, PasswordConfig } from "@rapidrest/auth";
 import { AliasMongo, SecretMongo, UserMongo } from "@rapidrest/auth/mongo";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
@@ -56,8 +56,12 @@ describe("SiteSettingsRoute (mongo)", () => {
         const user = await userRepo.create({ roles, scopes: [], verified: true }, { ignoreACL: true });
         await aliasRepo.create({ alias: username, type: "name", userUid: user.uid, verified: true }, { ignoreACL: true });
         const argon = await importArgon2();
+        // See SiteSettingsRoute.sql.test.ts's own comment: the server now normalizes a submitted
+        // password before its own argon2 hash goes on top, so hashing PASSWORD directly here would
+        // store a hash the real sign-in path below could never verify against.
+        const normalized = await normalizePasswordSubmission(PASSWORD, user.uid, new PasswordConfig());
         await secretRepo.create(
-            { type: "password", data: await argon.hash(PASSWORD), userUid: user.uid },
+            { type: "password", data: await argon.hash(normalized), userUid: user.uid },
             { ignoreACL: true },
         );
 
@@ -97,7 +101,7 @@ describe("SiteSettingsRoute (mongo)", () => {
     it("GET / is public and creates the default row on first access", async () => {
         const res = await request(server).get("/api/settings");
         expect(res.status).toBe(200);
-        expect(res.body).toEqual({ logoUploaded: false, stylesheetUploaded: false });
+        expect(res.body).toEqual({ logoUploaded: false, iconUploaded: false, stylesheetUploaded: false });
     });
 
     it("PUT / rejects a caller without the trusted 'admin' role", async () => {
@@ -178,6 +182,43 @@ describe("SiteSettingsRoute (mongo)", () => {
         const big = Buffer.alloc(2 * 1024 * 1024 + 1);
 
         const res = await adminAgent.post("/api/settings/logo").set("Content-Type", "image/png").send(big);
+
+        expect(res.status).toBe(413);
+    });
+
+    it("uploads, serves, and deletes an icon image (trusted only)", async () => {
+        const adminAgent = await createSignedInTrustedAgent("admin-icon");
+
+        const uploadRes = await adminAgent.post("/api/settings/icon").set("Content-Type", "image/png").send(PNG_BYTES);
+        expect(uploadRes.status).toBe(200);
+        expect(uploadRes.body.iconUploaded).toBe(true);
+
+        const getRes = await request(server).get("/api/settings/icon");
+        expect(getRes.status).toBe(200);
+        expect(getRes.headers["content-type"]).toBe("image/png");
+        expect(getRes.text.length).toBeGreaterThan(0);
+
+        const deleteRes = await adminAgent.delete("/api/settings/icon");
+        expect(deleteRes.status).toBe(200);
+        expect(deleteRes.body.iconUploaded).toBe(false);
+
+        const missingRes = await request(server).get("/api/settings/icon");
+        expect(missingRes.status).toBe(404);
+    });
+
+    it("rejects an unsupported icon content type", async () => {
+        const adminAgent = await createSignedInTrustedAgent("admin-icon-bad-type");
+
+        const res = await adminAgent.post("/api/settings/icon").set("Content-Type", "application/pdf").send(Buffer.from("x"));
+
+        expect(res.status).toBe(400);
+    });
+
+    it("rejects an oversized icon upload", async () => {
+        const adminAgent = await createSignedInTrustedAgent("admin-icon-too-big");
+        const big = Buffer.alloc(512 * 1024 + 1);
+
+        const res = await adminAgent.post("/api/settings/icon").set("Content-Type", "image/png").send(big);
 
         expect(res.status).toBe(413);
     });

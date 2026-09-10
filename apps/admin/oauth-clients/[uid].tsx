@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { ApiRequestError } from "../../shared/lib/api.js";
 import { AdminClient, deleteClient, getClient } from "../../shared/lib/adminApi.js";
+import { PublicSiteSettings } from "../../shared/lib/siteSettings.js";
 import AdminShell from "../../shared/components/admin/layout/AdminShell.js";
 import ClientOverviewCard from "../../shared/components/admin/oauth-clients/ClientOverviewCard.js";
 import ClientSecretCard from "../../shared/components/admin/oauth-clients/ClientSecretCard.js";
@@ -18,11 +19,13 @@ interface DetailPageProps {
     /** The `:uid` dynamic segment captured from this file's `[uid].tsx` name — see `@rapidrest/react`'s
      * `ReactRoute` doc comment for the convention. Always present when this route matched. */
     params: { uid: string };
+    /** Populated automatically by the framework — see `AdminConsoleRoute`'s `fetchProps()` override. */
+    siteSettings?: PublicSiteSettings;
 }
 
-export default function OAuthClientDetailPage({ userUid, params }: DetailPageProps) {
+export default function OAuthClientDetailPage({ userUid, params, siteSettings }: DetailPageProps) {
     return (
-        <AdminShell userUid={userUid}>
+        <AdminShell userUid={userUid} settings={siteSettings}>
             <OAuthClientDetailContent uid={params.uid} />
         </AdminShell>
     );

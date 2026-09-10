@@ -122,6 +122,52 @@ describe("AdminShell", () => {
         );
     });
 
+    it("prefers a configured icon over the logo for the nav mark", async () => {
+        mockFetch((url, init) => {
+            if (url === "/api/users/me") {
+                return jsonResponse(200, { uid: "admin-1", roles: ["admin"], scopes: [] });
+            }
+            if (url === "/api/admin/release-notes") {
+                return jsonResponse(200, {});
+            }
+            if (url === "/api/settings") {
+                return jsonResponse(200, { logoUploaded: true, iconUploaded: true, stylesheetUploaded: false });
+            }
+            throw new Error(`unexpected ${init?.method ?? "GET"} ${url}`);
+        });
+        render(<AdminShell userUid="admin-1">content</AdminShell>);
+
+        expect(await screen.findByText("content")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "RapidREST Admin" }).querySelector("img")).toHaveAttribute(
+            "src",
+            "/api/settings/icon",
+        );
+    });
+
+    it("renders branding from an SSR-provided settings prop, without ever needing its own /api/settings fetch to resolve", async () => {
+        mockFetch((url, init) => {
+            if (url === "/api/users/me") {
+                return jsonResponse(200, { uid: "admin-1", roles: ["admin"], scopes: [] });
+            }
+            if (url === "/api/admin/release-notes") {
+                return jsonResponse(200, {});
+            }
+            if (url === "/api/settings") {
+                // Never resolves — proves the nav brand below came from the `settings` prop's initial
+                // value (see useSiteSettings()'s seeding), not this background refresh fetch.
+                return new Promise(() => undefined);
+            }
+            throw new Error(`unexpected ${init?.method ?? "GET"} ${url}`);
+        });
+        render(
+            <AdminShell userUid="admin-1" settings={{ companyName: "Acme Inc", logoUploaded: false, iconUploaded: false, stylesheetUploaded: false }}>
+                content
+            </AdminShell>,
+        );
+
+        expect(await screen.findByText("Acme Inc Admin")).toBeInTheDocument();
+    });
+
     it("does not render admin content until the elevation prompt (triggered by ensureElevated()'s api-104) is satisfied", async () => {
         let elevated = false;
         mockFetch((url, init) => {

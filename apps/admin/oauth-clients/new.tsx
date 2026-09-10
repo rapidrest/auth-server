@@ -7,13 +7,16 @@ import AdminShell from "../../shared/components/admin/layout/AdminShell.js";
 import CreateClientForm from "../../shared/components/admin/oauth-clients/CreateClientForm.js";
 import RevealSecretModal from "../../shared/components/admin/oauth-clients/RevealSecretModal.js";
 import { AdminClient } from "../../shared/lib/adminApi.js";
+import { PublicSiteSettings } from "../../shared/lib/siteSettings.js";
 
 interface NewOAuthClientPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
     userUid?: string;
+    /** Populated automatically by the framework — see `AdminConsoleRoute`'s `fetchProps()` override. */
+    siteSettings?: PublicSiteSettings;
 }
 
-export default function NewOAuthClientPage({ userUid }: NewOAuthClientPageProps) {
+export default function NewOAuthClientPage({ userUid, siteSettings }: NewOAuthClientPageProps) {
     // A `public` client's `createClient()` response never carries a `clientSecret` (none is ever
     // generated for one — see `BaseOAuthClientRoute.validateCreate`), so `handleCreated` navigates to
     // the detail page immediately for that case rather than waiting on a reveal modal that would
@@ -33,7 +36,7 @@ export default function NewOAuthClientPage({ userUid }: NewOAuthClientPageProps)
     }
 
     return (
-        <AdminShell userUid={userUid}>
+        <AdminShell userUid={userUid} settings={siteSettings}>
             <div style={{ marginBottom: "1rem" }}>
                 <a href="/admin/oauth-clients">&larr; Back to clients</a>
             </div>

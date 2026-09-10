@@ -27,7 +27,7 @@ import config from "../src/config.sql.js";
 import { Logger } from "@rapidrest/core";
 import { ObjectFactory, RepoUtils, Server } from "@rapidrest/service-core";
 import { agent, request } from "@rapidrest/service-core/test";
-import { importArgon2 } from "@rapidrest/auth";
+import { importArgon2, normalizePasswordSubmission, PasswordConfig } from "@rapidrest/auth";
 import { AliasSQL, SecretSQL, UserSQL } from "@rapidrest/auth/sql";
 
 const SQL_DB_FILE = "rrst-test-oauth-integration";
@@ -62,8 +62,13 @@ describe("OAuth 2.0 / OIDC end-to-end integration (sql)", () => {
         const user = await userRepo.create({ roles: [], scopes: [], verified: true }, { ignoreACL: true });
         await aliasRepo.create({ alias: username, type: "name", userUid: user.uid, verified: true }, { ignoreACL: true });
         const argon = await importArgon2();
+        // The server now normalizes a submitted password (client-hashed or plaintext) into a canonical
+        // form before its own argon2 hash goes on top — see @rapidrest/auth's normalizePasswordSubmission().
+        // Hashing PASSWORD directly here (bypassing that normalization) would store a hash the real
+        // sign-in path below could never verify against.
+        const normalized = await normalizePasswordSubmission(PASSWORD, user.uid, new PasswordConfig());
         await secretRepo.create(
-            { type: "password", data: await argon.hash(PASSWORD), userUid: user.uid },
+            { type: "password", data: await argon.hash(normalized), userUid: user.uid },
             { ignoreACL: true },
         );
 

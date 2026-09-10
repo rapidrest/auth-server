@@ -21,7 +21,7 @@ const mockedUpdateSiteSettings = vi.mocked(updateSiteSettings);
 const mockedUploadSiteStylesheet = vi.mocked(uploadSiteStylesheet);
 const mockedDeleteSiteStylesheet = vi.mocked(deleteSiteStylesheet);
 
-const baseSettings: PublicSiteSettings = { logoUploaded: false, stylesheetUploaded: false };
+const baseSettings: PublicSiteSettings = { logoUploaded: false, iconUploaded: false, stylesheetUploaded: false };
 
 beforeEach(() => {
     mockedUpdateSiteSettings.mockReset();

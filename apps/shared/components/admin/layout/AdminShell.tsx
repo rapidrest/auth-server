@@ -7,7 +7,7 @@ import { ApiRequestError, ApiUser, getCurrentUser, logout } from "../../../lib/a
 import { ensureElevated } from "../../../lib/adminApi.js";
 import { useSessionRefresh } from "../../../lib/useSessionRefresh.js";
 import { useSiteSettings } from "../../../lib/useSiteSettings.js";
-import { effectiveLogoUrl } from "../../../lib/siteSettings.js";
+import { effectiveIconUrl, effectiveLogoUrl, PublicSiteSettings } from "../../../lib/siteSettings.js";
 import ElevationHost from "../../elevation/ElevationHost.js";
 import ImpersonationBanner from "../../impersonation/ImpersonationBanner.js";
 import Alert from "../../feedback/Alert.js";
@@ -16,6 +16,8 @@ import Button from "../../buttons/Button.js";
 export interface AdminShellProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
     userUid?: string;
+    /** The page's own `siteSettings` prop (server-injected — see `AdminConsoleRoute`'s `fetchProps()` override). */
+    settings?: PublicSiteSettings;
 }
 
 type Status = "checking" | "denied" | "error" | "authorized";
@@ -24,13 +26,15 @@ type Status = "checking" | "denied" | "error" | "authorized";
  * Gates every `apps/admin` page behind the `admin` trusted role *and* a fresh elevation, via
  * `ensureElevated()`.
  */
-export default function AdminShell({ userUid, children }: PropsWithChildren<AdminShellProps>) {
+export default function AdminShell({ userUid, settings: initialSettings, children }: PropsWithChildren<AdminShellProps>) {
     const [status, setStatus] = useState<Status>("checking");
     const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const settings = useSiteSettings();
+    const settings = useSiteSettings(initialSettings);
     const brandTitle = settings?.companyName || settings?.siteTitle || "RapidREST";
-    const brandLogo = (settings && effectiveLogoUrl(settings)) || "/images/logo.svg";
+    // The compact nav-header mark: prefers a dedicated icon, falls back to the full logo, then to the
+    // default asset.
+    const brandIcon = (settings && (effectiveIconUrl(settings) || effectiveLogoUrl(settings))) || "/images/logo.svg";
 
     // Keeps the access token alive (and this shell usable) for as long as the refresh token is valid —
     // see useSessionRefresh's doc comment. Handles redirecting to sign-in itself when no session can be
@@ -102,7 +106,7 @@ export default function AdminShell({ userUid, children }: PropsWithChildren<Admi
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
                             <a href="/admin" className="rr-brand" style={{ flexDirection: "row", gap: "0.5rem" }}>
-                                <img src={brandLogo} height="64" alt="" />
+                                <img src={brandIcon} height="40" alt="" />
                                 <span>{brandTitle} Admin</span>
                             </a>
                             <a href="/admin">Users</a>

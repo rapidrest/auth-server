@@ -4,28 +4,25 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useRef, useState } from "react";
 import { ApiRequestError } from "../../../lib/api.js";
-import { deleteSiteLogo, updateSiteSettings, uploadSiteLogo } from "../../../lib/adminApi.js";
-import { effectiveLogoUrl, PublicSiteSettings } from "../../../lib/siteSettings.js";
+import { deleteSiteIcon, updateSiteSettings, uploadSiteIcon } from "../../../lib/adminApi.js";
+import { effectiveIconUrl, PublicSiteSettings } from "../../../lib/siteSettings.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
 
-export interface BrandingCardProps {
+export interface IconCardProps {
     settings: PublicSiteSettings;
     onUpdated: (settings: PublicSiteSettings) => void;
 }
 
 /**
- * Site title, company name, and the full logo/watermark shown on sign-in, sign-up, and OAuth-consent
- * pages (a reference URL or a directly uploaded image — see `effectiveLogoUrl()`'s doc comment for how
- * the two interact). For the compact mark shown in navigation headers instead, see `IconCard`. Text
- * fields are edited locally and saved together via one button; the logo's upload/remove actions apply
- * immediately, matching `ClientSecretCard`'s convention for an action with its own irreversible-ish
- * server round trip.
+ * The compact mark shown in navigation headers (`AdminShell`'s nav bar, the `/` splash screen) — a
+ * reference URL or a directly uploaded image, independently configurable from `BrandingCard`'s full
+ * logo. Same "upload takes precedence" convention as `BrandingCard`'s logo (see `effectiveIconUrl()`);
+ * a deployment with no icon configured falls back to the logo, then to a default asset, at each of
+ * those render sites rather than here.
  */
-export default function BrandingCard({ settings, onUpdated }: BrandingCardProps) {
-    const [siteTitle, setSiteTitle] = useState(settings.siteTitle ?? "");
-    const [companyName, setCompanyName] = useState(settings.companyName ?? "");
-    const [logoUrl, setLogoUrl] = useState(settings.logoUrl ?? "");
+export default function IconCard({ settings, onUpdated }: IconCardProps) {
+    const [iconUrl, setIconUrl] = useState(settings.iconUrl ?? "");
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -37,11 +34,7 @@ export default function BrandingCard({ settings, onUpdated }: BrandingCardProps)
         setSaved(false);
         setSaving(true);
         try {
-            const updated = await updateSiteSettings({
-                siteTitle: siteTitle || null,
-                companyName: companyName || null,
-                logoUrl: logoUrl || null,
-            });
+            const updated = await updateSiteSettings({ iconUrl: iconUrl || null });
             onUpdated(updated);
             setSaved(true);
         } catch (err) {
@@ -59,9 +52,9 @@ export default function BrandingCard({ settings, onUpdated }: BrandingCardProps)
         setError(null);
         setUploading(true);
         try {
-            onUpdated(await uploadSiteLogo(file));
+            onUpdated(await uploadSiteIcon(file));
         } catch (err) {
-            setError(err instanceof ApiRequestError ? err.message : "Could not upload this logo.");
+            setError(err instanceof ApiRequestError ? err.message : "Could not upload this icon.");
         } finally {
             setUploading(false);
         }
@@ -71,70 +64,41 @@ export default function BrandingCard({ settings, onUpdated }: BrandingCardProps)
         setError(null);
         setUploading(true);
         try {
-            onUpdated(await deleteSiteLogo());
+            onUpdated(await deleteSiteIcon());
         } catch (err) {
-            setError(err instanceof ApiRequestError ? err.message : "Could not remove this logo.");
+            setError(err instanceof ApiRequestError ? err.message : "Could not remove this icon.");
         } finally {
             setUploading(false);
         }
     }
 
-    const previewSrc = effectiveLogoUrl(settings);
+    const previewSrc = effectiveIconUrl(settings);
 
     return (
         <div className="rr-card">
-            <div className="rr-card__title">Branding</div>
+            <div className="rr-card__title">Icon</div>
             <p className="rr-card__subtitle">
-                Site title, company name, and the full logo shown on sign-in, sign-up, and consent pages.
+                A compact mark shown in navigation headers, as opposed to the full logo above. Falls back to the
+                logo, then a default asset, when not set.
             </p>
             {error && <Alert>{error}</Alert>}
 
             <div className="rr-field">
-                <label htmlFor="settingsSiteTitle">Site title</label>
+                <label htmlFor="settingsIconUrl">Icon URL</label>
                 <input
-                    id="settingsSiteTitle"
+                    id="settingsIconUrl"
                     className="rr-input"
                     type="text"
-                    placeholder="RapidREST"
-                    value={siteTitle}
+                    placeholder="https://example.com/icon.png"
+                    value={iconUrl}
+                    disabled={settings.iconUploaded}
                     onChange={(e) => {
-                        setSiteTitle(e.target.value);
+                        setIconUrl(e.target.value);
                         setSaved(false);
                     }}
                 />
-            </div>
-
-            <div className="rr-field">
-                <label htmlFor="settingsCompanyName">Company name</label>
-                <input
-                    id="settingsCompanyName"
-                    className="rr-input"
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => {
-                        setCompanyName(e.target.value);
-                        setSaved(false);
-                    }}
-                />
-                <p className="rr-hint">Shown in place of the site title where present (page title, headers).</p>
-            </div>
-
-            <div className="rr-field">
-                <label htmlFor="settingsLogoUrl">Logo URL</label>
-                <input
-                    id="settingsLogoUrl"
-                    className="rr-input"
-                    type="text"
-                    placeholder="https://example.com/logo.png"
-                    value={logoUrl}
-                    disabled={settings.logoUploaded}
-                    onChange={(e) => {
-                        setLogoUrl(e.target.value);
-                        setSaved(false);
-                    }}
-                />
-                {settings.logoUploaded && (
-                    <p className="rr-hint">A directly uploaded logo is active and takes precedence over this URL.</p>
+                {settings.iconUploaded && (
+                    <p className="rr-hint">A directly uploaded icon is active and takes precedence over this URL.</p>
                 )}
             </div>
 
@@ -142,8 +106,8 @@ export default function BrandingCard({ settings, onUpdated }: BrandingCardProps)
                 {previewSrc && (
                     <img
                         src={previewSrc}
-                        alt="Logo preview"
-                        style={{ maxWidth: "96px", maxHeight: "96px", objectFit: "contain" }}
+                        alt="Icon preview"
+                        style={{ maxWidth: "48px", maxHeight: "48px", objectFit: "contain" }}
                     />
                 )}
                 <div>
@@ -162,9 +126,9 @@ export default function BrandingCard({ settings, onUpdated }: BrandingCardProps)
                         disabled={uploading}
                         onClick={() => fileInputRef.current?.click()}
                     >
-                        Upload logo image
+                        Upload icon image
                     </Button>
-                    {settings.logoUploaded && (
+                    {settings.iconUploaded && (
                         <Button
                             type="button"
                             variant="text"
@@ -172,7 +136,7 @@ export default function BrandingCard({ settings, onUpdated }: BrandingCardProps)
                             onClick={handleRemoveUploaded}
                             style={{ marginLeft: "0.75rem" }}
                         >
-                            Remove uploaded logo
+                            Remove uploaded icon
                         </Button>
                     )}
                 </div>

@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { ApiRequestError } from "../../shared/lib/api.js";
 import { AdminClient, deleteClient, listClients } from "../../shared/lib/adminApi.js";
+import { PublicSiteSettings } from "../../shared/lib/siteSettings.js";
 import AdminShell from "../../shared/components/admin/layout/AdminShell.js";
 import ClientTable from "../../shared/components/admin/oauth-clients/ClientTable.js";
 import DeleteClientModal from "../../shared/components/admin/oauth-clients/DeleteClientModal.js";
@@ -16,11 +17,13 @@ const PAGE_SIZE = 25;
 interface OAuthClientsPageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
     userUid?: string;
+    /** Populated automatically by the framework — see `AdminConsoleRoute`'s `fetchProps()` override. */
+    siteSettings?: PublicSiteSettings;
 }
 
-export default function OAuthClientsListPage({ userUid }: OAuthClientsPageProps) {
+export default function OAuthClientsListPage({ userUid, siteSettings }: OAuthClientsPageProps) {
     return (
-        <AdminShell userUid={userUid}>
+        <AdminShell userUid={userUid} settings={siteSettings}>
             <OAuthClientsListContent />
         </AdminShell>
     );

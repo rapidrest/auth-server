@@ -31,7 +31,7 @@ const mockedEnsureElevated = vi.mocked(ensureElevated);
 const mockedGetSiteSettings = vi.mocked(getSiteSettings);
 
 const adminSelf = { uid: "admin-1", version: 1, roles: ["admin"], scopes: [] };
-const baseSettings: PublicSiteSettings = { logoUploaded: false, stylesheetUploaded: false };
+const baseSettings: PublicSiteSettings = { logoUploaded: false, iconUploaded: false, stylesheetUploaded: false };
 
 beforeEach(() => {
     mockedGetCurrentUser.mockReset();
@@ -42,12 +42,13 @@ beforeEach(() => {
 });
 
 describe("SiteSettingsPage", () => {
-    it("loads and renders all three settings cards", async () => {
+    it("loads and renders all four settings cards", async () => {
         mockedGetSiteSettings.mockResolvedValue({ ...baseSettings, siteTitle: "Acme Auth" });
         render(<SiteSettingsPage userUid="admin-1" />);
 
         expect(await screen.findByText("Site settings")).toBeInTheDocument();
         expect(await screen.findByLabelText("Site title")).toHaveValue("Acme Auth");
+        expect(screen.getByText("Icon")).toBeInTheDocument();
         expect(screen.getByText("Header & footer")).toBeInTheDocument();
         expect(screen.getByText("Custom stylesheet")).toBeInTheDocument();
     });

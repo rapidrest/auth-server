@@ -15,9 +15,9 @@ const { Column, Entity } = PersistenceDecorators;
  * through the admin console (see `BaseSiteSettingsRoute`). A singleton — always read/written under
  * `BaseSiteSettingsRoute.SITE_SETTINGS_UID` — rather than a generic CRUD resource.
  *
- * `logoUrl`/`stylesheetUrl` are external reference URLs; `logoData`/`stylesheetCss` hold a directly
- * uploaded asset's content (base64-encoded image bytes, raw CSS text respectively) alongside its
- * `logoContentType`. Storing uploads on this row (rather than the filesystem) is deliberate: this
+ * `logoUrl`/`iconUrl`/`stylesheetUrl` are external reference URLs; `logoData`/`iconData`/`stylesheetCss`
+ * hold a directly uploaded asset's content (base64-encoded image bytes, raw CSS text respectively)
+ * alongside `logoContentType`/`iconContentType`. Storing uploads on this row (rather than the filesystem) is deliberate: this
  * app already assumes a shared SQL/Mongo backing store across instances, so this keeps an uploaded
  * asset available from every instance with no extra shared-volume plumbing.
  *
@@ -70,6 +70,20 @@ export class SiteSettingsSQL extends BaseEntity {
     @Nullable
     public logoContentType?: string;
 
+    /** Reference URL for the compact icon shown in navigation headers, as opposed to `logoUrl`'s full logo/watermark. */
+    @Column({ nullable: true })
+    @Nullable
+    public iconUrl?: string;
+
+    /** Base64-encoded bytes of a directly uploaded icon image. Mutually rendered in preference to `iconUrl`. */
+    @Column({ nullable: true })
+    @Nullable
+    public iconData?: string;
+
+    @Column({ nullable: true })
+    @Nullable
+    public iconContentType?: string;
+
     @Column({ nullable: true })
     @Nullable
     public stylesheetUrl?: string;
@@ -90,6 +104,9 @@ export class SiteSettingsSQL extends BaseEntity {
             this.logoUrl = other.logoUrl !== undefined ? other.logoUrl : this.logoUrl;
             this.logoData = other.logoData !== undefined ? other.logoData : this.logoData;
             this.logoContentType = other.logoContentType !== undefined ? other.logoContentType : this.logoContentType;
+            this.iconUrl = other.iconUrl !== undefined ? other.iconUrl : this.iconUrl;
+            this.iconData = other.iconData !== undefined ? other.iconData : this.iconData;
+            this.iconContentType = other.iconContentType !== undefined ? other.iconContentType : this.iconContentType;
             this.stylesheetUrl = other.stylesheetUrl !== undefined ? other.stylesheetUrl : this.stylesheetUrl;
             this.stylesheetCss = other.stylesheetCss !== undefined ? other.stylesheetCss : this.stylesheetCss;
         }

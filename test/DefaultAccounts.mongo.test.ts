@@ -10,7 +10,7 @@ import config from "../src/config.mongo.js";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { Logger, sleep } from "@rapidrest/core";
 import { ObjectFactory, RepoUtils, Server } from "@rapidrest/service-core";
-import { importArgon2 } from "@rapidrest/auth";
+import { importArgon2, normalizePasswordSubmission, PasswordConfig } from "@rapidrest/auth";
 import { AliasMongo, SecretMongo, UserMongo } from "@rapidrest/auth/mongo";
 
 /** Finds the one-time password `DefaultAccounts` logs after creating a new account, if any. Strips
@@ -75,7 +75,11 @@ describe("DefaultAccounts Tests (mongo)", () => {
         const secrets = await secretRepo.find({ type: "password", userUid: user!.uid }, { ignoreACL: true });
         expect(secrets).toHaveLength(1);
         const argon = await importArgon2();
-        await expect(argon.verify(secrets[0].data, password!)).resolves.toBe(true);
+        // See DefaultAccounts.sql.test.ts's own comment: the stored hash is
+        // argon2.hash(normalizePasswordSubmission(rawPassword, uid, config)), not argon2.hash(rawPassword)
+        // directly.
+        const normalized = await normalizePasswordSubmission(password!, user!.uid, new PasswordConfig());
+        await expect(argon.verify(secrets[0].data, normalized)).resolves.toBe(true);
     });
 
     it("does not recreate the account (or log a new password) on a second startup", async () => {

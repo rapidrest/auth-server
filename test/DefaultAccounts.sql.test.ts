@@ -9,7 +9,7 @@ vi.mock("redis", async () => {
 import config from "../src/config.sql.js";
 import { Logger, sleep } from "@rapidrest/core";
 import { ObjectFactory, RepoUtils, Server } from "@rapidrest/service-core";
-import { importArgon2 } from "@rapidrest/auth";
+import { importArgon2, normalizePasswordSubmission, PasswordConfig } from "@rapidrest/auth";
 import { AliasSQL, SecretSQL, UserSQL } from "@rapidrest/auth/sql";
 import * as fs from "fs";
 import * as sqlite3 from "sqlite3";
@@ -104,7 +104,11 @@ describe("DefaultAccounts Tests (sql)", () => {
         const secrets = await secretRepo.find({ type: "password", userUid: user!.uid }, { ignoreACL: true });
         expect(secrets).toHaveLength(1);
         const argon = await importArgon2();
-        await expect(argon.verify(secrets[0].data, password!)).resolves.toBe(true);
+        // DefaultAccounts stores argon2.hash(normalizePasswordSubmission(rawPassword, uid, config)), not
+        // argon2.hash(rawPassword) directly (see @rapidrest/auth's DefaultAccounts job) — the same
+        // normalization the real sign-in route applies to a submitted password before verifying.
+        const normalized = await normalizePasswordSubmission(password!, user!.uid, new PasswordConfig());
+        await expect(argon.verify(secrets[0].data, normalized)).resolves.toBe(true);
     });
 
     it("does not recreate the account (or log a new password) on a second startup", async () => {

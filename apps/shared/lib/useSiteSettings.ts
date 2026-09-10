@@ -5,24 +5,28 @@
 import { useEffect, useState } from "react";
 import { effectiveStylesheetUrl, getSiteSettings, PublicSiteSettings } from "./siteSettings.js";
 
-/** `id` of the `<link>` this hook injects into `document.head` for an uploaded/referenced custom stylesheet. */
-const CUSTOM_STYLESHEET_LINK_ID = "rr-custom-stylesheet";
+/**
+ * `id` of the `<link>` for an uploaded/referenced custom stylesheet — server-rendered directly by
+ * `apps/*​/_layout.tsx` (with this exact id) when one is configured, and kept live by this hook's
+ * background refresh thereafter (matched by this id, rather than always appending a duplicate).
+ */
+export const CUSTOM_STYLESHEET_LINK_ID = "rr-custom-stylesheet";
 
 /**
- * Fetches this deployment's branding once on mount and applies the parts of it that can't be set via
- * page props alone: `document.title` and a dynamically injected `<link rel="stylesheet">` for a custom
- * stylesheet. `apps/*_layout.tsx` renders its `<title>`/`<link>` tags server-side before this hook ever
- * runs, and threading fetched data into it would mean changing `@rapidrest/react`'s `ReactRoute` (a
- * sibling package this project doesn't publish changes to) — so those two effects are applied
- * client-side once settings arrive instead. This means a brief flash of the default "RapidREST"
- * branding on first paint until hydration completes and this fetch resolves, same tradeoff every other
- * post-mount fetch in this app already makes (see `AdminShell`'s `getCurrentUser()`/`ensureElevated()`).
+ * Seeds from `initial` (the `siteSettings` prop every page now receives server-side — see
+ * `wwwRoute`/`AdminConsoleRoute`'s `fetchProps()` overrides and `apps/*​/_layout.tsx`, which renders
+ * `<title>`/`<link rel="icon">`/the custom stylesheet `<link>` directly from that same prop, so there's
+ * no first-paint flash and a crawler sees real branding in the raw HTML) so the very first render
+ * already reflects real branding, then re-fetches in the background and keeps `document.title`/the
+ * custom stylesheet `<link>` live — e.g. if an admin changes branding while this tab is already open.
+ * `document.title`/the stylesheet `<link>` aren't otherwise reachable from a page's own props the way
+ * `_layout.tsx`'s tags are, so this hook (rather than the page) is still what applies them.
  *
  * Used by both `AuthShell` (apps/www) and `AdminShell` (apps/admin) so every page gets consistent
  * branding from one implementation.
  */
-export function useSiteSettings(): PublicSiteSettings | null {
-    const [settings, setSettings] = useState<PublicSiteSettings | null>(null);
+export function useSiteSettings(initial?: PublicSiteSettings | null): PublicSiteSettings | null {
+    const [settings, setSettings] = useState<PublicSiteSettings | null>(initial ?? null);
 
     useEffect(() => {
         let cancelled = false;

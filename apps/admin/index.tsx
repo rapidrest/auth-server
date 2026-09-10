@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { Alias, ApiRequestError, markImpersonating } from "../shared/lib/api.js";
 import { AdminUser, deleteUser, impersonateUser, listAliasesForUsers, listUsers, searchUsers } from "../shared/lib/adminApi.js";
+import { PublicSiteSettings } from "../shared/lib/siteSettings.js";
 import AdminShell from "../shared/components/admin/layout/AdminShell.js";
 import UserSearchBar, { DEFAULT_USER_FILTERS, UserFilters } from "../shared/components/admin/users/UserSearchBar.js";
 import UserTable from "../shared/components/admin/users/UserTable.js";
@@ -17,11 +18,13 @@ const PAGE_SIZE = 25;
 interface HomePageProps {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
     userUid?: string;
+    /** Populated automatically by the framework — see `AdminConsoleRoute`'s `fetchProps()` override. */
+    siteSettings?: PublicSiteSettings;
 }
 
-export default function UsersListPage({ userUid }: HomePageProps) {
+export default function UsersListPage({ userUid, siteSettings }: HomePageProps) {
     return (
-        <AdminShell userUid={userUid}>
+        <AdminShell userUid={userUid} settings={siteSettings}>
             <UsersListContent />
         </AdminShell>
     );

@@ -62,6 +62,18 @@ export class SiteSettingsMongo extends BaseMongoEntity {
 
     @Column()
     @Nullable
+    public iconUrl?: string;
+
+    @Column()
+    @Nullable
+    public iconData?: string;
+
+    @Column()
+    @Nullable
+    public iconContentType?: string;
+
+    @Column()
+    @Nullable
     public stylesheetUrl?: string;
 
     @Column()
@@ -79,6 +91,9 @@ export class SiteSettingsMongo extends BaseMongoEntity {
             this.logoUrl = other.logoUrl !== undefined ? other.logoUrl : this.logoUrl;
             this.logoData = other.logoData !== undefined ? other.logoData : this.logoData;
             this.logoContentType = other.logoContentType !== undefined ? other.logoContentType : this.logoContentType;
+            this.iconUrl = other.iconUrl !== undefined ? other.iconUrl : this.iconUrl;
+            this.iconData = other.iconData !== undefined ? other.iconData : this.iconData;
+            this.iconContentType = other.iconContentType !== undefined ? other.iconContentType : this.iconContentType;
             this.stylesheetUrl = other.stylesheetUrl !== undefined ? other.stylesheetUrl : this.stylesheetUrl;
             this.stylesheetCss = other.stylesheetCss !== undefined ? other.stylesheetCss : this.stylesheetCss;
         }

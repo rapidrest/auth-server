@@ -819,6 +819,25 @@ describe("secrets", () => {
         );
     });
 
+    it("updateSecret hashes data client-side when a userUid is given (a password update)", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "s1", version: 1 }));
+        await updateSecret({ uid: "s1", version: 0, data: "newpass" }, "u1");
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe("/api/secrets/s1");
+        const body = parseBody(init);
+        expect(body.data).toMatch(CLIENT_HASHED_PASSWORD_PATTERN);
+        expect(body.data).not.toBe("newpass");
+    });
+
+    it("updateSecret does not hash when userUid is given but data is omitted (a hint-only update)", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "s1", version: 1 }));
+        await updateSecret({ uid: "s1", version: 0, hint: "New label" }, "u1");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/secrets/s1",
+            expect.objectContaining({ body: JSON.stringify({ uid: "s1", version: 0, hint: "New label" }) }),
+        );
+    });
+
     it("createTotpSecret posts a totp-type secret with no data", async () => {
         const created = {
             uid: "s1",

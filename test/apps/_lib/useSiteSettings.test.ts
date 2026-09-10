@@ -11,10 +11,9 @@ vi.mock("../../../apps/shared/lib/siteSettings.js", async (importOriginal) => {
 });
 
 import { getSiteSettings, PublicSiteSettings, UPLOADED_STYLESHEET_PATH } from "../../../apps/shared/lib/siteSettings.js";
-import { useSiteSettings } from "../../../apps/shared/lib/useSiteSettings.js";
+import { CUSTOM_STYLESHEET_LINK_ID, useSiteSettings } from "../../../apps/shared/lib/useSiteSettings.js";
 
 const mockedGetSiteSettings = vi.mocked(getSiteSettings);
-const CUSTOM_STYLESHEET_LINK_ID = "rr-custom-stylesheet";
 
 afterEach(() => {
     mockedGetSiteSettings.mockReset();
@@ -22,7 +21,7 @@ afterEach(() => {
     document.getElementById(CUSTOM_STYLESHEET_LINK_ID)?.remove();
 });
 
-const base: PublicSiteSettings = { logoUploaded: false, stylesheetUploaded: false };
+const base: PublicSiteSettings = { logoUploaded: false, iconUploaded: false, stylesheetUploaded: false };
 
 describe("useSiteSettings", () => {
     it("fetches once and returns the settings", async () => {
@@ -117,6 +116,16 @@ describe("useSiteSettings", () => {
         await waitFor(() => expect(mockedGetSiteSettings).toHaveBeenCalled());
         expect(result.current).toBeNull();
         expect(document.getElementById(CUSTOM_STYLESHEET_LINK_ID)).toBeNull();
+    });
+
+    it("seeds from an initial value so the very first render already reflects it, before the fetch resolves", () => {
+        // Never resolves during this test — proves the returned value came from `initial`, not the fetch.
+        mockedGetSiteSettings.mockReturnValueOnce(new Promise(() => undefined));
+
+        const initial: PublicSiteSettings = { ...base, siteTitle: "Seeded" };
+        const { result } = renderHook(() => useSiteSettings(initial));
+
+        expect(result.current).toEqual(initial);
     });
 
     it("does not act on a stale response after unmount", async () => {

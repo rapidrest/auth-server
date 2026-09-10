@@ -10,6 +10,7 @@ import {
     requestAuthorization,
     submitConsent,
 } from "../../shared/lib/api.js";
+import { PublicSiteSettings } from "../../shared/lib/siteSettings.js";
 import AuthShell from "../../shared/components/layout/AuthShell.js";
 import Alert from "../../shared/components/feedback/Alert.js";
 import Button from "../../shared/components/buttons/Button.js";
@@ -29,6 +30,8 @@ const OAUTH_QUERY_KEYS = [
 export interface AuthorizePageProps extends AuthorizeQueryParams {
     /** Populated automatically by the framework from an authenticated request (e.g. a valid `jwt` cookie). */
     userUid?: string;
+    /** Populated automatically by the framework — see `wwwRoute`'s `fetchProps()` override. */
+    siteSettings?: PublicSiteSettings;
 }
 
 /** Reads the OAuth 2.0 request's own query parameters straight through, unmodified, for `requestAuthorization()`. */
@@ -66,7 +69,7 @@ function currentUrl(): string {
     return window.location.pathname + window.location.search;
 }
 
-export default function AuthorizePage({ userUid, ...params }: AuthorizePageProps) {
+export default function AuthorizePage({ userUid, siteSettings, ...params }: AuthorizePageProps) {
     const [outcome, setOutcome] = useState<AuthorizeOutcome | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [deciding, setDeciding] = useState(false);
@@ -110,7 +113,7 @@ export default function AuthorizePage({ userUid, ...params }: AuthorizePageProps
     const scopes = consent ? consent.client.scope.split(" ").filter(Boolean) : [];
 
     return (
-        <AuthShell brand>
+        <AuthShell brand settings={siteSettings}>
             <div className="rr-card">
                 {error && <Alert>{error}</Alert>}
 
