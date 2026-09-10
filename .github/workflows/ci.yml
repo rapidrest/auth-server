@@ -11,15 +11,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: node:lts-trixie-slim
+      image: node:24-trixie-slim
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Enable corepack
         run: corepack enable
 
       - name: Cache node_modules, dist, docs
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             node_modules
@@ -48,15 +48,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     container:
-      image: node:lts-trixie-slim
+      image: node:24-trixie-slim
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Enable corepack
         run: corepack enable
 
       - name: Restore node_modules cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: node_modules
           key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -74,7 +74,7 @@ jobs:
 
       - name: Upload JUnit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: junit
           path: junit.xml
@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Docker build test
         run: |
           docker build -t ${{ github.event.repository.name }} . --no-cache
@@ -94,10 +94,10 @@ jobs:
     needs: test
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: v3.14.0
 
@@ -108,7 +108,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: test-docker-build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run test-run-mongo.sh
         run: bash ./scripts/test-run-mongo.sh
 
@@ -116,17 +116,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: test-docker-build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run test-run-sql.sh
         run: bash ./scripts/test-run-sql.sh
   validate:
     runs-on: ubuntu-latest
     needs: build
     container:
-      image: node:lts-trixie-slim
+      image: node:24-trixie-slim
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Run validation script
         run: |
@@ -142,7 +142,7 @@ jobs:
       packages: write
     environment: publish
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Extract package name
         id: pkg
@@ -191,10 +191,10 @@ jobs:
     environment: publish
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: v3.14.0
 
