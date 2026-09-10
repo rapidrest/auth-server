@@ -3,7 +3,7 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { emptyResponse, jsonResponse, mockFetch } from "../testUtils.js";
+import { CLIENT_HASHED_PASSWORD_PATTERN, emptyResponse, jsonResponse, mockFetch, parseBody } from "../testUtils.js";
 import {
     ApiRequestError,
     apiFetch,
@@ -344,14 +344,16 @@ describe("elevation", () => {
         expect(result).toEqual(authResult);
     });
 
-    it("elevateWithPassword posts the resubmitted password", async () => {
+    it("elevateWithPassword hashes against the caller's own uid (fetched via getCurrentUser) and posts the result", async () => {
         const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
-        const fetchMock = mockFetch(() => jsonResponse(200, authResult));
-        const result = await elevateWithPassword("hunter2");
-        expect(fetchMock).toHaveBeenCalledWith(
-            "/api/auth/elevation",
-            expect.objectContaining({ method: "POST", body: JSON.stringify({ password: "hunter2" }) }),
+        const fetchMock = mockFetch((url) =>
+            url === "/api/users/me" ? jsonResponse(200, { uid: "u1", roles: [], scopes: [] }) : jsonResponse(200, authResult),
         );
+        const result = await elevateWithPassword("hunter2");
+        expect(fetchMock).toHaveBeenCalledWith("/api/users/me", expect.anything());
+        const elevationCall = fetchMock.mock.calls.find(([url]) => url === "/api/auth/elevation")!;
+        expect(elevationCall[1]).toEqual(expect.objectContaining({ method: "POST" }));
+        expect(parseBody(elevationCall[1])).toEqual({ password: expect.stringMatching(CLIENT_HASHED_PASSWORD_PATTERN) });
         expect(result).toEqual(authResult);
     });
 });
@@ -448,22 +450,31 @@ describe("profile", () => {
 });
 
 describe("password", () => {
-    it("createPasswordSecret posts a password-type secret", async () => {
+    // signInWithPassword() caches identifier -> uid in localStorage on a successful sign-in (see
+    // knownAccounts.ts) — clear it so one test's cache entry can't change whether a later test's sign-in
+    // is hashed or plaintext.
+    afterEach(() => {
+        localStorage.clear();
+    });
+
+    it("createPasswordSecret posts a password-type secret, hashed client-side against the given uid", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, { uid: "s1" }));
-        await createPasswordSecret("Sup3r$ecret1");
-        expect(fetchMock).toHaveBeenCalledWith(
-            "/api/secrets",
-            expect.objectContaining({ body: JSON.stringify({ type: "password", data: "Sup3r$ecret1" }) }),
-        );
+        await createPasswordSecret("Sup3r$ecret1", "u1");
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe("/api/secrets");
+        expect(parseBody(init)).toEqual({ type: "password", data: expect.stringMatching(CLIENT_HASHED_PASSWORD_PATTERN) });
     });
 
     it("createPasswordSecret includes a top-level hint when one is given", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, { uid: "s1" }));
-        await createPasswordSecret("Sup3r$ecret1", "LastPass");
-        expect(fetchMock).toHaveBeenCalledWith(
-            "/api/secrets",
-            expect.objectContaining({ body: JSON.stringify({ type: "password", data: "Sup3r$ecret1", hint: "LastPass" }) }),
-        );
+        await createPasswordSecret("Sup3r$ecret1", "u1", "LastPass");
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe("/api/secrets");
+        expect(parseBody(init)).toEqual({
+            type: "password",
+            data: expect.stringMatching(CLIENT_HASHED_PASSWORD_PATTERN),
+            hint: "LastPass",
+        });
     });
 
     it("getPasswordRequirements fetches /secrets/password", async () => {
@@ -482,7 +493,7 @@ describe("password", () => {
         expect(result).toEqual(requirements);
     });
 
-    it("signInWithPassword posts id/password as JSON to /auth/mfa", async () => {
+    it("signInWithPassword posts a plaintext password when this browser has no cached uid for the identifier (first sign-in)", async () => {
         const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
         const fetchMock = mockFetch(() => jsonResponse(200, authResult));
         const result = await signInWithPassword("a@example.com", "pässwörd");
@@ -494,6 +505,23 @@ describe("password", () => {
             }),
         );
         expect(result).toEqual(authResult);
+    });
+
+    it("signInWithPassword hashes client-side on a repeat sign-in once this browser has cached the identifier's uid", async () => {
+        const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
+        const fetchMock = mockFetch(() => jsonResponse(200, authResult));
+        // First sign-in: no cache yet, submits plaintext, and caches "a@example.com" -> "u1" on success.
+        await signInWithPassword("a@example.com", "pässwörd");
+        fetchMock.mockClear();
+
+        // Second sign-in from the same browser: now hashable.
+        await signInWithPassword("a@example.com", "pässwörd");
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe("/api/auth/mfa");
+        expect(parseBody(init)).toEqual({
+            id: "a@example.com",
+            password: expect.stringMatching(CLIENT_HASHED_PASSWORD_PATTERN),
+        });
     });
 
     it("signInWithPassword resolves an MfaChallenge instead when the account has a second factor", async () => {

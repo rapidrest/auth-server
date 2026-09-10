@@ -171,7 +171,7 @@ describe("UserSecretsCard", () => {
             await user.type(screen.getByLabelText("Confirm new password"), VALID_PASSWORD);
             await user.click(screen.getByRole("button", { name: "Save password" }));
 
-            expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "old-pw", version: 0, data: VALID_PASSWORD });
+            expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "old-pw", version: 0, data: VALID_PASSWORD }, "u1");
             expect(mockedCreateUserPasswordSecret).not.toHaveBeenCalled();
             expect(mockedDeleteSecret).not.toHaveBeenCalled();
             await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

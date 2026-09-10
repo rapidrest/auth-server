@@ -31,6 +31,19 @@ export function mockFetch(
 }
 
 /**
+ * Matches the PHC-encoded Argon2id string `clientPasswordHash.ts` produces for a client-side-hashed
+ * password submission — see its own doc comment for the exact format (`m,p,t` key order, no base64
+ * padding). Used by tests to assert a password was hashed before hitting the network, without hardcoding
+ * an exact hash value (which would tie the test to one specific salt/password/param combination).
+ */
+export const CLIENT_HASHED_PASSWORD_PATTERN = /^\$argon2id\$v=19\$m=19456,p=1,t=2\$[A-Za-z0-9+/]+\$[A-Za-z0-9+/]+$/;
+
+/** Parses the JSON `body` off a mocked `fetch` call's `RequestInit`. */
+export function parseBody(init: RequestInit): any {
+    return JSON.parse(init.body as string);
+}
+
+/**
  * Replaces `window.location` with a plain, fully-writable stub so `window.location.href = "..."`,
  * `window.location.replace(...)`, and `window.location.reload()` can be asserted on directly — jsdom's
  * real `Location` either throws "Not implemented: navigation" or actually attempts to navigate when touched.

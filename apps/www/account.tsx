@@ -106,7 +106,7 @@ export default function AccountPage({ userUid }: AccountPageProps) {
                 setAliases={setAliases}
             />
 
-            <SecretsCard secrets={secrets} secretsError={accountError} setSecrets={setSecrets} />
+            <SecretsCard userUid={userUid} secrets={secrets} secretsError={accountError} setSecrets={setSecrets} />
 
             <SecurityCard user={user} setUser={setUser} />
 

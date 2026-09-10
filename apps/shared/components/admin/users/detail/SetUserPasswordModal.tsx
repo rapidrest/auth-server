@@ -43,7 +43,7 @@ export default function SetUserPasswordModal({ open, onClose, uid, secrets, onSa
         try {
             const existing = (secrets ?? []).find((s) => s.type === "password");
             const saved = existing
-                ? await updateSecret({ uid: existing.uid, version: existing.version, data: password })
+                ? await updateSecret({ uid: existing.uid, version: existing.version, data: password }, existing.userUid)
                 : await createUserPasswordSecret(uid, password, "Set by administrator");
             onSaved([...(secrets ?? []).filter((s) => s.type !== "password"), saved]);
             setPassword("");

@@ -25,13 +25,18 @@ function formatDate(iso: string | undefined): string {
 }
 
 export interface SecretsCardProps {
+    /**
+     * The authenticated caller's own uid — threaded down to `AddSecretModal`/`PasswordSecretForm`, which
+     * need it to hash a new password client-side (see `clientPasswordHash.ts`).
+     */
+    userUid: string;
     secrets: SecretSummary[] | null;
     /** Load error from the account page's initial fetch (as opposed to `secretError`, set locally on a failed delete). */
     secretsError: string | null;
     setSecrets: Dispatch<SetStateAction<SecretSummary[] | null>>;
 }
 
-export default function SecretsCard({ secrets, secretsError, setSecrets }: SecretsCardProps) {
+export default function SecretsCard({ userUid, secrets, secretsError, setSecrets }: SecretsCardProps) {
     const [secretError, setSecretError] = useState<string | null>(null);
 
     const [addMethodModalOpen, setAddMethodModalOpen] = useState(false);
@@ -114,6 +119,7 @@ export default function SecretsCard({ secrets, secretsError, setSecrets }: Secre
                 onClose={closeAddMethodModal}
                 addMethodType={addMethodType}
                 setAddMethodType={setAddMethodType}
+                userUid={userUid}
                 secrets={secrets}
                 setSecrets={setSecrets}
             />

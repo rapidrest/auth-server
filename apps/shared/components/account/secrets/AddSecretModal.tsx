@@ -19,6 +19,8 @@ export interface AddSecretModalProps {
     onClose: () => void;
     addMethodType: AddMethodType;
     setAddMethodType: Dispatch<SetStateAction<AddMethodType>>;
+    /** The authenticated caller's own uid — only consumed by `PasswordSecretForm`, see its own doc comment. */
+    userUid: string;
     secrets: SecretSummary[] | null;
     setSecrets: Dispatch<SetStateAction<SecretSummary[] | null>>;
 }
@@ -28,6 +30,7 @@ export default function AddSecretModal({
     onClose,
     addMethodType,
     setAddMethodType,
+    userUid,
     secrets,
     setSecrets,
 }: AddSecretModalProps) {
@@ -54,7 +57,9 @@ export default function AddSecretModal({
                 </div>
             )}
 
-            {addMethodType === "password" && <PasswordSecretForm secrets={secrets} setSecrets={setSecrets} onClose={onClose} />}
+            {addMethodType === "password" && (
+                <PasswordSecretForm userUid={userUid} secrets={secrets} setSecrets={setSecrets} onClose={onClose} />
+            )}
             {addMethodType === "totp" && <TotpSecretForm setSecrets={setSecrets} onClose={onClose} />}
             {addMethodType === "passkey" && <PasskeySecretForm setSecrets={setSecrets} onClose={onClose} />}
             {addMethodType === "fido2" && <Fido2SecretForm setSecrets={setSecrets} onClose={onClose} />}

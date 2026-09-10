@@ -3,7 +3,7 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { emptyResponse, jsonResponse, mockFetch } from "../../testUtils.js";
+import { CLIENT_HASHED_PASSWORD_PATTERN, emptyResponse, jsonResponse, mockFetch, parseBody } from "../../testUtils.js";
 import {
     createUser,
     createUserAlias,
@@ -249,25 +249,30 @@ describe("secrets", () => {
         expect(fetchMock).toHaveBeenCalledWith("/api/secrets?userUid=u1", expect.anything());
     });
 
-    it("createUserPasswordSecret posts the password with a hint", async () => {
+    it("createUserPasswordSecret posts the password — hashed client-side against the target account's uid — with a hint", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, {}));
         await createUserPasswordSecret("u1", "S3cret!!!", "Set by administrator");
-        expect(fetchMock).toHaveBeenCalledWith(
-            "/api/secrets",
-            expect.objectContaining({
-                method: "POST",
-                body: JSON.stringify({ type: "password", data: "S3cret!!!", userUid: "u1", hint: "Set by administrator" }),
-            }),
-        );
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe("/api/secrets");
+        expect(init).toEqual(expect.objectContaining({ method: "POST" }));
+        expect(parseBody(init)).toEqual({
+            type: "password",
+            data: expect.stringMatching(CLIENT_HASHED_PASSWORD_PATTERN),
+            userUid: "u1",
+            hint: "Set by administrator",
+        });
     });
 
     it("createUserPasswordSecret omits hint when not given", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, {}));
         await createUserPasswordSecret("u1", "S3cret!!!");
-        expect(fetchMock).toHaveBeenCalledWith(
-            "/api/secrets",
-            expect.objectContaining({ body: JSON.stringify({ type: "password", data: "S3cret!!!", userUid: "u1" }) }),
-        );
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe("/api/secrets");
+        expect(parseBody(init)).toEqual({
+            type: "password",
+            data: expect.stringMatching(CLIENT_HASHED_PASSWORD_PATTERN),
+            userUid: "u1",
+        });
     });
 });
 

@@ -56,6 +56,9 @@ export default function SignUpPage({ initialIdentifierType, initialIdentifier, a
     const [identifierType, setIdentifierType] = useState<RegistrationIdentifierType>(initialIdentifierType ?? "email");
     const [identifier, setIdentifier] = useState(initialIdentifier ?? "");
     const [code, setCode] = useState("");
+    // Captured from verifyRegistration()'s AuthResult — needed by handleProfileSubmit's createPasswordSecret()
+    // call, which hashes a submitted password client-side against the account's own uid (see clientPasswordHash.ts).
+    const [userUid, setUserUid] = useState("");
     const [username, setUsername] = useState("");
     const [givenName, setGivenName] = useState("");
     const [familyName, setFamilyName] = useState("");
@@ -115,7 +118,8 @@ export default function SignUpPage({ initialIdentifierType, initialIdentifier, a
             // Verifying the code creates the account (User + verified Alias) and logs it in immediately
             // (the server sets the `jwt` HttpOnly cookie on this response) — the profile/password steps
             // that follow are separate authenticated calls, not part of this one.
-            await verifyRegistration(identifierType, identifier.trim(), code.trim());
+            const result = await verifyRegistration(identifierType, identifier.trim(), code.trim());
+            setUserUid(result.user.uid);
             setStep("profile");
         } catch (err) {
             setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");
@@ -149,7 +153,7 @@ export default function SignUpPage({ initialIdentifierType, initialIdentifier, a
                 await createUsernameAlias(username.trim());
             }
             if (password) {
-                await createPasswordSecret(password);
+                await createPasswordSecret(password, userUid);
             }
             window.location.href = "/account";
         } catch (err) {

@@ -10,6 +10,7 @@
  */
 
 import { Alias, AliasType, apiFetch, ApiRequestError, ApiUser, AuthResult, Profile } from "./api.js";
+import { hashPasswordOrFallback } from "./clientPasswordHash.js";
 import { PublicSiteSettings } from "./siteSettings.js";
 
 export interface AdminUser extends ApiUser {
@@ -186,11 +187,16 @@ export function listUserSecrets(userUid: string): Promise<AdminSecretSummary[]> 
  * Sets a password credential for the given account on the admin's behalf (e.g. a temporary password for a
  * newly created or locked-out account). Unlike passkeys/security keys, a password doesn't require the
  * account holder's own device, so this is the one credential type an admin can provision directly.
+ *
+ * `password` is hashed client-side against `userUid` (see `clientPasswordHash.ts`) when this browser
+ * supports it — crucially the *target* account's uid, not the admin's own, since the salt is derived from
+ * whichever account the resulting hash must later verify against.
  */
-export function createUserPasswordSecret(userUid: string, password: string, hint?: string): Promise<AdminSecretSummary> {
+export async function createUserPasswordSecret(userUid: string, password: string, hint?: string): Promise<AdminSecretSummary> {
+    const data = await hashPasswordOrFallback(password, userUid);
     return apiFetch("/secrets", {
         method: "POST",
-        body: JSON.stringify({ type: "password", data: password, userUid, ...(hint ? { hint } : {}) }),
+        body: JSON.stringify({ type: "password", data, userUid, ...(hint ? { hint } : {}) }),
     });
 }
 

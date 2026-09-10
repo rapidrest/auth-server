@@ -1233,7 +1233,7 @@ describe("AccountPage — password", () => {
         await user.click(screen.getByRole("button", { name: "Save password" }));
 
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-        expect(mockedCreatePasswordSecret).toHaveBeenCalledWith("Sup3r$ecret1", undefined);
+        expect(mockedCreatePasswordSecret).toHaveBeenCalledWith("Sup3r$ecret1", "u1", undefined);
         expect(mockedDeleteSecret).not.toHaveBeenCalled();
         expect(screen.getByText("Password")).toBeInTheDocument();
     });
@@ -1249,7 +1249,7 @@ describe("AccountPage — password", () => {
         await user.click(screen.getByRole("button", { name: "Save password" }));
 
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-        expect(mockedCreatePasswordSecret).toHaveBeenCalledWith("Sup3r$ecret1", "LastPass");
+        expect(mockedCreatePasswordSecret).toHaveBeenCalledWith("Sup3r$ecret1", "u1", "LastPass");
         expect(screen.getByText("(LastPass)")).toBeInTheDocument();
     });
 
@@ -1265,7 +1265,10 @@ describe("AccountPage — password", () => {
         await user.click(screen.getByRole("button", { name: "Save password" }));
 
         await waitFor(() =>
-            expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "oldpw", version: 0, data: "Sup3r$ecret1", hint: undefined }),
+            expect(mockedUpdateSecret).toHaveBeenCalledWith(
+                { uid: "oldpw", version: 0, data: "Sup3r$ecret1", hint: undefined },
+                "u1",
+            ),
         );
         expect(mockedCreatePasswordSecret).not.toHaveBeenCalled();
         expect(mockedDeleteSecret).not.toHaveBeenCalled();

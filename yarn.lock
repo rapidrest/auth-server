@@ -982,6 +982,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/hashes@npm:^2.4.0":
+  version: 2.4.0
+  resolution: "@noble/hashes@npm:2.4.0"
+  checksum: 10c0/f5820a38c52886073a69722a030688ad188bbacb822d01554545371259961c2b916266c57c013c2ce5a0d78aec977142fc68fd2a79be4c97b0644fcee9bb35f6
+  languageName: node
+  linkType: hard
+
 "@npmcli/agent@npm:^4.0.0":
   version: 4.0.2
   resolution: "@npmcli/agent@npm:4.0.2"
@@ -1561,9 +1568,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/auth@npm:^2.0.0-beta.5":
-  version: 2.0.0-beta.5
-  resolution: "@rapidrest/auth@npm:2.0.0-beta.5"
+"@rapidrest/auth@npm:^2.0.0-beta.7":
+  version: 2.0.0-beta.7
+  resolution: "@rapidrest/auth@npm:2.0.0-beta.7"
   dependencies:
     cross-spawn: "npm:^7.0.5"
     parse-duration: "npm:^2.1.8"
@@ -1585,7 +1592,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/5557b7adb4b2ea6fc329dd7c789652191a46b6d81e6d916a72229bfca770838e653dd064fed664501933f5c52f19b41e0d7fb220a723c010eff6d866643c97b2
+  checksum: 10c0/37e10d6f4e106dab7566dc1c699e39217f29b9a6316402d6ee24fb03277daa67865cf56d147f1ffa4aeb763793a33a1c3def6404d7c7f7074ef3375a4c71b307
   languageName: node
   linkType: hard
 
@@ -3033,7 +3040,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "auth-server@workspace:."
   dependencies:
-    "@rapidrest/auth": "npm:^2.0.0-beta.5"
+    "@noble/hashes": "npm:^2.4.0"
+    "@rapidrest/auth": "npm:^2.0.0-beta.7"
     "@rapidrest/cli": "npm:^1.0.1"
     "@rapidrest/core": "npm:^5.2.2"
     "@rapidrest/react": "npm:^2.0.0-beta.1"

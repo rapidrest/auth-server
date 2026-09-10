@@ -11,12 +11,14 @@ import PasswordFieldset from "../../forms/PasswordFieldset.js";
 import Button from "../../buttons/Button.js";
 
 export interface PasswordSecretFormProps {
+    /** The authenticated caller's own uid, needed to hash a new password client-side (see `clientPasswordHash.ts`). */
+    userUid: string;
     secrets: SecretSummary[] | null;
     setSecrets: Dispatch<SetStateAction<SecretSummary[] | null>>;
     onClose: () => void;
 }
 
-export default function PasswordSecretForm({ secrets, setSecrets, onClose }: PasswordSecretFormProps) {
+export default function PasswordSecretForm({ userUid, secrets, setSecrets, onClose }: PasswordSecretFormProps) {
     const { criteria } = usePasswordRequirements();
     const [hint, setHint] = useState("");
     const [newPassword, setNewPassword] = useState("");
@@ -41,8 +43,11 @@ export default function PasswordSecretForm({ secrets, setSecrets, onClose }: Pas
         try {
             const existing = (secrets ?? []).find((s) => s.type === "password");
             const saved = existing
-                ? await updateSecret({ uid: existing.uid, version: existing.version, data: newPassword, hint: hint.trim() || undefined })
-                : await createPasswordSecret(newPassword, hint.trim() || undefined);
+                ? await updateSecret(
+                      { uid: existing.uid, version: existing.version, data: newPassword, hint: hint.trim() || undefined },
+                      existing.userUid,
+                  )
+                : await createPasswordSecret(newPassword, userUid, hint.trim() || undefined);
             setSecrets((prev) => [...(prev ?? []).filter((s) => s.type !== "password"), saved]);
             onClose();
         } catch (err) {

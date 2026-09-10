@@ -15,6 +15,8 @@
  */
 
 import { requestElevation } from "./elevation.js";
+import { hashPasswordOrFallback } from "./clientPasswordHash.js";
+import { getKnownUid, rememberKnownUid } from "./knownAccounts.js";
 
 export interface ApiUser {
     uid: string;
@@ -286,16 +288,21 @@ export function resendContactVerificationCode(contact: string): Promise<void> {
 }
 
 /**
- * Registers a password credential for the authenticated caller. The server hashes `password` (argon2) and
- * enforces the configured strength rules — `userUid` is defaulted server-side to the caller's own uid.
- * `hint` is an optional caller-supplied label (e.g. "LastPass") to help identify this secret later — it's a
- * discrete top-level field on `Secret`, not part of `data`, so it survives the server-side scrub of `data`
- * on every later `GET`/list.
+ * Registers a password credential for the authenticated caller. `password` is hashed client-side first
+ * (see `clientPasswordHash.ts`) when this browser supports it, so the plaintext password never has to
+ * reach the server; either way the server enforces the configured strength rules (against the plaintext) or
+ * cost-parameter floor (against an already-hashed submission) and does its own argon2 hashing on top before
+ * storing it. `userUid` is the caller's own uid, needed locally to derive the client-side hash's salt — it
+ * is never sent in the request body; the server still defaults `Secret.userUid` from the authenticated
+ * caller exactly as before. `hint` is an optional caller-supplied label (e.g. "LastPass") to help identify
+ * this secret later — it's a discrete top-level field on `Secret`, not part of `data`, so it survives the
+ * server-side scrub of `data` on every later `GET`/list.
  */
-export function createPasswordSecret(password: string, hint?: string): Promise<SecretSummary> {
+export async function createPasswordSecret(password: string, userUid: string, hint?: string): Promise<SecretSummary> {
+    const data = await hashPasswordOrFallback(password, userUid);
     return apiFetch("/secrets", {
         method: "POST",
-        body: JSON.stringify({ type: "password", data: password, ...(hint ? { hint } : {}) }),
+        body: JSON.stringify({ type: "password", data, ...(hint ? { hint } : {}) }),
     });
 }
 
@@ -341,9 +348,25 @@ export function isMfaChallenge(result: AuthResult | MfaChallenge): result is Mfa
  * the account has no secondary method registered, this resolves a normal `AuthResult` exactly as
  * `/auth/password` used to; if it does, it instead resolves `{uid, methods}` and the caller must complete
  * the challenge via `beginMfaChallenge`/`verifyMfaCode`/`verifyMfaFido2` below.
+ *
+ * `password` is hashed client-side (see `clientPasswordHash.ts`) when `id` resolves to a `uid` this browser
+ * has cached from a previous successful sign-in (see `knownAccounts.ts`) — deriving the hash's salt
+ * requires the account's `uid`, which isn't known ahead of a first-ever sign-in from a fresh browser, so
+ * that one sign-in transparently falls back to plaintext (the server accepts either form). A successful,
+ * non-challenge sign-in caches `id -> user.uid` so every later sign-in with the same identifier from this
+ * browser can be hashed.
  */
-export function signInWithPassword(id: string, password: string): Promise<AuthResult | MfaChallenge> {
-    return apiFetch("/auth/mfa", { method: "POST", body: JSON.stringify({ id, password }) });
+export async function signInWithPassword(id: string, password: string): Promise<AuthResult | MfaChallenge> {
+    const knownUid = getKnownUid(id);
+    const submitted = knownUid ? await hashPasswordOrFallback(password, knownUid) : password;
+    const result = await apiFetch<AuthResult | MfaChallenge>("/auth/mfa", {
+        method: "POST",
+        body: JSON.stringify({ id, password: submitted }),
+    });
+    if (!isMfaChallenge(result)) {
+        rememberKnownUid(id, result.user.uid);
+    }
+    return result;
 }
 
 export interface OAuthAuthorizeResult {
@@ -441,9 +464,17 @@ export function completeElevationFido2(response: unknown): Promise<AuthResult> {
 /**
  * Elevates by resubmitting the caller's password instead of a secondary method — only accepted by the
  * server when `listElevationMethods()` returned an empty array (see `BaseAuthElevationRoute.verifyPasswordOnly`).
+ *
+ * `password` is hashed client-side (see `clientPasswordHash.ts`) before submission. Unlike
+ * `signInWithPassword()`, the caller is already authenticated here, so its own `uid` is fetched fresh via
+ * `getCurrentUser()` rather than read from a local cache — this call can be reached from any page (via
+ * `ElevationHost`, mounted globally) and must stay correct even under impersonation, where a cached uid
+ * from an earlier sign-in could be stale.
  */
-export function elevateWithPassword(password: string): Promise<AuthResult> {
-    return apiFetch("/auth/elevation", { method: "POST", body: JSON.stringify({ password }) });
+export async function elevateWithPassword(password: string): Promise<AuthResult> {
+    const { uid } = await getCurrentUser();
+    const data = await hashPasswordOrFallback(password, uid);
+    return apiFetch("/auth/elevation", { method: "POST", body: JSON.stringify({ password: data }) });
 }
 
 /** Signs in with a 6-digit code from an authenticator app (RFC 6238 TOTP), for a previously registered secret. */
@@ -620,9 +651,15 @@ export interface UpdateSecretInput {
 /**
  * Updates one of the authenticated caller's own secrets in place — e.g. changing a password's value, or
  * setting/editing its `hint` — instead of creating a replacement and deleting the old one.
+ *
+ * Pass `userUid` (the owning account's uid — not necessarily the caller's own, e.g. an admin changing
+ * another account's password) when `input.data` is a new password value, so it can be hashed client-side
+ * (see `clientPasswordHash.ts`) before submission; omit it for a `hint`-only update or any other secret
+ * type, where `data` isn't a password and must never be hashed.
  */
-export function updateSecret(input: UpdateSecretInput): Promise<SecretSummary> {
-    return apiFetch(`/secrets/${encodeURIComponent(input.uid)}`, { method: "PUT", body: JSON.stringify(input) });
+export async function updateSecret(input: UpdateSecretInput, userUid?: string): Promise<SecretSummary> {
+    const body = userUid && input.data !== undefined ? { ...input, data: await hashPasswordOrFallback(input.data, userUid) } : input;
+    return apiFetch(`/secrets/${encodeURIComponent(input.uid)}`, { method: "PUT", body: JSON.stringify(body) });
 }
 
 export interface TotpSecretData {

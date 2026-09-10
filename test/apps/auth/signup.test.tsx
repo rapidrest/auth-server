@@ -327,7 +327,7 @@ describe("SignUpPage — profile step", () => {
         await user.click(screen.getByRole("button", { name: "Create account" }));
 
         await waitFor(() => expect(location.href).toBe("/account"));
-        expect(mockedCreatePasswordSecret).toHaveBeenCalledWith("Sup3r$ecret1");
+        expect(mockedCreatePasswordSecret).toHaveBeenCalledWith("Sup3r$ecret1", "u1");
     });
 
     it("shows the ApiRequestError message when profile creation fails", async () => {
