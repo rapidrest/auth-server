@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.1] - 2026-09-10
+
+### Added
+- Added nav icon branding, dynamic favicon, and server-rendered site branding
+
+### Changed
+- Hash passwords client-side (Argon2id) before they leave the browser
+- @rapidrest/auth 2.0.0-beta.7 added support for accepting an already
+- client-hashed password alongside plaintext, distinguished by shape. Make
+- the frontend a capable client for every password flow (sign-in, sign-up,
+- account settings, admin create/set-password, elevation), so the real
+- password never has to reach the server when this browser supports it.
+- Uses @noble/hashes' pure-JS argon2idAsync (verified byte-identical to the
+- server's argon2 binding) with the library's fixed client params and a
+- uid-derived salt. Falls back to plaintext wherever the uid needed to
+- derive that salt isn't yet known (first-ever sign-in from a browser) or
+- hashing fails for any reason — functionally unchanged from today, since
+- the server accepts either form.
+- Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+- Splits the single "logo" asset into a full logo (sign-in/sign-up/consent
+- pages) and a separate, independently configurable "icon" for compact
+- nav-header use (admin console nav, the / splash screen) — mirrors the
+- existing logo upload/URL/delete plumbing end to end: models, upload
+- endpoints, admin UI, and consumers.
+- Also makes branding (title, favicon, logo/icon, header/footer HTML,
+- custom stylesheet) render correctly on the very first byte of the
+- response instead of flashing in after a client-side fetch, and be
+- visible to crawlers reading the raw HTML. This relies on @rapidrest/react
+- 2.0.0-beta.2, which now spreads a route's fetchProps() onto _layout.tsx
+- as well as the page component; wwwRoute/AdminConsoleRoute (both SQL and
+- Mongo) add one fetchProps() override each to feed current site settings
+- into that pipeline.
+- Also fixes six backend integration test fixtures (SiteSettingsRoute,
+- OAuthIntegration, DefaultAccounts — both datastores) that were hashing
+- passwords directly instead of through @rapidrest/auth's
+- normalizePasswordSubmission(), left broken by the earlier auth library
+- upgrade and only surfaced by running the full test suite for this change.
+- Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### Removed
+- Removed unused files
+
 ## [1.0.0-beta.0] - 2026-09-10
 
 ### Added
@@ -246,5 +288,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.0...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.1...HEAD
+[1.0.0-beta.1]: github/auth-server/compare/v1.0.0-beta.0...v1.0.0-beta.1
 [1.0.0-beta.0]: github/auth-server/releases/tag/v1.0.0-beta.0

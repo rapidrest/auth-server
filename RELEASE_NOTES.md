@@ -1,6 +1,6 @@
 # Release Notes
 
-## Unreleased
+## v1.0.0-beta.1
 
 A reference implementation of a RapidREST authorization server built on [@rapidrest/auth](https://github.com/rapidrest/auth), [@rapidrest/service-core](https://github.com/rapidrest/service-core) and [@rapidrest/react](https://github.com/rapidrest/react), providing a complete, deployable authentication/account-management service plus a React front end and admin console.
 
