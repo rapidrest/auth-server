@@ -1247,7 +1247,38 @@ reading code:
   zero errors in the boot log.
 - Verification: `yarn tsc --noEmit`/`yarn lint` clean; full `docker build` succeeds (previously failed
   outright); `docker compose -f docker-compose.mongo.yml up` reaches `healthy` with no errors, confirmed
-  live via `docker logs`/`docker exec` (not just "container didn't crash"). Not verified: the equivalent
-  SQL/Postgres path end-to-end (only the entrypoint-selection fix was confirmed via `helm template`
-  rendering the right command, not an actual `docker-compose.sql.yml up`) - a natural next check. Not
-  committed - same standing "never auto-commit" rule as `@rapidmx/server`'s own NOTES.md documents.
+  live via `docker logs`/`docker exec` (not just "container didn't crash"). The SQL/Postgres path was
+  verified end-to-end in the next session entry below (it needed two more real fixes first).
+- Not committed - same standing "never auto-commit" rule as `@rapidmx/server`'s own NOTES.md documents.
+
+### 2026-09-09 (continued) — `scripts/test-run-mongo.sh`/`test-run-sql.sh` were completely broken; two more real bugs found fixing them
+
+JP reported this repo's real CI failure directly: `bash ./scripts/test-run-mongo.sh` printing "unknown
+shorthand flag: 'f' in -f" and "no configuration file provided: not found", failing the build. The
+identical script exists in `@rapidmx/server` too (same scaffold) - that repo's own copy was fixed at the
+same time, see its own NOTES.md for the parallel write-up.
+
+- **`docker compose up -f <file> -d --build`** - `-f` is a *global* docker-compose flag; it must come
+  before the subcommand (`docker compose -f <file> up`), not after it. The CLI rejects the old ordering
+  outright. Every *subsequent* `docker compose ps`/`down` call in the script also had no `-f` at all, so
+  each one fell back to looking for a nonexistent default `docker-compose.yml` in the CWD - **this script
+  had presumably never actually worked, end to end, ever**, in either repo. Fixed by assigning
+  `COMPOSE="docker compose -f <file>"` once and using `$COMPOSE` everywhere in both `test-run-mongo.sh`/
+  `test-run-sql.sh`.
+- **Fixing the syntax error immediately surfaced a second, real problem, specific to the SQL variant**:
+  getting that far for the first time meant `postgres:latest` (18+) was actually exercised with the
+  `postgres_data:/var/lib/postgresql/data` volume mount added earlier this session for persistence - and
+  it crash-loops outright with that exact mount. "these Docker images are configured to store database
+  data in a format which is compatible with pg_ctlcluster... there appears to be PostgreSQL data in
+  /var/lib/postgresql/data (unused mount/volume)" - triggered by *anything* externally mounted at that
+  exact path, even an empty freshly-created volume, not just real old-format data. Fixed by mounting the
+  *parent* directory instead (`postgres_data:/var/lib/postgresql`), matching the image's own suggested
+  fix. Confirmed live: `postgres` crash-looped before, stayed up after.
+- **One more real finding, not a bug**: the SQL variant's healthcheck-polling loop needed longer than the
+  script's original 60s timeout to reach `healthy` in one live run (Postgres's own first-boot `initdb` is
+  slower than Mongo's equivalent cold start) - bumped to 120s. Not chasing this further; it's a timing
+  margin, not a functional defect, and the loop already reports a clean pass/fail either way.
+- Verification: both `test-run-mongo.sh` and `test-run-sql.sh` run for real, end to end, locally -
+  `docker ps -a`/`docker logs` inspected directly (not just trusting the script's own "started
+  successfully" message) to confirm each one actually reaches `healthy` with no errors, then torn down
+  cleanly. Not committed - same standing rule.

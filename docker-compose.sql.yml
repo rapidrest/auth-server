@@ -31,7 +31,13 @@ services:
         environment:
             - POSTGRES_PASSWORD=postgres
         volumes:
-            - postgres_data:/var/lib/postgresql/data
+            # NOT /var/lib/postgresql/data - the postgres:18+ image refuses to start at all if anything is
+            # externally mounted directly at that exact path ("these Docker images are configured to store
+            # database data in a format which is compatible with pg_ctlcluster... there appears to be
+            # PostgreSQL data in /var/lib/postgresql/data (unused mount/volume)"), even an empty freshly-
+            # created volume - confirmed live, this crash-looped this service. The image wants the *parent*
+            # directory so it can manage its own major-version-qualified subdirectory underneath it.
+            - postgres_data:/var/lib/postgresql
 
 volumes:
     postgres_data:
