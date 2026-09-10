@@ -1203,3 +1203,51 @@ above. Adopted it and removed the custom endpoint — it's strictly simpler:
   codebase, prefer extending the existing auth-flow endpoint with an opt-in query param over adding
   a parallel endpoint, when the underlying strategy/middleware already do the right thing modulo
   the redirect-vs-JSON response format.
+
+### 2026-09-09 — Docker build/runtime fixes, mirroring @rapidmx/server's own session
+
+JP: "look at auth-server, apply the same fixes you did on server, docker isn't building." Three real,
+previously-undiscovered bugs, all confirmed via an actual `docker build`/`docker compose up`, not by
+reading code:
+
+- **`better-sqlite3` pinned to `^13.0.3`, which doesn't satisfy TypeORM 1.1.0's own peer range
+  (`^12.0.0`)** — identical bug to `@rapidmx/server`'s (same shared scaffold heritage). `yarn install
+  --immutable` inside the Docker builder stage tries to compile 13.x from source (no matching prebuilt
+  binary, no build toolchain in `node:lts-trixie-slim`) and fails outright. Fixed: pinned to `^12.11.1`
+  (latest 12.x). **Confirmed pre-existing, not caused by this fix**: `test/SiteSettingsRoute.sql.test.ts`
+  (8/10 tests) fails both before and after this version change - a `createAndSignInUser` test-setup
+  helper gets `401 Invalid authorization request` from `/api/auth/mfa` for reasons unrelated to
+  better-sqlite3's version. Not investigated further (out of scope for a Docker-build fix) - flagged here
+  for whoever picks up SQL-side auth test flakiness next.
+- **`.dockerignore` excluded `test/` from the build context, but `yarn build`'s lint step needs it
+  present** - `tsconfig.eslint.json`'s `include: ["test/**/*.ts", ...]` matches zero files with `test/`
+  entirely absent, so TypeScript raises `TS18003: No inputs were found` and eslint's type-aware parser
+  then fails for every file in the lint run, not just test files. Fixed by removing `test` from
+  `.dockerignore` - the final `runner` stage's own `COPY --from=builder` list never included `test/`
+  anyway, so this only affects the `builder` stage's context, not the shipped image.
+- **`1_deployments/service.yaml` (Helm) and `docker-compose.mongo.yml`/`sql.yml` always ran the image's
+  default CMD (`dist/src/server.js`, hardwired to Mongo config via `config.ts`'s static re-export)
+  regardless of environment or which datastore was actually enabled** - a `postgresql.create: true`
+  Helm install, or `docker-compose.sql.yml`, would silently run against Mongo config while every Postgres
+  env var was correctly set and simply ignored. Same bug, same fix, as `@rapidmx/server`'s own
+  docker-compose/Helm chart: both now explicitly select `server.mongo.js`/`server.sql.js` based on
+  `postgresql.create`/`datastores__sql__url` presence.
+- **Real, previously-undiscovered runtime bug, found only by actually watching a live `docker compose
+  up` boot to completion**: `DefaultAccountsMongo` (the background service that creates the initial admin
+  account and writes its one-time password to `auth:password_file`, `"passwords"` by default - a plain
+  relative path resolved against the CWD, `/app`) failed with `EACCES: permission denied, open
+  '/app/passwords'`. The Dockerfile's `COPY --from=builder --chown=node:node` steps only chown the
+  specific files/dirs they copy, never `/app` itself - so the non-root `node` user the container actually
+  runs as could never write a *new* file directly into `/app` at all. **This meant a fresh deployment had
+  no way to ever see its own bootstrapped admin credentials** - the account itself likely still got
+  created in the database (the Mongo write happens before the file write), just with a password nobody
+  could retrieve. Fixed with one `RUN chown node:node /app` before `USER node`. Confirmed fixed two ways:
+  a fresh `docker compose up` (empty volume) now prints the admin credentials banner *and* successfully
+  writes them to `/app/passwords` (`docker exec ... cat /app/passwords` confirmed real content), with
+  zero errors in the boot log.
+- Verification: `yarn tsc --noEmit`/`yarn lint` clean; full `docker build` succeeds (previously failed
+  outright); `docker compose -f docker-compose.mongo.yml up` reaches `healthy` with no errors, confirmed
+  live via `docker logs`/`docker exec` (not just "container didn't crash"). Not verified: the equivalent
+  SQL/Postgres path end-to-end (only the entrypoint-selection fix was confirmed via `helm template`
+  rendering the right command, not an actual `docker-compose.sql.yml up`) - a natural next check. Not
+  committed - same standing "never auto-commit" rule as `@rapidmx/server`'s own NOTES.md documents.

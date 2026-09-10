@@ -43,6 +43,13 @@ EXPOSE 9229
 # Define environment variable
 ENV PORT=3000
 
+# /app itself is still root-owned at this point - the COPY --chown steps above only chown the files/dirs
+# they copy, not their parent. Without this, the `node` user (below) can't write any new file directly
+# into /app at runtime - confirmed live via DefaultAccountsMongo's initial-admin-password bootstrap
+# (auth:password_file, "passwords" by default, a plain relative path resolved against the CWD /app),
+# which failed outright with EACCES until this was added.
+RUN chown node:node /app
+
 USER node
 
 # Set a healthcheck to ensure the service is always alive

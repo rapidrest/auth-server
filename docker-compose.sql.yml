@@ -2,6 +2,12 @@ services:
     server:
         build:
             context: .
+        # auth-server has separate, statically-imported entry points for each datastore backend
+        # (server.mongo.ts/server.sql.ts) rather than one script that branches on env vars at runtime -
+        # the image's own default CMD (dist/src/server.js) is hardwired to Mongo, so this must be set
+        # explicitly here or this file would silently run against Mongo config regardless of every
+        # Postgres env var set below.
+        command: ["node", "dist/src/server.sql.js"]
         ports:
             - "3000:3000"
             - "9229:9229"
@@ -14,7 +20,7 @@ services:
             - datastores__logs__type=redis
             - datastores__logs__url=redis://redis
             - datastores__sql__url=postgres://postgres:postgres@postgres:5432/postgres
-            - NODE_ENV=dev
+            - NODE_ENV=${NODE_ENV:-dev}
         links:
             - redis
             - postgres
@@ -24,3 +30,8 @@ services:
         image: postgres
         environment:
             - POSTGRES_PASSWORD=postgres
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+
+volumes:
+    postgres_data:

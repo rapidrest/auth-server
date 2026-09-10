@@ -2,6 +2,12 @@ services:
     server:
         build:
             context: .
+        # auth-server has separate, statically-imported entry points for each datastore backend
+        # (server.mongo.ts/server.sql.ts) rather than one script that branches on env vars at runtime -
+        # the image's own default CMD (dist/src/server.js) is hardwired to Mongo, so this must be set
+        # explicitly here or a docker-compose.sql.yml-based install would silently run against Mongo
+        # config regardless of every Postgres env var set below.
+        command: ["node", "dist/src/server.mongo.js"]
         ports:
             - "3000:3000"
             - "9229:9229"
@@ -14,7 +20,7 @@ services:
             - datastores__logs__type=redis
             - datastores__logs__url=redis://redis
             - datastores__mongo__url=mongodb://mongo
-            - NODE_ENV=dev
+            - NODE_ENV=${NODE_ENV:-dev}
         links:
             - redis
             - mongo
@@ -22,3 +28,8 @@ services:
         image: redis
     mongo:
         image: mongo
+        volumes:
+            - mongo_data:/data/db
+
+volumes:
+    mongo_data:

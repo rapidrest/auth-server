@@ -34,9 +34,21 @@ spec:
           {{- else }}
           imagePullPolicy: IfNotPresent
           {{- end }}
-          {{- if ne $.Values.environment "production" }}
+          {{- /*
+          auth-server has separate, statically-imported entry points for each datastore backend
+          (server.mongo.ts/server.sql.ts) rather than one script that branches on env vars at runtime -
+          the image's own default CMD (dist/src/server.js) is hardwired to Mongo, so this must be
+          selected explicitly here or a postgresql.create:true install would silently run against Mongo
+          config regardless of every datastore env var service-config.yaml/service-db-info correctly set
+          for Postgres - see @rapidmx/server's own identical fix (docker-compose.mongo.yml/sql.yml and
+          its own helm chart).
+          */}}
+          {{- $entrypoint := ternary "dist/src/server.sql.js" "dist/src/server.mongo.js" $.Values.postgresql.create }}
           command: ["node"]
-          args: ["--inspect=127.0.0.1:9229", "dist/src/server.js"]
+          {{- if ne $.Values.environment "production" }}
+          args: ["--inspect=127.0.0.1:9229", {{ $entrypoint | quote }}]
+          {{- else }}
+          args: [{{ $entrypoint | quote }}]
           {{- end }}
           envFrom:
             - configMapRef:
