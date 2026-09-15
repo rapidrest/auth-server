@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.2] - 2026-09-15
+
+### Added
+- Added configurable gateway configuration to helm chart
+
+### Changed
+- Upgraded service-core and react deps
+
+### Fixed
+- Fixed issues with TLS setup in helm chart
+
 ## [1.0.0-beta.1] - 2026-09-10
 
 ### Added
@@ -288,6 +299,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.1...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.2...HEAD
+[1.0.0-beta.2]: github/auth-server/compare/v1.0.0-beta.1...v1.0.0-beta.2
 [1.0.0-beta.1]: github/auth-server/compare/v1.0.0-beta.0...v1.0.0-beta.1
 [1.0.0-beta.0]: github/auth-server/releases/tag/v1.0.0-beta.0
