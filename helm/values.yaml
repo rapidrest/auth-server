@@ -17,6 +17,9 @@ gateway:
   create: true
   name: api-gateway
   namespace: '{{ .Release.Namespace }}'
+  # The GatewayClass of the Gateway this chart creates (gateway.create), e.g. "envoy" for Envoy Gateway or "nginx" for
+  # nginx-gateway-fabric.
+  className: envoy
   hsts: true
   tls: true
 redis:

@@ -5,13 +5,16 @@ Gateway across both, rather than each independently trying to create a resource 
 whichever Gateway the parent actually created (gateway.name/gateway.namespace still resolve normally
 either way; this only gates the `if` below).
 */}}
-{{- if and $.Values.gateway.create (eq "api-gateway" (tpl $.Values.gateway.name $)) (eq $.Release.Namespace (tpl $.Values.gateway.namespace $)) }}
+{{- $ownsGateway := and $.Values.gateway.create (eq "api-gateway" (tpl $.Values.gateway.name $)) (eq $.Release.Namespace (tpl $.Values.gateway.namespace $)) }}
+{{- /* Matches tls-certs.yaml: a certificate is only issued for a host that can get one. */}}
+{{- $certificate := and $.Values.gateway.tls (ne $.Values.host "localhost") (not (contains ".local" $.Values.host)) }}
+{{- if $ownsGateway }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: api-gateway
 spec:
-  gatewayClassName: nginx
+  gatewayClassName: {{ $.Values.gateway.className | quote }}
   listeners:
   - name: http
     port: 80
@@ -20,11 +23,17 @@ spec:
     allowedRoutes:
       namespaces:
         from: All
-  {{- if $.Values.gateway.tls }}
+  {{- if $certificate }}
+  # TLS is terminated on the listener; an HTTPRoute has no `tls` field.
   - name: https
     protocol: HTTPS
     port: 443
     hostname: {{ $.Values.host | quote }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: {{ $.Values.host }}-tls-cert
     allowedRoutes:
       namespaces:
         from: All
@@ -44,17 +53,13 @@ spec:
   - name: {{ tpl $.Values.gateway.name $ }}
     namespace: {{ tpl $.Values.gateway.namespace $ }}
     sectionName: http
+  {{- if and $ownsGateway $certificate }}
+  - name: api-gateway
+    namespace: {{ $.Release.Namespace }}
+    sectionName: https
+  {{- end }}
   hostnames:
   - {{ $.Values.host | quote }}
-  {{- if $.Values.gateway.tls }}
-  tls:
-    mode: Terminate
-    {{- if and (ne $.Values.host "localhost") (not (contains ".local" $.Values.host)) }}
-    certificateRefs:
-    - name: {{ $.Values.host }}-tls-cert
-      kind: Secret
-    {{- end }}
-  {{- end }}
   rules:
   - matches:
     - path:
@@ -64,22 +69,10 @@ spec:
     - name: {{ include "rrst.fullname" . }}-services
       port: 80
     {{- if not $.Values.gateway.hsts }}
+    # Standard Gateway API filter, so it works on any implementation (Envoy Gateway, nginx-gateway-fabric, ...).
     filters:
-    - type: ExtensionRef
-      extensionRef:
-        group: gateway.nginx.org
-        kind: NginxHTTPRoute
-        name: disable-hsts
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        remove:
+        - Strict-Transport-Security
     {{- end }}
-{{- if not $.Values.gateway.hsts }}
----
-apiVersion: gateway.nginx.org/v1alpha1
-kind: NginxHTTPRoute
-metadata:
-  name: disable-hsts
-spec:
-  headers:
-    response:
-      remove:
-      - Strict-Transport-Security
-{{- end }}
