@@ -11,7 +11,7 @@ data:
   session__secret: {{ tpl $.Values.sessions.secret . | quote }}
   NODE_ENV: "{{ $.Values.environment }}"
   {{- $publicScheme := ternary "https" "http" $.Values.gateway.tls }}
-  {{- $corsHosts := list "http://localhost:3000" (printf "%s://%s" $publicScheme $.Values.host) }}
+  {{- $corsHosts := list "http://localhost:3000" (printf "%s://%s" $publicScheme (include "rrst.render" (dict "value" $.Values.host "context" $))) }}
   cors__origins: {{ $corsHosts | toJson | quote }}
   {{- range $k, $v := $.Values.service.config }}
   {{- if kindIs "string" $v }}

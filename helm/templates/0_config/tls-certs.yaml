@@ -1,12 +1,12 @@
-{{- if and $.Values.gateway.tls (ne $.Values.host "localhost") (not (contains ".local" $.Values.host)) }}
+{{- if and $.Values.gateway.tls (ne (include "rrst.render" (dict "value" $.Values.host "context" $)) "localhost") (not (contains ".local" (include "rrst.render" (dict "value" $.Values.host "context" $)))) }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ $.Values.host }}
+  name: {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) }}
   namespace: {{ $.Release.Namespace }}
 spec:
-  secretName: {{ $.Values.host }}-tls-cert
+  secretName: {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) }}-tls-cert
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   subject:
@@ -14,7 +14,7 @@ spec:
       - RapidREST
   # The use of the common name field has been deprecated since 2000 and is
   # discouraged from being used.
-  commonName: {{ $.Values.host }}
+  commonName: {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) }}
   isCA: false
   privateKey:
     algorithm: ECDSA
@@ -25,7 +25,7 @@ spec:
     - client auth
   # At least one of a DNS Name, URI, or IP address is required.
   dnsNames:
-  - {{ $.Values.host }}
+  - {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) }}
   # Issuer references are always required.
   issuerRef:
     name: letsencrypt-prod

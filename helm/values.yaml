@@ -1,8 +1,12 @@
-host: localhost
+# This deployment's public host name. May be a template, so a parent chart's `global.domain` can drive it; installed
+# on its own, auth.localhost.
+host: 'auth.{{ dig "domain" "localhost" (.Values.global | default dict) }}'
 environment: dev
 auth:
-  audience: '{{ .Values.host }}'
-  issuer: api.{{ .Values.host }}
+  # Rendered (rrst.render) rather than a bare `.Values.host`, which would be the template text itself when `host` is
+  # one. A consumer of these tokens (e.g. the RapidMX server) must be configured with the same two values.
+  audience: '{{ include "rrst.render" (dict "value" .Values.host "context" .) }}'
+  issuer: 'api.{{ include "rrst.render" (dict "value" .Values.host "context" .) }}'
   expiresIn: 1 hour
   secret: '{{ randAlphaNum 32 }}'
 cookies:

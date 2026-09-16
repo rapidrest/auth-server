@@ -7,7 +7,7 @@ either way; this only gates the `if` below).
 */}}
 {{- $ownsGateway := and $.Values.gateway.create (eq "api-gateway" (tpl $.Values.gateway.name $)) (eq $.Release.Namespace (tpl $.Values.gateway.namespace $)) }}
 {{- /* Matches tls-certs.yaml: a certificate is only issued for a host that can get one. */}}
-{{- $certificate := and $.Values.gateway.tls (ne $.Values.host "localhost") (not (contains ".local" $.Values.host)) }}
+{{- $certificate := and $.Values.gateway.tls (ne (include "rrst.render" (dict "value" $.Values.host "context" $)) "localhost") (not (contains ".local" (include "rrst.render" (dict "value" $.Values.host "context" $)))) }}
 {{- if $ownsGateway }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -19,7 +19,7 @@ spec:
   - name: http
     port: 80
     protocol: HTTP
-    hostname: {{ $.Values.host | quote }}
+    hostname: {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) | quote }}
     allowedRoutes:
       namespaces:
         from: All
@@ -28,12 +28,12 @@ spec:
   - name: https
     protocol: HTTPS
     port: 443
-    hostname: {{ $.Values.host | quote }}
+    hostname: {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) | quote }}
     tls:
       mode: Terminate
       certificateRefs:
       - kind: Secret
-        name: {{ $.Values.host }}-tls-cert
+        name: {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) }}-tls-cert
     allowedRoutes:
       namespaces:
         from: All
@@ -59,7 +59,7 @@ spec:
     sectionName: https
   {{- end }}
   hostnames:
-  - {{ $.Values.host | quote }}
+  - {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) | quote }}
   rules:
   - matches:
     - path:

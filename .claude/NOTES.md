@@ -1282,3 +1282,28 @@ same time, see its own NOTES.md for the parallel write-up.
   `docker ps -a`/`docker logs` inspected directly (not just trusting the script's own "started
   successfully" message) to confirm each one actually reaches `healthy` with no errors, then torn down
   cleanly. Not committed - same standing rule.
+
+## 2026-09-15 — The chart's `host` is rendered, so a parent can drive it
+
+The RapidMX server chart wants one `global.domain` to name everything (`mail.<domain>`, `auth.<domain>`). It sets this
+chart's `host` as a subchart value, which can't be computed - so `host` has to accept a template.
+
+- Every use of the raw value now renders it with the chart's existing `rrst.render` helper
+  (`include "rrst.render" (dict "value" $.Values.host "context" $)`): 3_gateways/api.yaml (listener hostnames, the
+  certificateRef, the route hostname and the `$certificate` condition), 0_config/tls-certs.yaml and
+  service-config.yaml's CORS origin. A host-specific helper was a first attempt; `rrst.render` already does this.
+- `host` defaults to `'auth.{{ dig "domain" "localhost" (.Values.global | default dict) }}'`: `auth.localhost`
+  standalone, `auth.<domain>` under a parent that sets `global.domain`. `dig` with a `default dict`, because
+  `.Values.global` doesn't exist at all in a standalone install and `.Values.global.domain` is then a nil-pointer error.
+- `auth.audience`/`auth.issuer` now render `host` the same way instead of using `{{ .Values.host }}`: those
+  values are `tpl`'d by jwt-auth.yaml, and `tpl` renders one level only, so with a templated `host` they would have
+  produced the literal template text as the claim.
+- **Cross-chart gotcha:** a parent can't reference this chart's helper from its own values (the RapidMX server chart
+  tried `authServer.auth.issuer: '{{ include "auth-server.host" . }}'` and it failed against an older bundled copy).
+  Both charts derive the claims from `global.domain` instead.
+
+Verified: `helm lint`; `helm template` standalone (default `auth.localhost`, audience/issuer `auth.localhost`/
+`api.auth.localhost`; explicit `--set host=login.example.com` still literal) and packaged into a copy of the RapidMX
+server chart with `authServer.host: 'auth.{{ .Values.global.domain }}'` and `global.domain=example.com` - certificate,
+Gateway listeners, ReferenceGrant, `mail__auth_server_url` and the claims all render `auth.example.com`, with no
+unrendered `{{` left in the output.

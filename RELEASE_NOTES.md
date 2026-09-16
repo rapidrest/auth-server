@@ -1,5 +1,17 @@
 # Release Notes
 
+## Unreleased
+
+### Helm chart
+
+* `host` may now be a template, rendered wherever the chart uses it (Gateway listeners, the certificate, CORS and the
+  JWT claims), so a parent chart can drive it from its own values - e.g. the RapidMX server chart setting
+  `authServer.host: 'auth.{{ .Values.global.domain }}'` from its `global.domain`. It defaults to
+  `auth.<global.domain>`, i.e. `auth.localhost` when installed on its own.
+* **Breaking:** `auth.audience` and `auth.issuer` default to that rendered host (`<host>` and `api.<host>`) rather than
+  the raw `host` value. A deployment that kept the defaults keeps the same claims; one whose `host` is now a template
+  gets the rendered name instead of the template text.
+
 ## v1.0.0-beta.2
 
 A reference implementation of a RapidREST authorization server built on [@rapidrest/auth](https://github.com/rapidrest/auth), [@rapidrest/service-core](https://github.com/rapidrest/service-core) and [@rapidrest/react](https://github.com/rapidrest/react), providing a complete, deployable authentication/account-management service plus a React front end and admin console.
