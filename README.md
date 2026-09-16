@@ -107,6 +107,29 @@ environment, including ingress with TLS support. Simply run the script from any 
 ./scripts/k3s_install.sh
 ```
 
+### Secrets and OpenBao
+
+With `global.openbao.enabled` this deployment keeps its JWT, cookie and session secrets in
+[OpenBao](https://openbao.org), and [External Secrets](https://external-secrets.io) copies them into the Kubernetes
+Secrets the pod loads. Each value is written once and never rewritten, so an upgrade no longer invalidates issued tokens,
+cookies or sessions.
+
+**OpenBao is a prerequisite, like cert-manager - the chart doesn't install it**, which is why the value is off by
+default: a plain `helm install` shouldn't assume a vault is there. `scripts/k3s_install.sh` installs one and turns it on
+(`--openbao true`, on by default there): it installs the vault, initialises it, keeps the unseal key in a Kubernetes Secret
+with an unsealer Deployment that re-unseals it after any restart, writes this deployment's secrets, and creates the token
+External Secrets reads them with. External Secrets has to be there too; its CRDs are cluster-wide, so the chart can't
+bring them, and the render fails with the exact command when it's missing.
+
+Installed as a subchart of the [RapidMX server](https://github.com/rapidmx/server), the vault's coordinates come from
+that release (`global.openbao`), so both ends read the same JWT secret and neither is passed a value.
+
+Point `global.openbao.address` at an OpenBao you already run to use that one instead
+(`global.openbao.auth.method: kubernetes` authenticates with the pod's ServiceAccount and stores no token). It has to
+hold `auth_secret`, `cookie_secret` and `session__secret` under `global.openbao.kvMount` at `global.openbao.secretsPath`
+(`<release>/secrets` by default), with `global.openbao.auth.tokenSecret` naming a Secret whose `token` may read them.
+Left off (the chart's default), the secrets stay in Kubernetes Secrets as before.
+
 ## Debugging
 
 [Visual Studio Code](https://code.visualstudio.com/) is the recommended IDE to develop with. The project includes workspace and launch configuration files out of the box.
