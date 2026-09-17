@@ -27,7 +27,7 @@ interface DetailPageProps {
 
 export default function UserDetailPage({ userUid, params, siteSettings }: DetailPageProps) {
     return (
-        <AdminShell userUid={userUid} settings={siteSettings}>
+        <AdminShell userUid={userUid} settings={siteSettings} section="users">
             <UserDetailContent uid={params.uid} />
         </AdminShell>
     );

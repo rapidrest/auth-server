@@ -1,14 +1,63 @@
-host: localhost
-environment: dev
+# This deployment's public host name. May be a template, so a parent chart's `global.domain` can drive it; installed
+# on its own, auth.localhost.
+host: 'auth.{{ dig "domain" "localhost" (.Values.global | default dict) }}'
+environment: production
 auth:
-  audience: '{{ .Values.host }}'
-  issuer: api.{{ .Values.host }}
+  # Rendered (rrst.render) rather than a bare `.Values.host`, which would be the template text itself when `host` is
+  # one. A consumer of these tokens (e.g. the RapidMX server) must be configured with the same two values.
+  audience: '{{ include "rrst.render" (dict "value" .Values.host "context" .) }}'
+  issuer: 'api.{{ include "rrst.render" (dict "value" .Values.host "context" .) }}'
   expiresIn: 1 hour
-  secret: '{{ randAlphaNum 32 }}'
+  # The JWT signing secret. Generated on install and kept in the <release>-jwt-auth Secret across upgrades (so issued
+  # tokens keep verifying); an explicit value always wins. Every service that verifies these tokens needs the same value.
+  secret: ''
+# Cookie and session signing secrets. Leave empty to have one generated on install and kept (in the
+# <release>-service-secrets Secret) across upgrades, so signed cookies and sessions survive one; an explicit value always
+# wins. Generating needs cluster access (`lookup`): when the chart is rendered without it - `helm template`, a GitOps
+# controller such as Argo CD, `--dry-run` - every render would produce new values, so the render fails unless these (and
+# auth.secret) are set explicitly or secrets.existingSecret is used.
 cookies:
-  secret: '{{ randAlphaNum 32 }}'
+  secret: ''
 sessions:
-  secret: '{{ randAlphaNum 32 }}'
+  secret: ''
+secrets:
+  # An existing Secret holding cookie_secret and session__secret, used instead of the generated
+  # <release>-service-secrets (e.g. managed by External Secrets or Sealed Secrets in a GitOps setup).
+  existingSecret: ''
+# External Secrets (https://external-secrets.io) copies what OpenBao holds into the Kubernetes Secrets the pod loads, so
+# the application needs no vault client. Its operator is cluster-wide and has to be installed separately - the install
+# script does it, and the render fails with instructions when it's missing. With this off, the chart generates and keeps
+# the secrets itself, even with a vault deployed.
+externalSecrets:
+  enabled: true
+  refreshInterval: 1m
+# OpenBao (https://openbao.org) can hold this deployment's JWT, cookie and session secrets. Like cert-manager, it is
+# expected to be in the cluster already, so this chart never installs it and leaves it off by default:
+# scripts/k3s_install.sh installs it (--openbao, on by default there), initialises it, keeps the unseal key in a Secret
+# with an unsealer beside it, creates this release's secrets and its External Secrets token, and turns this on. Installed
+# as a subchart of the RapidMX server, the coordinates come from that release instead, so both read the same JWT secret.
+global:
+  openbao:
+    # true needs a vault (and External Secrets) already in the cluster; false keeps every secret in Kubernetes Secrets.
+    enabled: false
+    # The vault's Service; the install script's namespace by default.
+    address: 'http://openbao.openbao.svc:8200'
+    # The kv v2 mount, and the path under it this deployment's secrets live at, which must hold auth_secret,
+    # cookie_secret and session__secret. Empty defaults to <release fullname>/secrets.
+    kvMount: secret
+    secretsPath: ''
+    auth:
+      # "token" reads tokenSecret below; "kubernetes" logs in with the pod's ServiceAccount against an OpenBao
+      # Kubernetes auth mount, which is the usual choice for a vault shared across a cluster.
+      method: token
+      # Only with method "token". The install script creates this Secret, holding a token that may read secretsPath;
+      # with a vault you manage, create it yourself and name it here. Empty defaults to <release fullname>-openbao-eso.
+      tokenSecret: ''
+      tokenSecretKey: token
+      kubernetes:
+        mountPath: kubernetes
+        role: ''
+        serviceAccount: default
 common:
   storageClass: default
   logs:
@@ -50,6 +99,48 @@ postgresql:
     enablePostgresUser: true
     database: rrst_auth
 service:
+  # Proxies whose X-Forwarded-For is trusted for the client's address (config `trusted_proxies`; exact addresses or CIDR
+  # ranges). Every request arrives through the Gateway, so with an empty list every client shares the Gateway pod's
+  # address and one caller can use up the per-IP rate limits for everyone. The default trusts the private ranges the
+  # Gateway pods run in; narrow it to your cluster's pod CIDR if other workloads in those ranges can reach this Service
+  # directly, and make sure the Gateway sees real client addresses (PROXY protocol, or externalTrafficPolicy: Local).
+  trustedProxies:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - fc00::/7
+  # Pod shutdown: Kubernetes runs the preStop sleep (so the pod leaves the Service/Gateway before it stops accepting
+  # connections), then SIGTERM. Keep the sum below terminationGracePeriodSeconds.
+  terminationGracePeriodSeconds: 60
+  preStopSleepSeconds: 10
+  podSecurityContext:
+    runAsNonRoot: true
+    # The image's `node` user. Numeric, so Kubernetes can verify runAsNonRoot.
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  # Startup can take a while on a cold database; the liveness probe only takes over once this passes.
+  startupProbe:
+    httpGet:
+      path: /api/status
+      port: 3000
+    periodSeconds: 10
+    failureThreshold: 90
+  livenessProbe:
+    httpGet:
+      path: /api/status
+      port: 3000
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 22
   image:
     registry: ghcr.io
     repository: rapidrest/auth-server

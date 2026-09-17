@@ -1,5 +1,36 @@
 # Release Notes
 
+## Unreleased
+
+### Helm chart
+
+* **OpenBao as the secret vault** (`global.openbao.enabled`, off in the chart, on in the install script): the JWT, cookie and session secrets live in
+  OpenBao, and [External Secrets](https://external-secrets.io) copies them into the Kubernetes Secrets the pod loads. As
+  a subchart of the RapidMX server the vault's coordinates come from that release (`global.openbao`), so both ends read
+  one JWT secret. **OpenBao and External Secrets are prerequisites, like cert-manager - the chart installs neither.**
+  `scripts/k3s_install.sh --openbao true` installs and initialises the vault, keeps its unseal key in a Secret with an
+  unsealer Deployment that re-unseals it after any restart, writes each secret once, and creates the token the chart
+  reads them with; the render fails with the command to run when External Secrets is missing. Point
+  `global.openbao.address` at a vault you already run to use that one instead - with
+  `global.openbao.auth.method=kubernetes` it authenticates with the pod's ServiceAccount and stores no token. The chart
+  defaults the value to false, so a `helm install` that doesn't opt in behaves exactly as before.
+* **Secrets are generated once and kept** rather than regenerated on every render: `cookies.secret`, `sessions.secret`
+  and `auth.secret` default to empty and are stored in the release's own Secrets, so an upgrade no longer invalidates
+  every cookie, session and issued token. `secrets.existingSecret` uses a Secret you manage instead, and rendering
+  without cluster access (`helm template`, GitOps, `--dry-run`) fails rather than silently rotating them.
+* **Deployment hardening ported from the RapidMX server chart:** non-root pod and container security contexts, startup
+  and liveness probes, a graceful-shutdown preStop delay, checksum annotations that roll the pods when configuration or
+  secrets change, and the client labels the bundled database NetworkPolicies expect.
+* `service.trustedProxies` (`trusted_proxies`), so per-IP rate limits see the real client address behind the Gateway.
+* **Breaking:** `environment` now defaults to `production` rather than `dev`.
+* `host` may now be a template, rendered wherever the chart uses it (Gateway listeners, the certificate, CORS and the
+  JWT claims), so a parent chart can drive it from its own values - e.g. the RapidMX server chart setting
+  `authServer.host: 'auth.{{ .Values.global.domain }}'` from its `global.domain`. It defaults to
+  `auth.<global.domain>`, i.e. `auth.localhost` when installed on its own.
+* **Breaking:** `auth.audience` and `auth.issuer` default to that rendered host (`<host>` and `api.<host>`) rather than
+  the raw `host` value. A deployment that kept the defaults keeps the same claims; one whose `host` is now a template
+  gets the rendered name instead of the template text.
+
 ## v1.0.0-beta.2
 
 A reference implementation of a RapidREST authorization server built on [@rapidrest/auth](https://github.com/rapidrest/auth), [@rapidrest/service-core](https://github.com/rapidrest/service-core) and [@rapidrest/react](https://github.com/rapidrest/react), providing a complete, deployable authentication/account-management service plus a React front end and admin console.

@@ -7,11 +7,13 @@ metadata:
   # overwrite the other's ConfigMap under the same literal resource name.
   name: {{ include "rrst.fullname" . }}-service-config
 data:
-  cookie_secret: {{ tpl $.Values.cookies.secret . | quote }}
-  session__secret: {{ tpl $.Values.sessions.secret . | quote }}
+  # cookie_secret/session__secret live in the service-secrets Secret (service-secrets.yaml).
   NODE_ENV: "{{ $.Values.environment }}"
+  # Which proxies' X-Forwarded-For is trusted for the client's address (per-IP rate limits) - see values.yaml's
+  # service.trustedProxies.
+  trusted_proxies: {{ $.Values.service.trustedProxies | default list | toJson | quote }}
   {{- $publicScheme := ternary "https" "http" $.Values.gateway.tls }}
-  {{- $corsHosts := list "http://localhost:3000" (printf "%s://%s" $publicScheme $.Values.host) }}
+  {{- $corsHosts := list "http://localhost:3000" (printf "%s://%s" $publicScheme (include "rrst.render" (dict "value" $.Values.host "context" $))) }}
   cors__origins: {{ $corsHosts | toJson | quote }}
   {{- range $k, $v := $.Values.service.config }}
   {{- if kindIs "string" $v }}

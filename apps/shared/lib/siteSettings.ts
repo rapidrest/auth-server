@@ -32,20 +32,21 @@ export interface PublicSiteSettings {
 
 // These three are used directly as an <img src>/<link href> — unlike getSiteSettings()/adminApi.ts's
 // calls, they never go through apiFetch(), so the "/api" prefix (which apiFetch() adds automatically)
-// has to be included here explicitly.
+// has to be included here explicitly. Mounted under `/settings/branding` — not `/settings`, which is
+// the separate, dedicated registration/MFA policy route (see `apps/shared/lib/systemSettings.ts`).
 
 /** The full URL `BaseSiteSettingsRoute.getLogo()` serves an uploaded logo from. */
-export const UPLOADED_LOGO_PATH = "/api/settings/logo";
+export const UPLOADED_LOGO_PATH = "/api/settings/branding/logo";
 
 /** The full URL `BaseSiteSettingsRoute.getIcon()` serves an uploaded icon from. */
-export const UPLOADED_ICON_PATH = "/api/settings/icon";
+export const UPLOADED_ICON_PATH = "/api/settings/branding/icon";
 
 /** The full URL `BaseSiteSettingsRoute.getStylesheet()` serves an uploaded stylesheet from. */
-export const UPLOADED_STYLESHEET_PATH = "/api/settings/stylesheet";
+export const UPLOADED_STYLESHEET_PATH = "/api/settings/branding/stylesheet";
 
 /** Fetches this deployment's branding settings. Public — safe to call without an authenticated session. */
 export function getSiteSettings(): Promise<PublicSiteSettings> {
-    return apiFetch("/settings");
+    return apiFetch("/settings/branding");
 }
 
 /**

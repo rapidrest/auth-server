@@ -320,11 +320,11 @@ describe("profile", () => {
 describe("site settings", () => {
     const settings = { logoUploaded: false, iconUploaded: false, stylesheetUploaded: false };
 
-    it("updateSiteSettings PUTs the given fields", async () => {
+    it("updateSiteSettings PUTs the given fields to /settings/branding", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, { ...settings, siteTitle: "Acme" }));
         await updateSiteSettings({ siteTitle: "Acme", companyName: null });
         expect(fetchMock).toHaveBeenCalledWith(
-            "/api/settings",
+            "/api/settings/branding",
             expect.objectContaining({
                 method: "PUT",
                 body: JSON.stringify({ siteTitle: "Acme", companyName: null }),
@@ -336,30 +336,42 @@ describe("site settings", () => {
         const fetchMock = mockFetch(() => jsonResponse(200, { ...settings, logoUploaded: true }));
         const file = new File(["fake-bytes"], "logo.png", { type: "image/png" });
         await uploadSiteLogo(file);
-        expect(fetchMock).toHaveBeenCalledWith("/api/settings/logo", expect.objectContaining({ method: "POST", body: file }));
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/settings/branding/logo",
+            expect.objectContaining({ method: "POST", body: file }),
+        );
         const init = fetchMock.mock.calls[0][1] as RequestInit;
         expect((init.headers as Headers).get("Content-Type")).toBe("image/png");
     });
 
-    it("deleteSiteLogo DELETEs /settings/logo", async () => {
+    it("deleteSiteLogo DELETEs /settings/branding/logo", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, settings));
         await deleteSiteLogo();
-        expect(fetchMock).toHaveBeenCalledWith("/api/settings/logo", expect.objectContaining({ method: "DELETE" }));
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/settings/branding/logo",
+            expect.objectContaining({ method: "DELETE" }),
+        );
     });
 
     it("uploadSiteIcon POSTs the file's raw bytes under its own content type", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, { ...settings, iconUploaded: true }));
         const file = new File(["fake-bytes"], "icon.png", { type: "image/png" });
         await uploadSiteIcon(file);
-        expect(fetchMock).toHaveBeenCalledWith("/api/settings/icon", expect.objectContaining({ method: "POST", body: file }));
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/settings/branding/icon",
+            expect.objectContaining({ method: "POST", body: file }),
+        );
         const init = fetchMock.mock.calls[0][1] as RequestInit;
         expect((init.headers as Headers).get("Content-Type")).toBe("image/png");
     });
 
-    it("deleteSiteIcon DELETEs /settings/icon", async () => {
+    it("deleteSiteIcon DELETEs /settings/branding/icon", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, settings));
         await deleteSiteIcon();
-        expect(fetchMock).toHaveBeenCalledWith("/api/settings/icon", expect.objectContaining({ method: "DELETE" }));
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/settings/branding/icon",
+            expect.objectContaining({ method: "DELETE" }),
+        );
     });
 
     it("uploadSiteStylesheet POSTs the file's raw bytes under its own content type", async () => {
@@ -367,7 +379,7 @@ describe("site settings", () => {
         const file = new File(["body { color: red; }"], "style.css", { type: "text/css" });
         await uploadSiteStylesheet(file);
         expect(fetchMock).toHaveBeenCalledWith(
-            "/api/settings/stylesheet",
+            "/api/settings/branding/stylesheet",
             expect.objectContaining({ method: "POST", body: file }),
         );
         const init = fetchMock.mock.calls[0][1] as RequestInit;
@@ -382,9 +394,12 @@ describe("site settings", () => {
         expect((init.headers as Headers).get("Content-Type")).toBe("text/css");
     });
 
-    it("deleteSiteStylesheet DELETEs /settings/stylesheet", async () => {
+    it("deleteSiteStylesheet DELETEs /settings/branding/stylesheet", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, settings));
         await deleteSiteStylesheet();
-        expect(fetchMock).toHaveBeenCalledWith("/api/settings/stylesheet", expect.objectContaining({ method: "DELETE" }));
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/settings/branding/stylesheet",
+            expect.objectContaining({ method: "DELETE" }),
+        );
     });
 });

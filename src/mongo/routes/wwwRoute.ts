@@ -6,6 +6,7 @@ import { HttpRequest, ObjectFactory, RouteDecorators } from "@rapidrest/service-
 import { ObjectDecorators } from "@rapidrest/core";
 import { fetchSiteSettingsPropsForSSR, PublicSiteSettings } from "../../routes/BaseSiteSettingsRoute.js";
 import { SiteSettingsMongo } from "../../models/mongo/SiteSettingsMongo.js";
+import { fetchSystemSettingsPropsForSSR, PublicSystemSettings } from "../../routes/SystemSettingsSSR.js";
 
 const { Route } = RouteDecorators;
 const { Inject } = ObjectDecorators;
@@ -23,9 +24,16 @@ export class WwwRoute extends ReactRoute {
      * `@rapidrest/react` now spreads the same props onto `_layout.tsx` too, into the page's `<head>`
      * (title/favicon/stylesheet) as well — so both render correctly on the very first byte of the
      * response, with no client-side flash from stock branding and no gap for a crawler to see only
-     * the stock branding.
+     * the stock branding. Also feeds `systemSettings.allowRegistration`, so `apps/www/auth/{signup,signin}`
+     * can render their closed-registration state (or hide the "Create one" link) on that same first byte.
      */
-    protected override async fetchProps(_req: HttpRequest): Promise<{ siteSettings: PublicSiteSettings }> {
-        return fetchSiteSettingsPropsForSSR(this.siteSettingsObjectFactory, SiteSettingsMongo);
+    protected override async fetchProps(
+        _req: HttpRequest,
+    ): Promise<{ siteSettings: PublicSiteSettings; systemSettings: PublicSystemSettings }> {
+        const [siteSettings, systemSettings] = await Promise.all([
+            fetchSiteSettingsPropsForSSR(this.siteSettingsObjectFactory, SiteSettingsMongo),
+            fetchSystemSettingsPropsForSSR(this.siteSettingsObjectFactory, "mongo"),
+        ]);
+        return { ...siteSettings, ...systemSettings };
     }
 }

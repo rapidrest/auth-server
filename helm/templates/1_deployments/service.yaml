@@ -18,10 +18,32 @@ spec:
         app: {{ include "rrst.name" . }}
         app.kubernetes.io/instance: {{ include "rrst.fullname" . }}-services
         environment: {{ $.Values.environment }}
+        {{- /*
+        The Bitnami subcharts' NetworkPolicies admit pods labelled "<fullname>-client" when networkPolicy.allowExternal
+        is false - without the label the probe init containers wait forever on a cluster that enforces NetworkPolicy.
+        */}}
+        {{- if $.Values.redis.create }}
+        {{ $.Values.redis.fullnameOverride | default "redis" }}-client: "true"
+        {{- end }}
+        {{- if $.Values.mongodb.create }}
+        {{ $.Values.mongodb.fullnameOverride | default "mongodb" }}-client: "true"
+        {{- end }}
+        {{- if $.Values.postgresql.create }}
+        {{ $.Values.postgresql.fullnameOverride | default "postgresql" }}-client: "true"
+        {{- end }}
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "3000"
+        # Roll the pods when their configuration or secrets change - they're only read at startup.
+        checksum/config: {{ include (print $.Template.BasePath "/0_config/service-config.yaml") . | sha256sum }}
+        checksum/secrets: {{ print (include (print $.Template.BasePath "/0_config/jwt-auth.yaml") .) (include (print $.Template.BasePath "/0_config/service-secrets.yaml") .) (include (print $.Template.BasePath "/0_config/redis.yaml") .) | sha256sum }}
     spec:
+      # preStop sleep + the server's own shutdown must fit in this.
+      terminationGracePeriodSeconds: {{ $.Values.service.terminationGracePeriodSeconds }}
+      {{- with $.Values.service.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if $.Values.service.imagePullSecret }}
       imagePullSecrets:
         - name: {{ $.Values.service.imagePullSecret }}
@@ -29,6 +51,10 @@ spec:
       containers:
         - name: {{ include "rrst.name" . }}
           image: {{ $.Values.service.image.registry }}/{{ $.Values.service.image.repository }}:{{ $.Values.service.image.tag | default $.Chart.AppVersion }}
+          {{- with $.Values.service.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- if eq ($.Values.service.image.tag | default $.Chart.AppVersion) "latest" }}
           imagePullPolicy: Always
           {{- else }}
@@ -61,8 +87,25 @@ spec:
                 name: {{ include "rrst.fullname" . }}-jwt-auth
             - secretRef:
                 name: {{ include "rrst.fullname" . }}-service-db-info
+            - secretRef:
+                name: {{ .Values.secrets.existingSecret | default (printf "%s-service-secrets" (include "rrst.fullname" .)) }}
           ports:
             - containerPort: 3000
+          {{- with $.Values.service.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.service.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if gt (int $.Values.service.preStopSleepSeconds) 0 }}
+          # Keeps the pod serving while it's still being removed from the Gateway's endpoints.
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", {{ $.Values.service.preStopSleepSeconds | toString | quote }}]
+          {{- end }}
           resources:
             {{- toYaml $.Values.service.resources | nindent 12 }}
       initContainers:

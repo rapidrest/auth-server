@@ -23,7 +23,7 @@ interface OAuthClientsPageProps {
 
 export default function OAuthClientsListPage({ userUid, siteSettings }: OAuthClientsPageProps) {
     return (
-        <AdminShell userUid={userUid} settings={siteSettings}>
+        <AdminShell userUid={userUid} settings={siteSettings} section="oauth-clients">
             <OAuthClientsListContent />
         </AdminShell>
     );

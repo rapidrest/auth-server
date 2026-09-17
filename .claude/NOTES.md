@@ -1282,3 +1282,90 @@ same time, see its own NOTES.md for the parallel write-up.
   `docker ps -a`/`docker logs` inspected directly (not just trusting the script's own "started
   successfully" message) to confirm each one actually reaches `healthy` with no errors, then torn down
   cleanly. Not committed - same standing rule.
+
+## 2026-09-15 — The chart's `host` is rendered, so a parent can drive it
+
+The RapidMX server chart wants one `global.domain` to name everything (`mail.<domain>`, `auth.<domain>`). It sets this
+chart's `host` as a subchart value, which can't be computed - so `host` has to accept a template.
+
+- Every use of the raw value now renders it with the chart's existing `rrst.render` helper
+  (`include "rrst.render" (dict "value" $.Values.host "context" $)`): 3_gateways/api.yaml (listener hostnames, the
+  certificateRef, the route hostname and the `$certificate` condition), 0_config/tls-certs.yaml and
+  service-config.yaml's CORS origin. A host-specific helper was a first attempt; `rrst.render` already does this.
+- `host` defaults to `'auth.{{ dig "domain" "localhost" (.Values.global | default dict) }}'`: `auth.localhost`
+  standalone, `auth.<domain>` under a parent that sets `global.domain`. `dig` with a `default dict`, because
+  `.Values.global` doesn't exist at all in a standalone install and `.Values.global.domain` is then a nil-pointer error.
+- `auth.audience`/`auth.issuer` now render `host` the same way instead of using `{{ .Values.host }}`: those
+  values are `tpl`'d by jwt-auth.yaml, and `tpl` renders one level only, so with a templated `host` they would have
+  produced the literal template text as the claim.
+- **Cross-chart gotcha:** a parent can't reference this chart's helper from its own values (the RapidMX server chart
+  tried `authServer.auth.issuer: '{{ include "auth-server.host" . }}'` and it failed against an older bundled copy).
+  Both charts derive the claims from `global.domain` instead.
+
+Verified: `helm lint`; `helm template` standalone (default `auth.localhost`, audience/issuer `auth.localhost`/
+`api.auth.localhost`; explicit `--set host=login.example.com` still literal) and packaged into a copy of the RapidMX
+server chart with `authServer.host: 'auth.{{ .Values.global.domain }}'` and `global.domain=example.com` - certificate,
+Gateway listeners, ReferenceGrant, `mail__auth_server_url` and the claims all render `auth.example.com`, with no
+unrendered `{{` left in the output.
+
+## 2026-09-15 — OpenBao as the secret vault, with External Secrets delivering the values
+
+Decisions from JP: OpenBao holds the PKI CA *and* all chart secrets; unseal key in a Kubernetes Secret everywhere;
+delivery through External Secrets (not the agent injector).
+
+- **Bundled vault** (`openbao` dependency 0.29.4, `openbao.create`, on by default; `templates/4_vault/openbao.yaml`):
+  an init Job (post-install/upgrade hook) with two containers - the OpenBao image has `bao` but no kubectl, the kubectl
+  image the reverse - so the `bao` half writes what must be stored into an emptyDir and the kubectl half creates the
+  Secrets. It initialises with one unseal key, stores key + root token in `<release>-openbao-keys`, enables kv v2, and
+  **generates each secret once** (`bao kv get` first), so upgrades never re-key anything. On the server it also creates
+  the PKI mount, a root certificate and the issuing role, and mints a token limited to issue/revoke - written to
+  `<release>-openbao-pki` with `mail__pki__backend=openbao`, loaded by the Deployment as an optional secretRef.
+  An unsealer Deployment polls seal-status and unseals after any restart (a pod restart, upgrade, eviction or node
+  reboot all start OpenBao sealed - that is per process start, not per node).
+- **Delivery** (`templates/4_vault/external-secrets.yaml`): a SecretStore (vault provider, token auth with the
+  release's read-only token) and ExternalSecrets that produce exactly the Secrets the pods already load
+  (`-jwt-auth` with the claims as template literals, `-service-secrets`, `-mail-ingest-secret`). The chart's own
+  templates for those are skipped when the vault owns them, and `global.authSecret`/`global.mailIngestSecret` stop
+  being required (`server.assertSuppliedSecrets`).
+- **Cross-chart sharing:** the server publishes its vault's coordinates in `global.openbao`
+  (address/kvMount/secretsPath/tokenSecret, all templates the subchart renders), and the auth-server chart uses them
+  instead of bundling its own vault (`auth-server.usesParentVault`). Both then read the same `auth_secret`, which is
+  what keeps signing and verification in step - the reason the auth-server chart couldn't just generate its own.
+- **postfix-bridge** gained `ingestSecretRef` (uncommitted, needs a 1.2.0 release): with the secret in the vault there
+  is no value to hand it, so it reads the server's Secret instead. The server chart pins the dependency to 1.2.0 and
+  fails the render with a version check (`.Subcharts.postfixBridge.Chart.Version`) if an older one is bundled.
+- **External Secrets is a prerequisite**, not a dependency: its CRDs are cluster-wide. Both installers and the AWS
+  bootstrap now install it (chart 2.10.0, `installCRDs=true`), and the charts fail the render with the exact command
+  when `external-secrets.io` isn't served (`.Capabilities.APIVersions.Has`).
+- **Guard:** `openbao.create` and `global.openbao.enabled` must agree - the subcharts only see `global`, so the render
+  fails rather than silently half-enabling the vault.
+
+Verified (rendering only - there is no cluster here, and none of the init/unseal shell has ever run): `helm lint` on
+both charts; `helm template --api-versions external-secrets.io/v1` for the server with the vault on (3 ExternalSecrets,
+1 SecretStore, the vault StatefulSet, Job and unsealer; the three chart-rendered Secrets gone; postfix-bridge reading
+`<release>-mail-ingest-secret`), with the vault off (unchanged from before), and the mismatch/CRD/subchart-version
+guards each failing with their message; the auth-server chart standalone with the vault on (its own vault + 2
+ExternalSecrets), standalone with it off, and as a subchart of the server (no second vault, its ExternalSecrets reading
+the parent's `r-server/secrets` path). Harness runs of both installers show the external-secrets step and its uninstall.
+
+## 2026-09-15 — OpenBao moved out of the chart: a prerequisite `scripts/k3s_install.sh` sets up
+
+JP: treat OpenBao like cert-manager - pre-installed, with a flag on the installer - rather than a chart dependency.
+
+- `global.openbao.enabled` defaults to **false** in the chart and **true** in `scripts/k3s_install.sh`, which passes
+  `--set global.openbao.enabled=true`: a bare `helm install` mustn't assume a vault is there, the installer knows it is.
+- The `openbao` dependency, `openbao.create` and `templates/4_vault/openbao.yaml` are gone. The chart now only consumes
+  `global.openbao` (enabled/address/kvMount/secretsPath/auth), which is also what the RapidMX server passes down when
+  this chart is its subchart, so both ends read the same `auth_secret`. `auth-server.vaultAuth` gained the server's
+  `method: token|kubernetes` choice; `address` defaults to `http://openbao.openbao.svc:8200` (the installer's
+  namespace) and the token Secret to `<fullname>-openbao-eso`, with fails when either is emptied out.
+- `scripts/k3s_install.sh --openbao <true|false>` (default true, `OPENBAO_ADDRESS` to use a vault you already run)
+  installs OpenBao standalone, waits for the pod to *answer* (a sealed vault never reports Ready), initialises it with
+  one unseal key, keeps key + root token in `openbao-keys`, applies an `openbao-unsealer` Deployment, then seeds
+  `auth_secret`/`cookie_secret`/`session__secret` (reading the release's existing Secrets first, so the move into the
+  vault doesn't invalidate anything), writes the read policy and mints a periodic token into `<fullname>-openbao-eso`.
+  `--openbao false` skips external-secrets too. Everything sent to the vault goes over `kubectl exec -i -- sh -s`, so
+  no token reaches a process list.
+
+Verified: `helm lint`, `helm template --api-versions external-secrets.io/v1` standalone and as the server's subchart,
+`bash -n` on the installer. Nothing has run against a cluster.

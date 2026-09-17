@@ -24,7 +24,7 @@ interface HomePageProps {
 
 export default function UsersListPage({ userUid, siteSettings }: HomePageProps) {
     return (
-        <AdminShell userUid={userUid} settings={siteSettings}>
+        <AdminShell userUid={userUid} settings={siteSettings} section="users">
             <UsersListContent />
         </AdminShell>
     );
