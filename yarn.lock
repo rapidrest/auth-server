@@ -1568,15 +1568,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/auth@npm:^2.0.0-beta.7":
-  version: 2.0.0-beta.7
-  resolution: "@rapidrest/auth@npm:2.0.0-beta.7"
+"@rapidrest/auth@npm:^2.0.0-beta.9":
+  version: 2.0.0-beta.9
+  resolution: "@rapidrest/auth@npm:2.0.0-beta.9"
   dependencies:
     cross-spawn: "npm:^7.0.5"
     parse-duration: "npm:^2.1.8"
   peerDependencies:
     "@rapidrest/core": 5.x
-    "@rapidrest/service-core": ^1.7.1
+    "@rapidrest/service-core": 2.x
     "@simplewebauthn/server": ">=13.0.0"
     argon2: 0.x
     jwks-rsa: 4.x
@@ -1592,7 +1592,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/37e10d6f4e106dab7566dc1c699e39217f29b9a6316402d6ee24fb03277daa67865cf56d147f1ffa4aeb763793a33a1c3def6404d7c7f7074ef3375a4c71b307
+  checksum: 10c0/cb7a7df7c8544bf2dafcce1b69ae4f95a9843c2742df94a4a4e4064e6b2c4d4459e7a6d9804f180e9d395e94efde8c4793277670ec6e32cdfefd96752e67bb4f
   languageName: node
   linkType: hard
 
@@ -3041,7 +3041,7 @@ __metadata:
   resolution: "auth-server@workspace:."
   dependencies:
     "@noble/hashes": "npm:^2.4.0"
-    "@rapidrest/auth": "npm:^2.0.0-beta.7"
+    "@rapidrest/auth": "npm:^2.0.0-beta.9"
     "@rapidrest/cli": "npm:^1.0.1"
     "@rapidrest/core": "npm:^5.2.2"
     "@rapidrest/react": "npm:^2.0.0-beta.3"
