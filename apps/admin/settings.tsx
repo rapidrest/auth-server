@@ -65,6 +65,10 @@ function SiteSettingsContent({ initialSystemSettings }: { initialSystemSettings?
 
             {!loaded && <p className="rr-hint">Loading&hellip;</p>}
             {loaded && error && <Alert>{error}</Alert>}
+            {/* Not gated on `loaded`: an SSR-injected `initialSystemSettings` lets this render on the very
+                first paint, before the client-side re-fetch (which also covers the branding cards above,
+                and so waits on the slower of the two) resolves. */}
+            {systemSettings && <RegistrationCard settings={systemSettings} onUpdated={setSystemSettings} />}
             {loaded && settings && (
                 <>
                     <BrandingCard settings={settings} onUpdated={setSettings} />
@@ -73,10 +77,6 @@ function SiteSettingsContent({ initialSystemSettings }: { initialSystemSettings?
                     <StylesheetCard settings={settings} onUpdated={setSettings} />
                 </>
             )}
-            {/* Not gated on `loaded`: an SSR-injected `initialSystemSettings` lets this render on the very
-                first paint, before the client-side re-fetch (which also covers the branding cards above,
-                and so waits on the slower of the two) resolves. */}
-            {systemSettings && <RegistrationCard settings={systemSettings} onUpdated={setSystemSettings} />}
         </>
     );
 }
