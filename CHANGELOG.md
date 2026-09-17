@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] - 2026-09-17
+
+### Added
+- Added service.trustedProxies so per-IP rate limits see the real client address behind the Gateway, and default environment to production
+- Added a runtime-togglable system settings route for registration and MFA policy, and give the admin console a dedicated icon sidebar with an avatar menu
+- Added a new apps/shared/lib/systemSettings.ts client module and a RegistrationCard with both an "Allow new user registration" and a "Require multi-factor authentication" toggle, the latter only shown when the caller's token actually carries it (the admin trusted role or the system scope). Replace the admin console's inline nav links with a narrow icon sidebar (Users/OAuth Clients/Settings) and move Sign Out into a top-right avatar menu showing the caller's display name, and expand the shell to fill the viewport.
+
+### Changed
+- Changed helm chart to allow for templatized values for `host`, `auth.audience` and `auth.issuer`
+- Port the RapidMX server's installer into scripts/k3s_install.sh: Envoy Gateway with a ClusterIP Service behind an nginx stream proxy that speaks the PROXY protocol, cert-manager installed before the chart, state-tracked firewall rules an --uninstall can undo, and --domain with the auth-server defaulting to auth.<domain>
+- Render `host` as a template wherever the chart uses it and default it to auth.<global.domain>, so a parent chart can drive it from its own values, and derive auth.audience and auth.issuer from the rendered host
+- Generate the JWT, cookie and session secrets once and read them back on upgrades from the release's own Secrets, so an upgrade no longer invalidates every issued token, cookie and session, and fail the render without cluster access rather than rotating them silently
+- Harden the deployment the way the server's chart is: non-root pod and container security contexts, startup and liveness probes, a graceful-shutdown preStop delay, checksum annotations that roll the pods when configuration or secrets change, and the client labels the bundled database NetworkPolicies expect
+- Keep the deployment's secrets in OpenBao when global.openbao.enabled, with External Secrets copying them into the Kubernetes Secrets the pod loads, reading the RapidMX server's vault when installed as its subchart so both ends sign and verify with one JWT secret
+- Expect OpenBao in the cluster like cert-manager instead of bundling it, defaulting global.openbao.enabled to false so a plain helm install assumes no vault, and install it from scripts/k3s_install.sh behind --openbao (on by default), which initialises it, keeps the unseal key in a Secret with an unsealer Deployment that unseals it again after a restart, seeds this release's secrets once and mints the token External Secrets reads them with
+- Document all of it in the README and release notes
+- Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+- Mount a new /api/settings route (BaseSettingsRouteSQL/Mongo from @rapidrest/auth) separate from the existing branding settings, which move to /api/settings/branding to free up the path. GET is public so apps/www can render its own chrome; PUT is trusted-role-only. Registration can be closed at runtime and takes effect immediately across every path that creates a User: direct creation, the OTP registration flow, and a first-time OAuth sign-in (Google/Apple/Facebook/Microsoft) all now consult the stored setting instead of only the static config. Fix the SQL SiteSettingsRoute, which still mounted at the old /settings path and would have collided with the new route. Fix AuthMFARoute in both trees, which read a stale auth:require_mfa config key left over from the library's rename to auth:requireMFA. Wire allowRegistration into apps/www's sign-up (shows a closed message instead of the form) and sign-in (hides the "Create one" link) pages via a new SystemSettingsSSR helper feeding wwwRoute/AdminConsoleRoute's SSR props, alongside the existing branding settings.
+- Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+- Upgraded @rapidrest/auth dep
+- Moving system settings to top of page
+
+
 ## [1.0.0-beta.2] - 2026-09-15
 
 ### Added
@@ -299,7 +322,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.2...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.3...HEAD
+[1.0.0-beta.3]: github/auth-server/compare/v1.0.0-beta.2...v1.0.0-beta.3
 [1.0.0-beta.2]: github/auth-server/compare/v1.0.0-beta.1...v1.0.0-beta.2
 [1.0.0-beta.1]: github/auth-server/compare/v1.0.0-beta.0...v1.0.0-beta.1
 [1.0.0-beta.0]: github/auth-server/releases/tag/v1.0.0-beta.0
