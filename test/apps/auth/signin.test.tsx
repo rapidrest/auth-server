@@ -1108,3 +1108,20 @@ describe("SignInPage — fido2 method", () => {
         expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
     });
 });
+
+describe("SignInPage — registration link", () => {
+    it("shows the 'Create one' sign-up link when registration is allowed or not reported", () => {
+        const { unmount } = render(<SignInPage systemSettings={{ allowRegistration: true }} />);
+        expect(screen.getByRole("link", { name: "Create one" })).toHaveAttribute("href", "/auth/signup");
+        unmount();
+
+        render(<SignInPage />);
+        expect(screen.getByRole("link", { name: "Create one" })).toBeInTheDocument();
+    });
+
+    it("hides the sign-up link when registration is disabled", () => {
+        render(<SignInPage systemSettings={{ allowRegistration: false }} />);
+        expect(screen.queryByRole("link", { name: "Create one" })).not.toBeInTheDocument();
+        expect(screen.queryByText(/have an account/)).not.toBeInTheDocument();
+    });
+});

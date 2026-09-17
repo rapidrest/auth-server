@@ -99,7 +99,7 @@ describe("SiteSettingsRoute (mongo)", () => {
     });
 
     it("GET / is public and creates the default row on first access", async () => {
-        const res = await request(server).get("/api/settings");
+        const res = await request(server).get("/api/settings/branding");
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ logoUploaded: false, iconUploaded: false, stylesheetUploaded: false });
     });
@@ -108,13 +108,13 @@ describe("SiteSettingsRoute (mongo)", () => {
         const plainAgent = agent(server);
         await createAndSignInUser(plainAgent, "plain-user");
 
-        const res = await plainAgent.put("/api/settings").send({ siteTitle: "Nope" });
+        const res = await plainAgent.put("/api/settings/branding").send({ siteTitle: "Nope" });
 
         expect(res.status).toBe(403);
     });
 
     it("PUT / rejects an anonymous caller", async () => {
-        const res = await request(server).put("/api/settings").send({ siteTitle: "Nope" });
+        const res = await request(server).put("/api/settings/branding").send({ siteTitle: "Nope" });
         expect(res.status).toBe(401);
     });
 
@@ -122,7 +122,7 @@ describe("SiteSettingsRoute (mongo)", () => {
         const adminAgent = agent(server);
         await createAndSignInUser(adminAgent, "admin-not-elevated", ["admin"]);
 
-        const res = await adminAgent.put("/api/settings").send({ siteTitle: "Nope" });
+        const res = await adminAgent.put("/api/settings/branding").send({ siteTitle: "Nope" });
 
         expect(res.status).toBe(403);
     });
@@ -131,7 +131,7 @@ describe("SiteSettingsRoute (mongo)", () => {
         const adminAgent = await createSignedInTrustedAgent("admin-settings-1");
 
         const first = await adminAgent
-            .put("/api/settings")
+            .put("/api/settings/branding")
             .send({ siteTitle: "Acme Corp", companyName: "Acme", logoUrl: "https://example.com/logo.png" });
         expect(first.status).toBe(200);
         expect(first.body).toMatchObject({
@@ -140,7 +140,7 @@ describe("SiteSettingsRoute (mongo)", () => {
             logoUrl: "https://example.com/logo.png",
         });
 
-        const second = await adminAgent.put("/api/settings").send({ companyName: null });
+        const second = await adminAgent.put("/api/settings/branding").send({ companyName: null });
         expect(second.status).toBe(200);
         expect(second.body.siteTitle).toBe("Acme Corp");
         expect(second.body.companyName).toBeUndefined();
@@ -149,30 +149,30 @@ describe("SiteSettingsRoute (mongo)", () => {
     it("uploads, serves, and deletes a logo image (trusted only)", async () => {
         const adminAgent = await createSignedInTrustedAgent("admin-logo");
 
-        const uploadRes = await adminAgent.post("/api/settings/logo").set("Content-Type", "image/png").send(PNG_BYTES);
+        const uploadRes = await adminAgent.post("/api/settings/branding/logo").set("Content-Type", "image/png").send(PNG_BYTES);
         expect(uploadRes.status).toBe(200);
         expect(uploadRes.body.logoUploaded).toBe(true);
 
         // See the sql test's own comment: this app's `request()` test helper reads every response as
         // text, so only content-type/wiring is asserted here — exact byte round-tripping is covered by
         // `BaseSiteSettingsRoute.test.ts`.
-        const getRes = await request(server).get("/api/settings/logo");
+        const getRes = await request(server).get("/api/settings/branding/logo");
         expect(getRes.status).toBe(200);
         expect(getRes.headers["content-type"]).toBe("image/png");
         expect(getRes.text.length).toBeGreaterThan(0);
 
-        const deleteRes = await adminAgent.delete("/api/settings/logo");
+        const deleteRes = await adminAgent.delete("/api/settings/branding/logo");
         expect(deleteRes.status).toBe(200);
         expect(deleteRes.body.logoUploaded).toBe(false);
 
-        const missingRes = await request(server).get("/api/settings/logo");
+        const missingRes = await request(server).get("/api/settings/branding/logo");
         expect(missingRes.status).toBe(404);
     });
 
     it("rejects an unsupported logo content type", async () => {
         const adminAgent = await createSignedInTrustedAgent("admin-logo-bad-type");
 
-        const res = await adminAgent.post("/api/settings/logo").set("Content-Type", "application/pdf").send(Buffer.from("x"));
+        const res = await adminAgent.post("/api/settings/branding/logo").set("Content-Type", "application/pdf").send(Buffer.from("x"));
 
         expect(res.status).toBe(400);
     });
@@ -181,7 +181,7 @@ describe("SiteSettingsRoute (mongo)", () => {
         const adminAgent = await createSignedInTrustedAgent("admin-logo-too-big");
         const big = Buffer.alloc(2 * 1024 * 1024 + 1);
 
-        const res = await adminAgent.post("/api/settings/logo").set("Content-Type", "image/png").send(big);
+        const res = await adminAgent.post("/api/settings/branding/logo").set("Content-Type", "image/png").send(big);
 
         expect(res.status).toBe(413);
     });
@@ -189,27 +189,27 @@ describe("SiteSettingsRoute (mongo)", () => {
     it("uploads, serves, and deletes an icon image (trusted only)", async () => {
         const adminAgent = await createSignedInTrustedAgent("admin-icon");
 
-        const uploadRes = await adminAgent.post("/api/settings/icon").set("Content-Type", "image/png").send(PNG_BYTES);
+        const uploadRes = await adminAgent.post("/api/settings/branding/icon").set("Content-Type", "image/png").send(PNG_BYTES);
         expect(uploadRes.status).toBe(200);
         expect(uploadRes.body.iconUploaded).toBe(true);
 
-        const getRes = await request(server).get("/api/settings/icon");
+        const getRes = await request(server).get("/api/settings/branding/icon");
         expect(getRes.status).toBe(200);
         expect(getRes.headers["content-type"]).toBe("image/png");
         expect(getRes.text.length).toBeGreaterThan(0);
 
-        const deleteRes = await adminAgent.delete("/api/settings/icon");
+        const deleteRes = await adminAgent.delete("/api/settings/branding/icon");
         expect(deleteRes.status).toBe(200);
         expect(deleteRes.body.iconUploaded).toBe(false);
 
-        const missingRes = await request(server).get("/api/settings/icon");
+        const missingRes = await request(server).get("/api/settings/branding/icon");
         expect(missingRes.status).toBe(404);
     });
 
     it("rejects an unsupported icon content type", async () => {
         const adminAgent = await createSignedInTrustedAgent("admin-icon-bad-type");
 
-        const res = await adminAgent.post("/api/settings/icon").set("Content-Type", "application/pdf").send(Buffer.from("x"));
+        const res = await adminAgent.post("/api/settings/branding/icon").set("Content-Type", "application/pdf").send(Buffer.from("x"));
 
         expect(res.status).toBe(400);
     });
@@ -218,7 +218,7 @@ describe("SiteSettingsRoute (mongo)", () => {
         const adminAgent = await createSignedInTrustedAgent("admin-icon-too-big");
         const big = Buffer.alloc(512 * 1024 + 1);
 
-        const res = await adminAgent.post("/api/settings/icon").set("Content-Type", "image/png").send(big);
+        const res = await adminAgent.post("/api/settings/branding/icon").set("Content-Type", "image/png").send(big);
 
         expect(res.status).toBe(413);
     });
@@ -227,20 +227,20 @@ describe("SiteSettingsRoute (mongo)", () => {
         const adminAgent = await createSignedInTrustedAgent("admin-css");
         const css = "body { background: red; }";
 
-        const uploadRes = await adminAgent.post("/api/settings/stylesheet").set("Content-Type", "text/css").send(css);
+        const uploadRes = await adminAgent.post("/api/settings/branding/stylesheet").set("Content-Type", "text/css").send(css);
         expect(uploadRes.status).toBe(200);
         expect(uploadRes.body.stylesheetUploaded).toBe(true);
 
-        const getRes = await request(server).get("/api/settings/stylesheet");
+        const getRes = await request(server).get("/api/settings/branding/stylesheet");
         expect(getRes.status).toBe(200);
         expect(getRes.headers["content-type"]).toBe("text/css");
         expect(getRes.text).toBe(css);
 
-        const deleteRes = await adminAgent.delete("/api/settings/stylesheet");
+        const deleteRes = await adminAgent.delete("/api/settings/branding/stylesheet");
         expect(deleteRes.status).toBe(200);
         expect(deleteRes.body.stylesheetUploaded).toBe(false);
 
-        const missingRes = await request(server).get("/api/settings/stylesheet");
+        const missingRes = await request(server).get("/api/settings/branding/stylesheet");
         expect(missingRes.status).toBe(404);
     });
 
@@ -248,7 +248,7 @@ describe("SiteSettingsRoute (mongo)", () => {
         const adminAgent = await createSignedInTrustedAgent("admin-css-too-big");
         const big = "a".repeat(512 * 1024 + 1);
 
-        const res = await adminAgent.post("/api/settings/stylesheet").set("Content-Type", "text/css").send(big);
+        const res = await adminAgent.post("/api/settings/branding/stylesheet").set("Content-Type", "text/css").send(big);
 
         expect(res.status).toBe(413);
     });

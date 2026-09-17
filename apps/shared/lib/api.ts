@@ -243,6 +243,8 @@ export function createProfile(input: CreateProfileInput): Promise<unknown> {
 export interface Profile {
     uid: string;
     version: number;
+    /** The URL or path to the user's avatar image (e.g. gravatar), if one is set. */
+    avatar?: string;
     givenName?: string;
     familyName?: string;
     birthdate?: string;

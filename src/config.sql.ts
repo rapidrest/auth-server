@@ -87,6 +87,8 @@ conf.defaults({
     },
     // Settings pertaining to the signing and verification of authentication tokens
     auth: {
+        // Set to `true` to allow new account registration, otherwise set to `false`.
+        allowRegistration: true,
         // The default authentication strategy to use
         strategy: "auth.JWTStrategy",
         allowQueryParam: true,
@@ -95,9 +97,11 @@ conf.defaults({
         // The password to be used when signing or verifying authentication tokens
         secret: DEFAULT_AUTH_SECRET,
         // Set to `true` to force multi-factor authentication for every account regardless of its own
-        // `requireMFA` value (see `BaseUserRoute.validateCreate`/`validateUpdate` and `AuthMFARoute`,
-        // which drives `MFAStrategyOptions.require2FA` from this same flag).
-        require_mfa: false,
+        // `requireMFA` value. Seeds the runtime `SystemSettings.requireMFA` (see `BaseUserRoute.validateCreate`/
+        // `validateUpdate` and `AuthMFARoute`, which drives `MFAStrategyOptions.require2FA` from that same
+        // setting) the first time it's read — from then on, an admin can change it via `PUT /api/settings`
+        // without touching this file.
+        requireMFA: false,
         // Also set a Set-Cookie header (in addition to returning the token in the response body)
         // whenever a JWT is issued, so the SSR pages under apps/www can authenticate a request without
         // the client having to attach an Authorization header itself. HttpOnly (the default) so the
@@ -210,7 +214,6 @@ conf.defaults({
         // would let the session (and so the refresh token's ability to be redeemed) expire first.
         ttl: 60 * 60 * 24 * 14,
     },
-    cluster_url: "http://localhost",
     metrics: {
         authRequired: true,
     },

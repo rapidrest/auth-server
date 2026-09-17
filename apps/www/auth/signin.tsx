@@ -5,6 +5,7 @@
 import React from "react";
 import { clearImpersonatingMarker } from "../../shared/lib/api.js";
 import { PublicSiteSettings } from "../../shared/lib/siteSettings.js";
+import { SystemSettings } from "../../shared/lib/systemSettings.js";
 import AuthShell from "../../shared/components/layout/AuthShell.js";
 import SignInFlow from "../../shared/components/sign-in/SignInFlow.js";
 
@@ -40,15 +41,20 @@ function completeSignIn() {
 interface SignInPageProps {
     /** Populated automatically by the framework — see `wwwRoute`'s `fetchProps()` override. */
     siteSettings?: PublicSiteSettings;
+    /** Populated automatically by the framework — see `wwwRoute`'s `fetchProps()` override. */
+    systemSettings?: SystemSettings;
 }
 
-export default function SignInPage({ siteSettings }: SignInPageProps) {
+export default function SignInPage({ siteSettings, systemSettings }: SignInPageProps) {
     return (
         <AuthShell brand settings={siteSettings}>
             <SignInFlow onSuccess={completeSignIn} />
-            <div className="rr-footer-link">
-                Don&rsquo;t have an account? <a href="/auth/signup">Create one</a>
-            </div>
+            {/* Hidden only on an explicit `false` — a server that doesn't report the setting keeps sign-up open. */}
+            {systemSettings?.allowRegistration !== false && (
+                <div className="rr-footer-link">
+                    Don&rsquo;t have an account? <a href="/auth/signup">Create one</a>
+                </div>
+            )}
         </AuthShell>
     );
 }

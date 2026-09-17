@@ -14,6 +14,7 @@ import {
 } from "../../shared/lib/api.js";
 import { isPasswordValid, usePasswordRequirements } from "../../shared/lib/passwordCriteria.js";
 import { PublicSiteSettings } from "../../shared/lib/siteSettings.js";
+import { SystemSettings } from "../../shared/lib/systemSettings.js";
 import AuthShell from "../../shared/components/layout/AuthShell.js";
 import Alert from "../../shared/components/feedback/Alert.js";
 import StepDots from "../../shared/components/sign-up/progress/StepDots.js";
@@ -40,6 +41,8 @@ export interface SignUpPageProps {
     autoSend?: boolean;
     /** Populated automatically by the framework — see `wwwRoute`'s `fetchProps()` override. */
     siteSettings?: PublicSiteSettings;
+    /** Populated automatically by the framework — see `wwwRoute`'s `fetchProps()` override. */
+    systemSettings?: SystemSettings;
 }
 
 /** Reads the sign-in-page hand-off query params (see `SignInFlow`'s redirect-to-sign-up branch). */
@@ -54,7 +57,13 @@ export async function fetchProps(req: { query?: Record<string, string | string[]
     };
 }
 
-export default function SignUpPage({ initialIdentifierType, initialIdentifier, autoSend, siteSettings }: SignUpPageProps) {
+export default function SignUpPage({
+    initialIdentifierType,
+    initialIdentifier,
+    autoSend,
+    siteSettings,
+    systemSettings,
+}: SignUpPageProps) {
     const [step, setStep] = useState<Step>("identifier");
     const [identifierType, setIdentifierType] = useState<RegistrationIdentifierType>(initialIdentifierType ?? "email");
     const [identifier, setIdentifier] = useState(initialIdentifier ?? "");
@@ -71,11 +80,13 @@ export default function SignUpPage({ initialIdentifierType, initialIdentifier, a
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { criteria: passwordCriteria } = usePasswordRequirements();
+    // Only an explicit `false` closes sign-up — a server that doesn't report the setting at all keeps it open.
+    const registrationClosed = systemSettings?.allowRegistration === false;
 
     const stepIndex = STEPS.indexOf(step);
 
     useEffect(() => {
-        if (!autoSend || !initialIdentifier) {
+        if (registrationClosed || !autoSend || !initialIdentifier) {
             return;
         }
         setLoading(true);
@@ -163,6 +174,24 @@ export default function SignUpPage({ initialIdentifierType, initialIdentifier, a
             setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");
             setLoading(false);
         }
+    }
+
+    if (registrationClosed) {
+        return (
+            <AuthShell brand settings={siteSettings}>
+                <div className="rr-card">
+                    <div className="rr-card__title">Registration is currently closed</div>
+                    <p className="rr-card__subtitle" style={{ marginBottom: 0 }}>
+                        New accounts can&rsquo;t be created right now. If you already have an account, you can still
+                        sign in.
+                    </p>
+                </div>
+
+                <div className="rr-footer-link">
+                    Already have an account? <a href="/auth/signin">Sign in</a>
+                </div>
+            </AuthShell>
+        );
     }
 
     return (

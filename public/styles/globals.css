@@ -767,3 +767,321 @@ a {
 .rr-modal__close:hover {
     color: var(--rr-color-text);
 }
+
+/* ---------------------------------------------------------------------- */
+/* Switch                                                                  */
+/* ---------------------------------------------------------------------- */
+
+/* A checkbox (`role="switch"`) restyled as a sliding toggle; the real input stays focusable/clickable. */
+.rr-field label.rr-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.rr-switch__input {
+    position: absolute;
+    opacity: 0;
+    width: 2.5rem;
+    height: 1.4rem;
+    margin: 0;
+    cursor: pointer;
+}
+
+.rr-switch__track {
+    position: relative;
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 1.4rem;
+    border-radius: var(--rr-radius-pill);
+    background: var(--rr-color-border);
+    transition: background-color 0.15s ease;
+}
+
+.rr-switch__track::after {
+    content: "";
+    position: absolute;
+    top: 0.15rem;
+    left: 0.15rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: var(--rr-shadow-lw);
+    transition: transform 0.15s ease;
+}
+
+.rr-switch__input:checked + .rr-switch__track {
+    background: var(--rr-color-primary);
+}
+
+.rr-switch__input:checked + .rr-switch__track::after {
+    transform: translateX(1.1rem);
+}
+
+.rr-switch__input:focus-visible + .rr-switch__track {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--rr-color-primary) 30%, transparent);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Admin console chrome (see AdminShell)                                   */
+/* ---------------------------------------------------------------------- */
+
+:root {
+    /* The sidebar stays dark in both color schemes, like an editor's activity bar. */
+    --rr-admin-sidebar-width: 68px;
+    --rr-admin-sidebar-bg: #0f1416;
+    --rr-admin-sidebar-border: rgba(255, 255, 255, 0.08);
+    --rr-admin-sidebar-icon: #8a9a9d;
+    --rr-admin-sidebar-icon-active: #eef2f3;
+    --rr-admin-sidebar-item-hover-bg: rgba(255, 255, 255, 0.06);
+    --rr-admin-sidebar-item-active-bg: rgba(255, 255, 255, 0.12);
+    --rr-admin-topbar-height: 60px;
+}
+
+.rr-admin-frame {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+}
+
+.rr-admin {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.rr-admin-sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    width: var(--rr-admin-sidebar-width);
+    padding: 0.75rem 0;
+    background: var(--rr-admin-sidebar-bg);
+    border-right: 1px solid var(--rr-admin-sidebar-border);
+    overflow-y: auto;
+}
+
+.rr-admin-sidebar__brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-bottom: 0.75rem;
+}
+
+.rr-admin-sidebar__brand img {
+    max-width: 36px;
+    max-height: 36px;
+    object-fit: contain;
+}
+
+.rr-admin-sidebar__item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--rr-radius-md);
+    color: var(--rr-admin-sidebar-icon);
+    font-size: 1.35rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.rr-admin-sidebar__item:hover {
+    background: var(--rr-admin-sidebar-item-hover-bg);
+    color: var(--rr-admin-sidebar-icon-active);
+}
+
+.rr-admin-sidebar__item:focus-visible {
+    outline: 2px solid var(--rr-color-primary-light);
+    outline-offset: 2px;
+}
+
+.rr-admin-sidebar__item--active,
+.rr-admin-sidebar__item--active:hover {
+    background: var(--rr-admin-sidebar-item-active-bg);
+    color: var(--rr-admin-sidebar-icon-active);
+}
+
+.rr-admin-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.rr-admin-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-shrink: 0;
+    height: var(--rr-admin-topbar-height);
+    padding: 0 1.5rem;
+    background: var(--rr-color-surface);
+    border-bottom: 1px solid var(--rr-color-border);
+}
+
+.rr-admin-topbar__title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rr-admin-main {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--rr-color-surface-alt);
+}
+
+.rr-admin-content {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+/* Avatar menu (see AvatarMenu) */
+
+.rr-avatar {
+    flex-shrink: 0;
+}
+
+.rr-avatar--image {
+    object-fit: cover;
+    background: var(--rr-color-surface-alt);
+}
+
+.rr-avatar-menu {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.rr-avatar-menu__trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.4rem 0.25rem 0.25rem;
+    border: 1px solid transparent;
+    border-radius: var(--rr-radius-pill);
+    background: transparent;
+    color: var(--rr-color-text-muted);
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.rr-avatar-menu__trigger:hover,
+.rr-avatar-menu__trigger[aria-expanded="true"] {
+    background: var(--rr-color-surface-alt);
+    border-color: var(--rr-color-border);
+}
+
+.rr-avatar-menu__trigger:focus-visible {
+    outline: 2px solid var(--rr-color-primary);
+    outline-offset: 2px;
+}
+
+.rr-avatar-menu__panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: 900;
+    width: 260px;
+    max-width: calc(100vw - 2rem);
+    padding: 0.5rem;
+    background: var(--rr-color-surface);
+    border: 1px solid var(--rr-color-border);
+    border-radius: var(--rr-radius-md);
+    box-shadow: var(--rr-shadow-md);
+}
+
+.rr-avatar-menu__identity {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    min-width: 0;
+}
+
+.rr-avatar-menu__name {
+    min-width: 0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rr-avatar-menu__divider {
+    height: 1px;
+    margin: 0.35rem 0;
+    background: var(--rr-color-border);
+}
+
+.rr-avatar-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.55rem 0.5rem;
+    border: none;
+    border-radius: var(--rr-radius-sm);
+    background: transparent;
+    color: var(--rr-color-text);
+    font-family: inherit;
+    font-size: 0.925rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.rr-avatar-menu__item:hover,
+.rr-avatar-menu__item:focus-visible {
+    background: var(--rr-color-surface-alt);
+    outline: none;
+}
+
+/* Narrow screens: the sidebar folds into a horizontal strip above the top bar. */
+@media (max-width: 640px) {
+    .rr-admin {
+        flex-direction: column;
+    }
+
+    .rr-admin-sidebar {
+        flex-direction: row;
+        width: 100%;
+        padding: 0.4rem 0.75rem;
+        border-right: none;
+        border-bottom: 1px solid var(--rr-admin-sidebar-border);
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .rr-admin-sidebar__brand {
+        margin: 0 0.5rem 0 0;
+    }
+
+    .rr-admin-topbar {
+        padding: 0 1rem;
+    }
+
+    .rr-admin-content {
+        padding: 1.25rem 1rem;
+    }
+
+    .rr-admin-content .rr-card {
+        padding: 1.25rem;
+    }
+}

@@ -16,24 +16,24 @@ afterEach(() => {
 });
 
 describe("AuthMFARoute (sql) — initialize()", () => {
-    it("drives the registered 'mfa' strategy's require2FA from auth:require_mfa when the strategy is found", async () => {
+    it("drives the registered 'mfa' strategy's require2FA from auth:requireMFA when the strategy is found", async () => {
         vi.spyOn(BaseAuthMFARouteSQL.prototype, "initialize").mockResolvedValue(undefined);
         const route = new AuthMFARoute();
         const strategy = { options: { require2FA: true } };
         (route as any).authMiddleware = { strategies: new Map([["mfa", strategy]]) };
-        (route as any).jwtConfig = { require_mfa: false };
+        (route as any).jwtConfig = { requireMFA: false };
 
         await (route as any).initialize();
 
         expect(strategy.options.require2FA).toBe(false);
     });
 
-    it("forces require2FA on when auth:require_mfa is set", async () => {
+    it("forces require2FA on when auth:requireMFA is set", async () => {
         vi.spyOn(BaseAuthMFARouteSQL.prototype, "initialize").mockResolvedValue(undefined);
         const route = new AuthMFARoute();
         const strategy = { options: { require2FA: false } };
         (route as any).authMiddleware = { strategies: new Map([["mfa", strategy]]) };
-        (route as any).jwtConfig = { require_mfa: true };
+        (route as any).jwtConfig = { requireMFA: true };
 
         await (route as any).initialize();
 
@@ -44,7 +44,7 @@ describe("AuthMFARoute (sql) — initialize()", () => {
         vi.spyOn(BaseAuthMFARouteSQL.prototype, "initialize").mockResolvedValue(undefined);
         const route = new AuthMFARoute();
         (route as any).authMiddleware = { strategies: new Map() };
-        (route as any).jwtConfig = { require_mfa: true };
+        (route as any).jwtConfig = { requireMFA: true };
 
         await expect((route as any).initialize()).resolves.toBeUndefined();
     });

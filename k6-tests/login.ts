@@ -47,7 +47,7 @@ export function login(url: string, id: string, password: string): string {
     const payload: any = JSON.parse(res.body.toString());
     if (!payload.token) {
       // Either an MFA challenge ({uid, methods}) rather than an AuthResult - this suite only provisions
-      // password-only accounts, so a real deployment with `auth:require_mfa` enabled needs a different
+      // password-only accounts, so a real deployment with `auth:requireMFA` enabled needs a different
       // login script than this one - or (more likely, if this identifier has been used to sign in more
       // than 5 times in the last 5 minutes) a rate-limit rejection wearing the same generic 401 shape as
       // a wrong password, by design (see the adversarial review notes in .claude/NOTES.md).

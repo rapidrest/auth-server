@@ -36,7 +36,7 @@ export default function NewOAuthClientPage({ userUid, siteSettings }: NewOAuthCl
     }
 
     return (
-        <AdminShell userUid={userUid} settings={siteSettings}>
+        <AdminShell userUid={userUid} settings={siteSettings} section="oauth-clients">
             <div style={{ marginBottom: "1rem" }}>
                 <a href="/admin/oauth-clients">&larr; Back to clients</a>
             </div>

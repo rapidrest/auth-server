@@ -20,7 +20,7 @@ export default function NewUserPage({ userUid, siteSettings }: NewUserPageProps)
     }
 
     return (
-        <AdminShell userUid={userUid} settings={siteSettings}>
+        <AdminShell userUid={userUid} settings={siteSettings} section="users">
             <div style={{ marginBottom: "1rem" }}>
                 <a href="/admin">&larr; Back to users</a>
             </div>

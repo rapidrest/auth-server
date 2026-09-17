@@ -22,10 +22,10 @@ afterEach(() => {
 const base: PublicSiteSettings = { logoUploaded: false, iconUploaded: false, stylesheetUploaded: false };
 
 describe("getSiteSettings", () => {
-    it("fetches /settings", async () => {
+    it("fetches /settings/branding", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, base));
         await getSiteSettings();
-        expect(fetchMock).toHaveBeenCalledWith("/api/settings", expect.anything());
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/branding", expect.anything());
     });
 });
 

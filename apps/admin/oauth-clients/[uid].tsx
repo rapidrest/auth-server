@@ -25,7 +25,7 @@ interface DetailPageProps {
 
 export default function OAuthClientDetailPage({ userUid, params, siteSettings }: DetailPageProps) {
     return (
-        <AdminShell userUid={userUid} settings={siteSettings}>
+        <AdminShell userUid={userUid} settings={siteSettings} section="oauth-clients">
             <OAuthClientDetailContent uid={params.uid} />
         </AdminShell>
     );

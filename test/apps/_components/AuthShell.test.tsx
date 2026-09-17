@@ -34,7 +34,7 @@ describe("AuthShell", () => {
 
     it("renders custom branding, header, and footer once site settings resolve", async () => {
         mockFetch((url) => {
-            if (url === "/api/settings") {
+            if (url === "/api/settings/branding") {
                 return jsonResponse(200, {
                     companyName: "Acme Inc",
                     logoUrl: "https://example.com/logo.png",

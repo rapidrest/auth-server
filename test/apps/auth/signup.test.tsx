@@ -438,3 +438,36 @@ describe("SignUpPage — password requirements fetch failure", () => {
         expect(screen.getByText("At least 8 characters")).toBeInTheDocument();
     });
 });
+
+describe("SignUpPage — registration closed", () => {
+    const closedSystemSettings = { allowRegistration: false };
+
+    it("shows a closed message instead of the sign-up form when registration is disabled", () => {
+        render(<SignUpPage systemSettings={closedSystemSettings} />);
+
+        expect(screen.getByText("Registration is currently closed")).toBeInTheDocument();
+        expect(screen.queryByLabelText("E-mail address")).not.toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/auth/signin");
+    });
+
+    it("does not auto-send a verification code handed off from sign-in when registration is disabled", async () => {
+        render(
+            <SignUpPage
+                systemSettings={closedSystemSettings}
+                initialIdentifierType="email"
+                initialIdentifier="a@example.com"
+                autoSend
+            />,
+        );
+
+        expect(screen.getByText("Registration is currently closed")).toBeInTheDocument();
+        await waitFor(() => expect(mockedBeginRegistration).not.toHaveBeenCalled());
+    });
+
+    it("keeps the sign-up form when registration is explicitly allowed", () => {
+        render(<SignUpPage systemSettings={{ allowRegistration: true }} />);
+
+        expect(screen.queryByText("Registration is currently closed")).not.toBeInTheDocument();
+        expect(screen.getByLabelText("E-mail address")).toBeInTheDocument();
+    });
+});

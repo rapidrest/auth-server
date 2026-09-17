@@ -6,6 +6,7 @@ import { HttpRequest, ObjectFactory, RouteDecorators } from "@rapidrest/service-
 import { ObjectDecorators } from "@rapidrest/core";
 import { fetchSiteSettingsPropsForSSR, PublicSiteSettings } from "../../routes/BaseSiteSettingsRoute.js";
 import { SiteSettingsSQL } from "../../models/sql/SiteSettingsSQL.js";
+import { fetchSystemSettingsPropsForSSR, PublicSystemSettings } from "../../routes/SystemSettingsSSR.js";
 
 const { Route } = RouteDecorators;
 const { Inject } = ObjectDecorators;
@@ -18,8 +19,18 @@ export class AdminConsoleRoute extends ReactRoute {
     @Inject(ObjectFactory)
     protected siteSettingsObjectFactory!: ObjectFactory;
 
-    /** See `AppRoute.fetchProps()` (`src/sql/routes/wwwRoute.ts`) — identical purpose, for the admin console. */
-    protected override async fetchProps(_req: HttpRequest): Promise<{ siteSettings: PublicSiteSettings }> {
-        return fetchSiteSettingsPropsForSSR(this.siteSettingsObjectFactory, SiteSettingsSQL);
+    /**
+     * See `AppRoute.fetchProps()` (`src/sql/routes/wwwRoute.ts`) — identical purpose, for the admin console.
+     * Also feeds `systemSettings` (currently just `allowRegistration`) into the same page props, e.g. for
+     * `apps/admin/settings.tsx` to render its initial state without a client-side round trip.
+     */
+    protected override async fetchProps(
+        _req: HttpRequest,
+    ): Promise<{ siteSettings: PublicSiteSettings; systemSettings: PublicSystemSettings }> {
+        const [siteSettings, systemSettings] = await Promise.all([
+            fetchSiteSettingsPropsForSSR(this.siteSettingsObjectFactory, SiteSettingsSQL),
+            fetchSystemSettingsPropsForSSR(this.siteSettingsObjectFactory, "sql"),
+        ]);
+        return { ...siteSettings, ...systemSettings };
     }
 }
