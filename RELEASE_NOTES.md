@@ -1,5 +1,10 @@
 # Release Notes
 
+## Unreleased
+
+* Added service-account to helm chart
+* Fixed multiple issues with helm chart
+
 ## v1.0.0-beta.6
 
 ### Helm chart
