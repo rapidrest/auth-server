@@ -46,7 +46,7 @@ data:
   {{-   $mongoRootPassword = (get $mongoSecretData "mongodb-root-password") | default "" | b64dec }}
   {{- end }}
   {{- if $.Values.global.database.url }}
-  datastores__acl__url: {{ include "rrst.render" (dict "value" .Values.global.database.url "mongoProtocol" $mongoProtocol "host" $mongoHost "user" $mongoRootUser "password" $mongoRootPassword "context" $) | b64enc | quote }}
+  datastores__acl__url: {{ include "rrst.render" (dict "value" .Values.global.database.url "mongoProtocol" $mongoProtocol "host" $mongoHostACL "user" $mongoRootUser "password" $mongoRootPassword "context" $) | b64enc | quote }}
   datastores__mongo__url: {{ include "rrst.render" (dict "value" .Values.global.database.url "mongoProtocol" $mongoProtocol "host" $mongoHost "user" $mongoRootUser "password" $mongoRootPassword "context" $) | b64enc | quote }}
   {{- else if $mongoRootPassword }}
   datastores__acl__options: {{ print "authSource=admin" | b64enc | quote }}
