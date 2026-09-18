@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.10] - 2026-09-18
+
+### Changed
+- Changing helm chart certmanager to be global
+
 ## [1.0.0-beta.9] - 2026-09-18
 
 ### Changed
@@ -374,7 +379,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.9...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.10...HEAD
+[1.0.0-beta.10]: github/auth-server/compare/v1.0.0-beta.9...v1.0.0-beta.10
 [1.0.0-beta.9]: github/auth-server/compare/v1.0.0-beta.8...v1.0.0-beta.9
 [1.0.0-beta.8]: github/auth-server/compare/v1.0.0-beta.7...v1.0.0-beta.8
 [1.0.0-beta.7]: github/auth-server/compare/v1.0.0-beta.6...v1.0.0-beta.7
