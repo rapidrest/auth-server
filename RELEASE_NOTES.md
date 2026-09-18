@@ -1,5 +1,9 @@
 # Release Notes
 
+## Unreleased
+
+* Added cert-manager issuer to helm chart
+
 ## v1.0.0-beta.7
 
 * Added service-account to helm chart

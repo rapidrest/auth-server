@@ -1,3 +1,24 @@
+{{- if and $.Values.certmanager.enabled (eq $.Release.Namespace (tpl $.Values.certmanager.namespace $)) }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+name: {{ tpl $.Values.certmanager.name . }}
+spec:
+acme:
+  server: https://acme-v02.api.letsencrypt.org/directory
+  email: {{ tpl $.Values.certmanager.email . }}
+  privateKeySecretRef:
+    name: letsencrypt-issuer-key
+  solvers:
+  - http01:
+      gatewayHTTPRoute:
+        parentRefs:
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          name: {{ tpl $.Values.global.gateway.name . }}
+          namespace: {{ tpl $.Values.global.gateway.namespace . }}
+{{- end -}}
 {{- if and $.Values.global.gateway.tls (ne (include "rrst.render" (dict "value" $.Values.host "context" $)) "localhost") (not (contains ".local" (include "rrst.render" (dict "value" $.Values.host "context" $)))) }}
 ---
 apiVersion: cert-manager.io/v1
@@ -28,8 +49,6 @@ spec:
   - {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) }}
   # Issuer references are always required.
   issuerRef:
-    name: letsencrypt-prod
-    # We can reference ClusterIssuers by changing the kind here.
-    # The default value is Issuer (i.e. a locally namespaced Issuer)
-    kind: ClusterIssuer
+    name: {{ tpl $.Values.certmanager.name . }}
+    kind: Issuer
 {{- end }}

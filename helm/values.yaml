@@ -60,6 +60,11 @@ global:
     - 172.16.0.0/12
     - 192.168.0.0/16
     - fc00::/7
+certmanager:
+  enabled: true
+  email: 'admin@{{ tpl $.Values.global.domain . }}'
+  name: '{{ include "rrst.fullname" . }}-letsencrypt'
+  namespace: '{{ .Release.Namespace }}'
 mongodb:
   create: true
   architecture: standalone
