@@ -33,7 +33,7 @@ Databases:
 
 Default Accounts:
   {{- $serviceSecretsName := printf "%s-service-secrets" (include "rrst.fullname" .) -}}
-  {{- $serviceSecrets := (lookup "v1" "Secret" .Release.Namespace $serviceSecretsName | default dict -)}}
+  {{- $serviceSecrets := (lookup "v1" "Secret" .Release.Namespace $serviceSecretsName | default dict) -}}
   {{- $accounts := dig "data" "default_accounts" "" $serviceSecrets -}}
   {{- $accounts | b64dec | fromJsonArray | toPrettyJson | indent 2 }}
 
