@@ -8,7 +8,7 @@ data:
 {{- if (eq $.Values.global.database.type "sql" ) }}
   {{- $postgresUser := "" }}
   {{- $postgresPassword := "" }}
-  {{- $sqlHost := include "rrst.render" (dict "value" $.Values.service.datastores.postgresql.host "context" $) | default (printf "%s" $.Values.postgresql.fullnameOverride) }}
+  {{- $sqlHost := $.Values.service.datastores.postgresql.host | default $.Values.postgresql.fullnameOverride }}
   {{- $sqlDatabase := include "rrst.render" (dict "value" $.Values.service.datastores.postgresql.name "context" $) }}
   {{- if and $.Values.postgresql.create $.Values.postgresql.auth.enablePostgresUser }}
   {{-   $postgresSecret := (lookup "v1" "Secret" $.Release.Namespace $.Values.postgresql.fullnameOverride) | default dict }}
@@ -26,12 +26,15 @@ data:
   datastores__acl__url: {{ (printf "postgres://%s/%s" $sqlHost $sqlDatabase) | b64enc | quote }}
   datastores__sql__url: {{ (printf "postgres://%s/%s" $sqlHost $sqlDatabase) | b64enc | quote }}
   {{- end }}
+  datastores__acl__type: postgres
+  datastores__sql__type: postgres
 {{- else }}
   {{- $mongoRootUser := "" }}
   {{- $mongoRootPassword := "" }}
   {{- $mongoDatabase := include "rrst.render" (dict "value" $.Values.service.datastores.mongodb.mongo.name "context" $) | default "mongo" }}
   {{- $mongoDatabaseACL := include "rrst.render" (dict "value" $.Values.service.datastores.mongodb.acl.name "context" $) | default "rrst_acls" }}
-  {{- $mongoHost := include "rrst.render" (dict "value" $.Values.service.datastores.mongodb.host "context" $) | default (printf "%s" $.Values.postgresql.fullnameOverride) }}
+  {{- $mongoHost := $.Values.service.datastores.mongodb.mongo.host | default $.Values.mongodb.fullnameOverride }}
+  {{- $mongoHostACL := $.Values.service.datastores.mongodb.acl.host | default $.Values.mongodb.fullnameOverride }}
   {{- $mongoProtocol := "mongodb" }}
   {{- if (eq $.Values.mongodb.architecture "replicaset") }}
   {{-   $mongoProtocol := "mongodb+srv" }}
@@ -47,13 +50,15 @@ data:
   datastores__mongo__url: {{ include "rrst.render" (dict "value" .Values.global.database.url "mongoProtocol" $mongoProtocol "host" $mongoHost "user" $mongoRootUser "password" $mongoRootPassword "context" $) | b64enc | quote }}
   {{- else if $mongoRootPassword }}
   datastores__acl__options: {{ print "authSource=admin" | b64enc | quote }}
-  datastores__acl__url: {{ (printf "%s://%s:%s@%s/%s" $mongoProtocol $mongoRootUser $mongoRootPassword $mongoHost $mongoDatabaseACL) | b64enc | quote }}
+  datastores__acl__url: {{ (printf "%s://%s:%s@%s/%s" $mongoProtocol $mongoRootUser $mongoRootPassword $mongoHostACL $mongoDatabaseACL) | b64enc | quote }}
   datastores__mongo__options: {{ print "authSource=admin" | b64enc | quote }}
   datastores__mongo__url: {{ (printf "%s://%s:%s@%s/%s" $mongoProtocol $mongoRootUser $mongoRootPassword $mongoHost $mongoDatabase) | b64enc | quote }}
   {{- else }}
-  datastores__acl__url: {{ (printf "%s://%s/%s" $mongoProtocol $mongoHost $mongoDatabaseACL) | b64enc | quote }}
+  datastores__acl__url: {{ (printf "%s://%s/%s" $mongoProtocol $mongoHostACL $mongoDatabaseACL) | b64enc | quote }}
   datastores__mongo__url: {{ (printf "%s://%s/%s" $mongoProtocol $mongoHost $mongoDatabase) | b64enc | quote }}
   {{- end }}
+  datastores__acl__type: mongodb
+  datastores__sql__type: mongodb
 {{- end }}
 {{- if $.Values.global.cache.enabled }}
   {{- $redisPassword := "" }}

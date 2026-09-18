@@ -62,19 +62,19 @@ mongodb:
   architecture: standalone
   fullnameOverride: mongodb
   auth:
-    enabled: true
+    enabled: false
 postgresql:
   create: false
   architecture: standalone
   fullnameOverride: postgresql
   auth:
-    enablePostgresUser: true
+    enablePostgresUser: false
     database: rrst_auth
 redis:
   create: true
   architecture: standalone
   auth:
-    enabled: true
+    enabled: false
   fullnameOverride: redis
   master:
     persistence:
@@ -99,10 +99,10 @@ service:
     mongodb:
       acl:
         name: rrst_acls
-        host: ''
+        host:
       mongo:
         name: rrst_auth
-        host: ''
+        host:
     postgresql:
       name: postgres
       host: ''
