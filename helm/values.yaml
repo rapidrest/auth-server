@@ -89,7 +89,7 @@ service:
   image:
     registry: ghcr.io
     repository: rapidrest/auth-server
-    tag: 1.0.0-beta.5
+    tag: 1.0.0-beta.6
   replicas: 1
   resources:
     requests:
@@ -99,10 +99,10 @@ service:
     mongodb:
       acl:
         name: rrst_acls
-        host:
+        host: null
       mongo:
         name: rrst_auth
-        host:
+        host: null
     postgresql:
       name: postgres
       host: ''
