@@ -62,7 +62,7 @@ global:
     - fc00::/7
 certmanager:
   enabled: true
-  email: 'admin@{{ tpl $.Values.global.domain . }}'
+  email: admin@{{ tpl $.Values.global.domain . }}
   name: '{{ include "rrst.fullname" . }}-letsencrypt'
   namespace: '{{ .Release.Namespace }}'
 mongodb:
@@ -97,7 +97,7 @@ service:
   image:
     registry: ghcr.io
     repository: rapidrest/auth-server
-    tag: 1.0.0-beta.7
+    tag: 1.0.0-beta.8
   replicas: 1
   resources:
     requests:
