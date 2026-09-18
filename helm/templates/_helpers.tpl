@@ -1,9 +1,10 @@
-{{/* vim: set filetype=mustache: */}}
+{{/******************************** GENERAL ********************************/}}
+
 {{/*
-Expand the name of the chart.
+Create chart name and version as used by the chart label.
 */}}
-{{- define "rrst.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- define "rrst.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
@@ -25,13 +26,6 @@ If release name contains chart name it will be used as a full name.
 {{- end -}}
 
 {{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "rrst.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{/*
 Common labels
 */}}
 {{- define "rrst.labels" -}}
@@ -42,6 +36,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{/* vim: set filetype=mustache: */}}
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "rrst.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
@@ -57,15 +59,7 @@ Usage:
     {{- end }}
 {{- end -}}
 
-{{/*
-Generate certificates for nginx
-*/}}
-{{- define "rrst.gen-nginx-certs" -}}
-{{- $ca := genCA "xbe-ca" 365 -}}
-{{- $cert := genSignedCert . nil nil 365 $ca -}}
-tls.crt: {{ $cert.Cert | b64enc }}
-tls.key: {{ $cert.Key | b64enc }}
-{{- end -}}
+{{/******************************** GATEWAY ********************************/}}
 
 {{/*
 Generate list of domains with subdomain and/or path
@@ -116,17 +110,16 @@ Generate list of domains with subdomain and/or path
 {{- end -}}
 
 {{/*
-Creates the default accounts used to seed the auth-server's initial user database.
+Generate certificates for nginx
 */}}
-{{- define "rrst.getDefaultAccounts" -}}
-{{-   $accounts := dig "defaultAccounts" list ($.Values.global | default dict) -}}
-{{-   range $account := $accounts -}}
-{{-     if (not $account.password) -}}
-{{-       $_ := set $account "password" (randAlphaNum 48 | b64enc) -}}
-{{-     end -}}
-{{-   end -}}
-{{    $accounts | toJson | quote -}}
+{{- define "rrst.gen-nginx-certs" -}}
+{{- $ca := genCA "xbe-ca" 365 -}}
+{{- $cert := genSignedCert . nil nil 365 $ca -}}
+tls.crt: {{ $cert.Cert | b64enc }}
+tls.key: {{ $cert.Key | b64enc }}
 {{- end -}}
+
+{{/******************************** SECRETS ********************************/}}
 
 {{/*
 Fails the render (with `required`, so `helm lint` still passes) when generated secrets can't be kept stable: without
@@ -151,6 +144,20 @@ Usage: include "rrst.assertStableSecrets" (dict "missing" (list "cookies.secret"
 {{- end -}}
 
 {{/*
+The External Secrets API version this cluster serves, failing with something actionable when the operator isn't
+installed - its CRDs are cluster-wide, so a chart can't bring them along.
+*/}}
+{{- define "rrst.externalSecretsApiVersion" -}}
+{{- if .Capabilities.APIVersions.Has "external-secrets.io/v1" -}}
+external-secrets.io/v1
+{{- else if .Capabilities.APIVersions.Has "external-secrets.io/v1beta1" -}}
+external-secrets.io/v1beta1
+{{- else -}}
+{{- fail "externalSecrets.enabled is true but this cluster has no External Secrets Operator (no external-secrets.io CRDs). Install it first (helm install external-secrets external-secrets/external-secrets -n external-secrets --create-namespace --set installCRDs=true; scripts/k3s_install.sh does this for you), or set externalSecrets.enabled=false to keep the chart's own Kubernetes Secrets." -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 A base64-encoded secret that's generated once and kept: the explicit value when one is set, otherwise the value already
 stored in the release's Secret (so it survives upgrades), otherwise a new random one.
 Usage: include "rrst.persistedSecret" (dict "value" .Values.cookies.secret "stored" $storedB64 "context" $)
@@ -164,6 +171,18 @@ Usage: include "rrst.persistedSecret" (dict "value" .Values.cookies.secret "stor
 {{- else -}}
 {{- randAlphaNum 48 | b64enc -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+A secret value that must be supplied: fails the render when it's empty or still one of the publicly-known development
+defaults. Usage: include "rrst.requiredSecret" (dict "value" $value "name" "auth.secret" "defaults" (list "..."))
+*/}}
+{{- define "rrst.requiredSecret" -}}
+{{- $value := required (printf "%s is required: set it to a unique, secret value." .name) (.value | default "") -}}
+{{- if has $value (.defaults | default list) -}}
+{{- fail (printf "%s is still a publicly-known development default; set it to a unique, secret value." .name) -}}
+{{- end -}}
+{{- $value -}}
 {{- end -}}
 
 {{/*
@@ -213,17 +232,17 @@ tokenSecretRef:
 {{- end }}
 {{- end -}}
 
-{{/*
-The External Secrets API version this cluster serves, failing with something actionable when the operator isn't
-installed - its CRDs are cluster-wide, so a chart can't bring them along.
-*/}}
-{{- define "rrst.externalSecretsApiVersion" -}}
-{{- if .Capabilities.APIVersions.Has "external-secrets.io/v1" -}}
-external-secrets.io/v1
-{{- else if .Capabilities.APIVersions.Has "external-secrets.io/v1beta1" -}}
-external-secrets.io/v1beta1
-{{- else -}}
-{{- fail "externalSecrets.enabled is true but this cluster has no External Secrets Operator (no external-secrets.io CRDs). Install it first (helm install external-secrets external-secrets/external-secrets -n external-secrets --create-namespace --set installCRDs=true; scripts/k3s_install.sh does this for you), or set externalSecrets.enabled=false to keep the chart's own Kubernetes Secrets." -}}
-{{- end -}}
-{{- end -}}
+{{/****************************** AUTH SERVER ******************************/}}
 
+{{/*
+Creates the default accounts used to seed the auth-server's initial user database.
+*/}}
+{{- define "rrst.getDefaultAccounts" -}}
+{{-   $accounts := dig "defaultAccounts" list ($.Values.global | default dict) -}}
+{{-   range $account := $accounts -}}
+{{-     if (not $account.password) -}}
+{{-       $_ := set $account "password" (randAlphaNum 48 | b64enc) -}}
+{{-     end -}}
+{{-   end -}}
+{{    $accounts | toJson | quote -}}
+{{- end -}}
