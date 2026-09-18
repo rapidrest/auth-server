@@ -5,14 +5,14 @@ Gateway across both, rather than each independently trying to create a resource 
 whichever Gateway the parent actually created (gateway.name/gateway.namespace still resolve normally
 either way; this only gates the `if` below).
 */}}
-{{- $ownsGateway := and $.Values.global.gateway.create (eq "api-gateway" (tpl $.Values.global.gateway.name $)) (eq $.Release.Namespace (tpl $.Values.global.gateway.namespace $)) }}
+{{- $ownsGateway := and $.Values.global.gateway.create (eq (printf "%s-gateway" (include "rrst.fullname" .)) (tpl $.Values.global.gateway.name $)) (eq $.Release.Namespace (tpl $.Values.global.gateway.namespace $)) }}
 {{- /* Matches tls-certs.yaml: a certificate is only issued for a host that can get one. */}}
 {{- $certificate := and $.Values.global.gateway.tls (ne (include "rrst.render" (dict "value" $.Values.host "context" $)) "localhost") (not (contains ".local" (include "rrst.render" (dict "value" $.Values.host "context" $)))) }}
 {{- if $ownsGateway }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: api-gateway
+  name: {{ include "rrst.fullname" . }}-gateway
 spec:
   gatewayClassName: {{ $.Values.global.gateway.className | quote }}
   listeners:
@@ -54,7 +54,7 @@ spec:
     namespace: {{ tpl $.Values.global.gateway.namespace $ }}
     sectionName: http
   {{- if and $ownsGateway $certificate }}
-  - name: api-gateway
+  - name: {{ tpl $.Values.global.gateway.name $ }}
     namespace: {{ $.Release.Namespace }}
     sectionName: https
   {{- end }}

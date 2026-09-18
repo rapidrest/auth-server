@@ -16,7 +16,7 @@ global:
       password: ''
   gateway:
     create: true
-    name: api-gateway
+    name: '{{ include "rrst.fullname" . }}-gateway'
     namespace: '{{ .Release.Namespace }}'
     className: envoy
     hsts: true

@@ -3,11 +3,11 @@
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-name: {{ tpl $.Values.certmanager.name . }}
+name: {{ tpl $.Values.certmanager.name $ }}
 spec:
 acme:
   server: https://acme-v02.api.letsencrypt.org/directory
-  email: {{ tpl $.Values.certmanager.email . }}
+  email: {{ tpl $.Values.certmanager.email $ }}
   privateKeySecretRef:
     name: letsencrypt-issuer-key
   solvers:
@@ -16,8 +16,8 @@ acme:
         parentRefs:
         - group: gateway.networking.k8s.io
           kind: Gateway
-          name: {{ tpl $.Values.global.gateway.name . }}
-          namespace: {{ tpl $.Values.global.gateway.namespace . }}
+          name: {{ tpl $.Values.global.gateway.name $ }}
+          namespace: {{ tpl $.Values.global.gateway.namespace $ }}
 {{- end -}}
 {{- if and $.Values.global.gateway.tls (ne (include "rrst.render" (dict "value" $.Values.host "context" $)) "localhost") (not (contains ".local" (include "rrst.render" (dict "value" $.Values.host "context" $)))) }}
 ---
@@ -49,6 +49,7 @@ spec:
   - {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) }}
   # Issuer references are always required.
   issuerRef:
-    name: {{ tpl $.Values.certmanager.name . }}
+    name: {{ tpl $.Values.certmanager.name $ }}
+    namespace: {{ tpl $.Values.certmanager.namespace $ }}
     kind: Issuer
 {{- end }}

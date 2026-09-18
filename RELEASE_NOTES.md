@@ -1,5 +1,7 @@
 # Release Notes
 
+## Unreleased
+
 ## v1.0.0-beta.8
 
 * Added cert-manager issuer to helm chart
