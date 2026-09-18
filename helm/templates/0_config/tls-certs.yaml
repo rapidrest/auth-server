@@ -1,13 +1,14 @@
-{{- if and $.Values.certmanager.enabled (eq $.Release.Namespace (tpl $.Values.certmanager.namespace $)) }}
+{{- $ownsIssuer := and (eq (printf "%s-issuer" (include "rrst.fullname" .)) (tpl $.Values.global.certmanager.name $)) (eq $.Release.Namespace (tpl $.Values.global.certmanager.namespace $)) }}
+{{- if $ownsIssuer }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-name: {{ tpl $.Values.certmanager.name $ }}
+name: {{ tpl $.Values.global.certmanager.name $ }}
 spec:
 acme:
   server: https://acme-v02.api.letsencrypt.org/directory
-  email: {{ tpl $.Values.certmanager.email $ }}
+  email: {{ tpl $.Values.global.certmanager.email $ }}
   privateKeySecretRef:
     name: letsencrypt-issuer-key
   solvers:
