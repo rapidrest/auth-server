@@ -3,16 +3,16 @@ environment: production
 global:
   cache:
     enabled: true
-    url: 'redis://redis-master'
+    url: redis://redis-master
   common:
     storageClass: default
     logs:
       level: info
   corsHosts:
-    - 'localhost:3000'
+    - localhost:3000
   database:
     type: mongo
-  domain: 'domain.local'
+  domain: domain.local
   gateway:
     create: true
     name: api-gateway
@@ -21,7 +21,9 @@ global:
     hsts: true
     tls: true
   jwt:
-    audience: '{{ include "rrst.render" (dict "value" .Values.global.domain "context" .) }}'
+    audience: >-
+      {{ include "rrst.render" (dict "value" .Values.global.domain "context" .)
+      }}
     issuer: '{{ include "rrst.render" (dict "value" .Values.host "context" .) }}'
     expiresIn: 1 hour
     secret: ''
@@ -82,7 +84,7 @@ service:
   image:
     registry: ghcr.io
     repository: rapidrest/auth-server
-    tag: 1.0.0-beta.3
+    tag: 1.0.0-beta.4
   replicas: 1
   resources:
     requests:
