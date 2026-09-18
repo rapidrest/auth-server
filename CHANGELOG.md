@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.5] - 2026-09-18
+
+### Added
+- Added defaultAccounts generation
+
+### Fixed
+- Fixed syntax error in helm notes
+
+### Removed
+- Removed deprecated  db-redis-info secret from service deployment
+
 ## [1.0.0-beta.4] - 2026-09-18
 
 ### Changed
@@ -328,7 +339,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.4...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.5...HEAD
+[1.0.0-beta.5]: github/auth-server/compare/v1.0.0-beta.4...v1.0.0-beta.5
 [1.0.0-beta.4]: github/auth-server/compare/v1.0.0-beta.3...v1.0.0-beta.4
 [1.0.0-beta.3]: github/auth-server/compare/v1.0.0-beta.2...v1.0.0-beta.3
 [1.0.0-beta.2]: github/auth-server/compare/v1.0.0-beta.1...v1.0.0-beta.2
