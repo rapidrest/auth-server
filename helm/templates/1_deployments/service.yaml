@@ -38,6 +38,11 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/0_config/service-config.yaml") . | sha256sum }}
         checksum/secrets: {{ print (include (print $.Template.BasePath "/0_config/jwt-auth.yaml") .) (include (print $.Template.BasePath "/0_config/service-secrets.yaml") .) (include (print $.Template.BasePath "/0_config/datastores.yaml") .) | sha256sum }}
     spec:
+      {{- with include "rrst.serviceAccountName" $ }}
+      # Only when one is configured (values.yaml's serviceAccount): an AWS IAM role through IRSA.
+      # Otherwise the namespace's "default" ServiceAccount, as before.
+      serviceAccountName: {{ . }}
+      {{- end }}
       # preStop sleep + the server's own shutdown must fit in this.
       terminationGracePeriodSeconds: {{ $.Values.service.terminationGracePeriodSeconds }}
       {{- with $.Values.service.podSecurityContext }}

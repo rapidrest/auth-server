@@ -26,8 +26,8 @@ data:
   datastores__acl__url: {{ (printf "postgres://%s/%s" $sqlHost $sqlDatabase) | b64enc | quote }}
   datastores__sql__url: {{ (printf "postgres://%s/%s" $sqlHost $sqlDatabase) | b64enc | quote }}
   {{- end }}
-  datastores__acl__type: postgres
-  datastores__sql__type: postgres
+  datastores__acl__type: {{ printf "postgres" | b64enc | quote }}
+  datastores__sql__type: {{ printf "postgres" | b64enc | quote }}
 {{- else }}
   {{- $mongoRootUser := "" }}
   {{- $mongoRootPassword := "" }}
@@ -57,8 +57,8 @@ data:
   datastores__acl__url: {{ (printf "%s://%s/%s" $mongoProtocol $mongoHostACL $mongoDatabaseACL) | b64enc | quote }}
   datastores__mongo__url: {{ (printf "%s://%s/%s" $mongoProtocol $mongoHost $mongoDatabase) | b64enc | quote }}
   {{- end }}
-  datastores__acl__type: mongodb
-  datastores__sql__type: mongodb
+  datastores__acl__type: {{ printf "mongodb" | b64enc | quote }}
+  datastores__sql__type: {{ printf "mongodb" | b64enc | quote }}
 {{- end }}
 {{- if $.Values.global.cache.enabled }}
   {{- $redisPassword := "" }}

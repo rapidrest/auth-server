@@ -4,10 +4,6 @@ global:
   cache:
     enabled: true
     url: redis://redis-master
-  common:
-    storageClass: default
-    logs:
-      level: info
   corsHosts:
     - localhost:3000
   database:
@@ -35,6 +31,8 @@ global:
   externalSecrets:
     enabled: true
     refreshInterval: 1m
+  logs:
+    level: info
   openbao:
     enabled: false
     address: http://openbao.openbao.svc:8200
@@ -52,6 +50,11 @@ global:
     existingSecret: ''
     cookies: ''
     sessions: ''
+  serviceAccount:
+    create: true
+    name: ''
+    annotations: {}
+  storageClass: default
   trustedProxies:
     - 10.0.0.0/8
     - 172.16.0.0/12
