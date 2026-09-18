@@ -116,6 +116,19 @@ Generate list of domains with subdomain and/or path
 {{- end -}}
 
 {{/*
+Creates the default accounts used to seed the auth-server's initial user database.
+*/}}
+{{- define "auth-server.getDefaultAccounts" -}}
+{{-   $accounts := dig "defaultAccounts" list ($.Values.global | default dict) -}}
+{{-   range $account := $accounts -}}
+{{-     if (not $account.password) -}}
+{{-       $_ := set $account "password" (randAlphaNum 48 | b64enc) -}}
+{{-     end -}}
+{{-   end -}}
+{{    $accounts | toJson | quote -}}
+{{- end -}}
+
+{{/*
 Fails the render (with `required`, so `helm lint` still passes) when generated secrets can't be kept stable: without
 cluster access (`helm template`, a GitOps controller rendering the chart, `--dry-run`) `lookup` returns nothing, so every
 render would generate new JWT/cookie/session secrets - logging everyone out on each sync. Detected by looking up the

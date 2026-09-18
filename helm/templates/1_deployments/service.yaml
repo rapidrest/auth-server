@@ -79,16 +79,12 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "rrst.fullname" . }}-service-config
-            {{- if $.Values.redis.create }}
-            - secretRef:
-                name: db-redis-info
-            {{- end }}
             - secretRef:
                 name: {{ include "rrst.fullname" . }}-jwt-auth
             - secretRef:
                 name: {{ include "rrst.fullname" . }}-service-db-info
             - secretRef:
-                name: {{ .Values.global.secrets.existingSecret | default (printf "%s-service-secrets" (include "rrst.fullname" .)) }}
+                name: {{ include "rrst.fullname" . }}-service-secrets
           ports:
             - containerPort: 3000
           {{- with $.Values.service.startupProbe }}

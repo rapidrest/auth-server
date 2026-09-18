@@ -13,6 +13,11 @@ global:
   database:
     type: mongo
   domain: domain.local
+  defaultAccounts:
+    - name: admin
+      roles:
+        - admin
+      password: ''
   gateway:
     create: true
     name: api-gateway

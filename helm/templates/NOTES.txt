@@ -31,6 +31,12 @@ Databases:
   {{- end }}
 {{- end }}
 
+Default Accounts:
+  {{- $serviceSecretsName := printf "%s-service-secrets" (include "rrst.fullname" .) -}}
+  {{- $serviceSecrets := (lookup "v1" "Secret" .Release.Namespace $serviceSecretsName | default dict -)}}
+  {{- $accounts := dig "data" "default_accounts" "" $serviceSecrets -}}
+  {{- $accounts | b64dec | fromJsonArray | toPrettyJson | indent 2 }}
+
 JWT Auth:
   {{- $jwtSecret := (lookup "v1" "Secret" .Release.Namespace "jwt-auth") | default dict }}
   {{- $jwtSecretData := (get $jwtSecret "data") | default dict }}

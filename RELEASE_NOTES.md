@@ -1,5 +1,12 @@
 # Release Notes
 
+## Unreleased
+
+### Helm chart
+
+* Removing deprecated  db-redis-info secret from service deployment
+* Adding `defaultAccounts` configuration to `values.yaml`.
+
 ## v1.0.0-beta.4
 
 ### Helm chart
