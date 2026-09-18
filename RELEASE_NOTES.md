@@ -1,5 +1,12 @@
 # Release Notes
 
+## Unreleased
+
+### Helm chart
+
+* Disabled mongodb/postgres/redis auth by default
+* Fixed multiple issues with building connection URLs for mongo/postgres
+
 ## v1.0.0-beta.5
 
 ### Helm chart
