@@ -23,20 +23,20 @@ spec:
         is false - without the label the probe init containers wait forever on a cluster that enforces NetworkPolicy.
         */}}
         {{- if $.Values.redis.create }}
-        {{ $.Values.redis.fullnameOverride | default "redis" }}-client: "true"
+        {{   $.Values.redis.fullnameOverride | default "redis" }}-client: "true"
         {{- end }}
         {{- if $.Values.mongodb.create }}
-        {{ $.Values.mongodb.fullnameOverride | default "mongodb" }}-client: "true"
+        {{   $.Values.mongodb.fullnameOverride | default "mongodb" }}-client: "true"
         {{- end }}
         {{- if $.Values.postgresql.create }}
-        {{ $.Values.postgresql.fullnameOverride | default "postgresql" }}-client: "true"
+        {{   $.Values.postgresql.fullnameOverride | default "postgresql" }}-client: "true"
         {{- end }}
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "3000"
         # Roll the pods when their configuration or secrets change - they're only read at startup.
         checksum/config: {{ include (print $.Template.BasePath "/0_config/service-config.yaml") . | sha256sum }}
-        checksum/secrets: {{ print (include (print $.Template.BasePath "/0_config/jwt-auth.yaml") .) (include (print $.Template.BasePath "/0_config/service-secrets.yaml") .) (include (print $.Template.BasePath "/0_config/redis.yaml") .) | sha256sum }}
+        checksum/secrets: {{ print (include (print $.Template.BasePath "/0_config/jwt-auth.yaml") .) (include (print $.Template.BasePath "/0_config/service-secrets.yaml") .) (include (print $.Template.BasePath "/0_config/datastores.yaml") .) | sha256sum }}
     spec:
       # preStop sleep + the server's own shutdown must fit in this.
       terminationGracePeriodSeconds: {{ $.Values.service.terminationGracePeriodSeconds }}
@@ -69,7 +69,7 @@ spec:
           for Postgres - see @rapidmx/server's own identical fix (docker-compose.mongo.yml/sql.yml and
           its own helm chart).
           */}}
-          {{- $entrypoint := ternary "dist/src/server.sql.js" "dist/src/server.mongo.js" $.Values.postgresql.create }}
+          {{- $entrypoint := ternary "dist/src/server.sql.js" "dist/src/server.mongo.js" (eq $.Values.global.database.type "sql") }}
           command: ["node"]
           {{- if ne $.Values.environment "production" }}
           args: ["--inspect=127.0.0.1:9229", {{ $entrypoint | quote }}]
@@ -88,7 +88,7 @@ spec:
             - secretRef:
                 name: {{ include "rrst.fullname" . }}-service-db-info
             - secretRef:
-                name: {{ .Values.secrets.existingSecret | default (printf "%s-service-secrets" (include "rrst.fullname" .)) }}
+                name: {{ .Values.global.secrets.existingSecret | default (printf "%s-service-secrets" (include "rrst.fullname" .)) }}
           ports:
             - containerPort: 3000
           {{- with $.Values.service.startupProbe }}
@@ -110,14 +110,14 @@ spec:
             {{- toYaml $.Values.service.resources | nindent 12 }}
       initContainers:
         {{- if $.Values.redis.create }}
-        {{- $redisHost := tpl $.Values.redis.url . | replace "redis://" "" }}
+        {{- $redisHost := (include "rrst.render" (dict "value" .Values.global.cache.url "context" $) | replace "redis://" "") }}
         - name: redis-probe
           image: busybox
           env:
             - name: REDIS_HOST
               value: {{ $redisHost }}
           # A bare TCP check, not an authenticated PING: this only needs to confirm the datastore is
-          # reachable before the app starts, and avoids having to parse the password (see redis.yaml) back
+          # reachable before the app starts, and avoids having to parse the password (see datastores.yaml) back
           # out of a URL here too.
           command: ['sh', '-c', "until nc -z $REDIS_HOST 6379; do echo waiting for cache; sleep $(expr 2 + $RANDOM % 13); done"]
         {{- end }}

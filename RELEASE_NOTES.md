@@ -1,5 +1,12 @@
 # Release Notes
 
+## Unreleased
+
+### Helm chart
+
+* Significant restructuring of `values.yaml` file to be more compatible with other projects that use this as a dependency.
+* Simplified database configuration. There is a now a simple toggle (`global.database.type`) to switch between the Mongo or SQL based backends.
+
 ## v1.0.0-beta.3
 
 ### Helm chart

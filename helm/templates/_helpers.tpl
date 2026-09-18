@@ -126,13 +126,13 @@ first.
 Usage: include "auth-server.assertStableSecrets" (dict "missing" (list "cookies.secret" ...) "context" $)
 */}}
 {{- define "auth-server.assertStableSecrets" -}}
-{{- if and .missing (not .context.Values.secrets.existingSecret) -}}
+{{- if and .missing (not .context.Values.global.secrets.existingSecret) -}}
 {{- $clusterAccess := lookup "v1" "ConfigMap" .context.Release.Namespace "kube-root-ca.crt" -}}
 {{- if not $clusterAccess -}}
 {{- $clusterAccess = lookup "v1" "Namespace" "" "default" -}}
 {{- end -}}
 {{- if not $clusterAccess -}}
-{{- required (printf "Rendering without cluster access (helm template, GitOps, --dry-run), so generated secrets would change on every render. Set %s explicitly, or secrets.existingSecret to a Secret you manage." (join ", " .missing)) "" -}}
+{{- required (printf "Rendering without cluster access (helm template, GitOps, --dry-run), so generated secrets would change on every render. Set %s explicitly, or global.secrets.existingSecret to a Secret you manage." (join ", " .missing)) "" -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -159,7 +159,7 @@ point at your own. As a subchart of the RapidMX server those values come from th
 the same JWT secret.
 */}}
 {{- define "auth-server.vaultManagedSecrets" -}}
-{{- if and .Values.externalSecrets.enabled (.Values.global).openbao -}}
+{{- if and .Values.global.externalSecrets.enabled .Values.global.openbao -}}
 {{- if .Values.global.openbao.enabled -}}
 true
 {{- end -}}

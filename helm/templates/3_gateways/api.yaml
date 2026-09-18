@@ -5,16 +5,16 @@ Gateway across both, rather than each independently trying to create a resource 
 whichever Gateway the parent actually created (gateway.name/gateway.namespace still resolve normally
 either way; this only gates the `if` below).
 */}}
-{{- $ownsGateway := and $.Values.gateway.create (eq "api-gateway" (tpl $.Values.gateway.name $)) (eq $.Release.Namespace (tpl $.Values.gateway.namespace $)) }}
+{{- $ownsGateway := and $.Values.global.gateway.create (eq "api-gateway" (tpl $.Values.global.gateway.name $)) (eq $.Release.Namespace (tpl $.Values.global.gateway.namespace $)) }}
 {{- /* Matches tls-certs.yaml: a certificate is only issued for a host that can get one. */}}
-{{- $certificate := and $.Values.gateway.tls (ne (include "rrst.render" (dict "value" $.Values.host "context" $)) "localhost") (not (contains ".local" (include "rrst.render" (dict "value" $.Values.host "context" $)))) }}
+{{- $certificate := and $.Values.global.gateway.tls (ne (include "rrst.render" (dict "value" $.Values.host "context" $)) "localhost") (not (contains ".local" (include "rrst.render" (dict "value" $.Values.host "context" $)))) }}
 {{- if $ownsGateway }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: api-gateway
 spec:
-  gatewayClassName: {{ $.Values.gateway.className | quote }}
+  gatewayClassName: {{ $.Values.global.gateway.className | quote }}
   listeners:
   - name: http
     port: 80
@@ -50,8 +50,8 @@ metadata:
   name: {{ include "rrst.fullname" . }}-httproute
 spec:
   parentRefs:
-  - name: {{ tpl $.Values.gateway.name $ }}
-    namespace: {{ tpl $.Values.gateway.namespace $ }}
+  - name: {{ tpl $.Values.global.gateway.name $ }}
+    namespace: {{ tpl $.Values.global.gateway.namespace $ }}
     sectionName: http
   {{- if and $ownsGateway $certificate }}
   - name: api-gateway
@@ -68,7 +68,7 @@ spec:
     backendRefs:
     - name: {{ include "rrst.fullname" . }}-services
       port: 80
-    {{- if not $.Values.gateway.hsts }}
+    {{- if not $.Values.global.gateway.hsts }}
     # Standard Gateway API filter, so it works on any implementation (Envoy Gateway, nginx-gateway-fabric, ...).
     filters:
     - type: ResponseHeaderModifier
