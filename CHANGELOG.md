@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.7] - 2026-09-18
+
+### Added
+- Added service-account to helm chart
+
+### Changed
+- Renaming helm 'auth-server' helpers to 'rrst'
+- Re-organizing helpers file
+- Cleaning up syntax for helm helpers file to be more readable
+
+### Fixed
+- Fixed helm datastore configuration
+
+
 ## [1.0.0-beta.6] - 2026-09-18
 
 ### Changed
@@ -349,7 +363,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.6...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.7...HEAD
+[1.0.0-beta.7]: github/auth-server/compare/v1.0.0-beta.6...v1.0.0-beta.7
 [1.0.0-beta.6]: github/auth-server/compare/v1.0.0-beta.5...v1.0.0-beta.6
 [1.0.0-beta.5]: github/auth-server/compare/v1.0.0-beta.4...v1.0.0-beta.5
 [1.0.0-beta.4]: github/auth-server/compare/v1.0.0-beta.3...v1.0.0-beta.4
