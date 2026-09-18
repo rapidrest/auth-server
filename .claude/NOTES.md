@@ -1299,7 +1299,7 @@ chart's `host` as a subchart value, which can't be computed - so `host` has to a
   values are `tpl`'d by jwt-auth.yaml, and `tpl` renders one level only, so with a templated `host` they would have
   produced the literal template text as the claim.
 - **Cross-chart gotcha:** a parent can't reference this chart's helper from its own values (the RapidMX server chart
-  tried `authServer.auth.issuer: '{{ include "auth-server.host" . }}'` and it failed against an older bundled copy).
+  tried `authServer.auth.issuer: '{{ include "rrst.host" . }}'` and it failed against an older bundled copy).
   Both charts derive the claims from `global.domain` instead.
 
 Verified: `helm lint`; `helm template` standalone (default `auth.localhost`, audience/issuer `auth.localhost`/
@@ -1329,7 +1329,7 @@ delivery through External Secrets (not the agent injector).
   being required (`server.assertSuppliedSecrets`).
 - **Cross-chart sharing:** the server publishes its vault's coordinates in `global.openbao`
   (address/kvMount/secretsPath/tokenSecret, all templates the subchart renders), and the auth-server chart uses them
-  instead of bundling its own vault (`auth-server.usesParentVault`). Both then read the same `auth_secret`, which is
+  instead of bundling its own vault (`rrst.usesParentVault`). Both then read the same `auth_secret`, which is
   what keeps signing and verification in step - the reason the auth-server chart couldn't just generate its own.
 - **postfix-bridge** gained `ingestSecretRef` (uncommitted, needs a 1.2.0 release): with the secret in the vault there
   is no value to hand it, so it reads the server's Secret instead. The server chart pins the dependency to 1.2.0 and
@@ -1356,7 +1356,7 @@ JP: treat OpenBao like cert-manager - pre-installed, with a flag on the installe
   `--set global.openbao.enabled=true`: a bare `helm install` mustn't assume a vault is there, the installer knows it is.
 - The `openbao` dependency, `openbao.create` and `templates/4_vault/openbao.yaml` are gone. The chart now only consumes
   `global.openbao` (enabled/address/kvMount/secretsPath/auth), which is also what the RapidMX server passes down when
-  this chart is its subchart, so both ends read the same `auth_secret`. `auth-server.vaultAuth` gained the server's
+  this chart is its subchart, so both ends read the same `auth_secret`. `rrst.vaultAuth` gained the server's
   `method: token|kubernetes` choice; `address` defaults to `http://openbao.openbao.svc:8200` (the installer's
   namespace) and the token Secret to `<fullname>-openbao-eso`, with fails when either is emptied out.
 - `scripts/k3s_install.sh --openbao <true|false>` (default true, `OPENBAO_ADDRESS` to use a vault you already run)

@@ -1,4 +1,4 @@
-{{- if ne (include "auth-server.vaultManagedSecrets" .) "true" }}
+{{- if ne (include "rrst.vaultManagedSecrets" .) "true" }}
 ---
 apiVersion: v1
 kind: Secret
@@ -11,7 +11,7 @@ data:
   {{- $secret := (lookup "v1" "Secret" .Release.Namespace (printf "%s-jwt-auth" (include "rrst.fullname" .))) | default dict }}
   {{- $secretData := (get $secret "data") | default dict }}
   {{- /* Generated once and kept: the stored value wins over the default, an explicit auth.secret wins over both. */}}
-  {{- $jwtSecret := include "auth-server.persistedSecret" (dict "value" .Values.global.jwt.secret "stored" $secretData "context" .) | quote }}
+  {{- $jwtSecret := include "rrst.persistedSecret" (dict "value" .Values.global.jwt.secret "stored" $secretData "context" .) | quote }}
   auth__options__audience: {{ include "rrst.render" ( dict "value" .Values.global.jwt.audience "context" $) | b64enc | quote }}
   auth__options__issuer: {{ include "rrst.render" ( dict "value" .Values.global.jwt.issuer "context" $) | b64enc | quote }}
   auth__options__expiresIn: {{ include "rrst.render" ( dict "value" .Values.global.jwt.expiresIn "context" $) | b64enc | quote }}
