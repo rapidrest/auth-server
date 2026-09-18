@@ -62,7 +62,7 @@
     "winston-transport": "^4.9.0"
   },
   "devDependencies": {
-    "@rapidrest/cli": "^1.0.1",
+    "@rapidrest/cli": "^2.1.0",
     "@swc/core": "^1.16.2",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",
