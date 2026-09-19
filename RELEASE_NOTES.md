@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Helm chart
+
+* Fixed the cert-manager Issuer, which was mis-indented (`name` and `acme` at the wrong level) and shared one ACME account key Secret with a parent chart's own Issuer; the account key is now named after the Issuer
+* Fixed the Certificate's `issuerRef`, which read `certmanager.*` (a nil-pointer failure) instead of `global.certmanager.*` and named a namespace cert-manager rejects
+* Fixed `refreshInterval` in the ExternalSecrets, which read `externalSecrets.*` instead of `global.externalSecrets.*`
+* Fixed the HTTPRoute of a Gateway the chart doesn't create: it now names no listener, so it attaches to every listener that accepts the host
+* Added a ReferenceGrant so a Gateway in another namespace can read the certificate Secret when `global.gateway.name`/`global.gateway.namespace` point at one
+
 ## v1.0.0-beta.11
 
 ## v1.0.0-beta.10
