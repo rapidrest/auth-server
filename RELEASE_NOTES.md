@@ -9,6 +9,7 @@
 * Fixed `refreshInterval` in the ExternalSecrets, which read `externalSecrets.*` instead of `global.externalSecrets.*`
 * Fixed the HTTPRoute of a Gateway the chart doesn't create: it now names no listener, so it attaches to every listener that accepts the host
 * Added a ReferenceGrant so a Gateway in another namespace can read the certificate Secret when `global.gateway.name`/`global.gateway.namespace` point at one
+* Fixed the vault-managed `service-secrets` ExternalSecret replacing the Secret the chart renders, which dropped `default_accounts` so the default admin account was never created; it now uses `creationPolicy: Merge`
 
 ## v1.0.0-beta.11
 
