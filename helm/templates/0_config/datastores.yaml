@@ -58,7 +58,7 @@ data:
   datastores__mongo__url: {{ (printf "%s://%s/%s" $mongoProtocol $mongoHost $mongoDatabase) | b64enc | quote }}
   {{- end }}
   datastores__acl__type: {{ printf "mongodb" | b64enc | quote }}
-  datastores__sql__type: {{ printf "mongodb" | b64enc | quote }}
+  datastores__mongo__type: {{ printf "mongodb" | b64enc | quote }}
 {{- end }}
 {{- if $.Values.global.cache.enabled }}
   {{- $redisPassword := "" }}
