@@ -158,7 +158,124 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
-### 2026-09-19 (latest) — `return_to` for downstream apps, TOTP proof-of-setup, and a cookie `Domain` option
+### 2026-09-19 (latest) — How messages are *sent* (SMTP, Twilio, sender addresses) moved into the database; config seeds it
+
+Follow-up to the entry below. Left uncommitted at the time of writing. **Supersedes** that entry's Twilio-precedence and
+"scope decisions" bullets (both corrected in place there).
+
+- **Config seeds the database once, then the database is the source of truth.** `MessagingSettingsStore`
+  (`src/messaging/`) owns one row (`MessagingSettingsSQL/Mongo`, `uid: "default"`): `smtpHost/Port/Secure/User/
+  Password`, `fromEmail`, `twilioAccountSid/Token`, `fromSms`, and a `seeded` flag. The first read fills every
+  *still-empty* field from `smtp_config`, `templates.from` and `twilio`, marks it seeded, and never consults config
+  for those values again — so an admin who clears a field really clears it (no silent fallback to config, which the
+  first Twilio version had). A row that already has values (saved before seeding existed) keeps them; only gaps are
+  filled. Two replicas racing to seed are fine: the loser re-reads and accepts the winner's row. Seeded at startup
+  by an `@Init` on the messaging class (best effort) and lazily on first use otherwise.
+- **The consequence to remember:** changing `smtp_config`/`twilio`/`templates.from` in config *after* the first
+  start does **not** reach a seeded deployment on its own. Each card has a **Reset to configuration** button
+  (`POST /api/settings/{smtp,twilio}/reset`) that makes that card's settings match config *now* — overwriting what's
+  saved and **clearing any field config doesn't have** (so it can wipe a deployment whose config is empty; the
+  confirm says so). It touches only its own group (SMTP: host/port/secure/user/password/`fromEmail`; Twilio:
+  SID/token/`fromSms`), never the other card's, and is refused (500, nothing written) if a secret needs encrypting
+  and there's no valid key. "Config now" is the value read *at process start* (injected `@Config`), so it's a restart
+  that puts new environment values in front of it. Documented in `config.templates.ts`, both `config.*.ts` and
+  the cards' copy.
+- **Config defaults are deliberately absent** for `smtp_config`/`twilio` (a placeholder host would be seeded as if it
+  were real); `config.{sql,mongo}.ts` only document the env var names (`smtp_config__host`, `twilio__accountSid`,
+  `templates__from__email`, …). `templates.from.*` defaults stay `""`.
+- **What still comes from config, always:** options the console doesn't model — nodemailer's `tls`/`pool`/…, Twilio's
+  `options` — are merged in (`smtpOptionsFrom`), with the modeled fields never overridable by them.
+- **Fallbacks that do exist, for resilience only:** config alone applies while the row can't be read or seeded (DB
+  down; or a secret in config with no valid encryption key, since it can't be stored), and a *saved secret that
+  won't decrypt* (encryption key changed) falls back to config's value for that one secret. Everything is logged.
+  `resolve()` never throws; the admin `get`/`update` do.
+- **Secrets:** `twilioToken` and `smtpPassword` are `SecretBox` envelopes under `auth:oauth_server:keys:encryption_key`
+  (rotating it invalidates both — re-enter them; config's values are used meanwhile). Never returned by any endpoint
+  (`tokenSet` / `passwordSet` only). Storing one with no valid key is refused (500) — never plaintext. SMTP password is
+  kept exactly as typed (a password may have spaces); the Twilio token is trimmed (a stray space is a paste error).
+- **Live transports.** `BaseDatabaseMessagingUtils` rebuilds core's SMTP transport / Twilio client only when what's in
+  effect changes (`syncSmtp()`/`syncTwilio()`, keyed on the resolved options), starting from the one core's `init()`
+  built from config. `from` is filled into the working templates per send from the resolved settings. A transport
+  or client that can't be built is logged, leaves that channel unconfigured, and isn't retried until the settings change.
+  `smtp_config`/`twilio` are read through separate `@Config` fields (`configuredSmtp`/`configuredTwilio`) because core's
+  own `smtpConfig`/`twilio` are the *active* ones that get overwritten.
+- **API/UI.** `/api/settings/smtp` and `/api/settings/twilio` (`{host,port,secure,user,passwordSet,from,configured}` /
+  `{accountSid,tokenSet,from,configured}` — the earlier `source` field is gone), one card each on the Messages page.
+  Validation is strict and shared (`validateSmtpInput`/`validateTwilioInput`): host is a bare host/IP, port 1–65535,
+  the e-mail sender must be an address (optionally named) with **no line breaks** (header injection), the SMS sender
+  a `+` E.164 number or an alphanumeric ID ≤ 11 chars with a letter (a Messaging Service SID is rejected — core sends
+  it as `from`, where Twilio wants a different field). The cards send only what changed, and a blank secret field
+  means "keep", never `null`.
+- **Tests.** `MessagingSettings.test.ts` (validators/DTOs), `MessagingSettingsStore.test.ts` (seeding rules, resolve
+  fallbacks, saving — fake repo), the transport blocks in `BaseDatabaseMessagingUtils.test.ts`, and the real-server
+  `MessageTemplateRoute.{sql,mongo}.test.ts` (Mongo generated from SQL) now start with `smtp_config`/`twilio`/`from`
+  in config and assert the database was seeded from them, encrypted, and that edits go live with no restart.
+
+### 2026-09-19 (later) — Message templates and Twilio credentials in the database, editable in the admin console
+
+Edit the e-mail/SMS wording from the admin console (**Messages**) with no redeploy, have every message use the
+site branding by default, and set the Twilio account SID/token in the database. Left uncommitted at the time of writing.
+
+- **How the swap works — the file name is load-bearing.** `src/{sql,mongo}/MessagingUtils.ts` default-exports a
+  subclass of core's `MessagingUtils`. `Server.start()` registers every class found under the base path in
+  `ObjectFactory` by fqn *before* anything is instantiated, and a default export takes its file's name, so it's
+  registered as `MessagingUtils` — the name every `@Inject(MessagingUtils)` in `@rapidrest/auth` resolves to.
+  Nothing upstream changed. Renaming/moving that file silently restores the stock class; both routes therefore
+  refuse to start unless their injected instance is a `BaseDatabaseMessagingUtils`, and
+  `MessageTemplateRoute.*.test.ts` asserts every route holding a `messagingUtils` got that same instance.
+- **Storage.** `MessageTemplateSQL/Mongo`: one row per template, `uid` = the template name, every field an
+  *override* (`null` = follow the config default, any string incl. `""` = deliberate). Saving a part that equals
+  the default stores `null`, so it keeps following the default across upgrades; a row with nothing left is
+  deleted. `MessagingSettingsSQL/Mongo`: a singleton (`uid: "default"`) for the Twilio credentials, kept apart from
+  `SiteSettings` because that row is served to anonymous visitors. Both models are `@Protect` deny-all and only
+  reached with `ignoreACL` from routes gated by `@RequiresTrustedRole()`.
+- **Sends read through `RepoUtils`, per send.** Its cache is shared via Redis and invalidated on update, so an edit
+  reaches every replica immediately with no invalidation of our own (proved in the integration test:
+  send → edit → send → reset → send). A failed read is logged and the *default* is sent — a code arriving in the
+  old wording beats none arriving; the admin console instead surfaces the error.
+- **`MessagingUtils` keeps a private working copy of the templates.** nconf hands out nested config objects by
+  reference, so writing an admin's edit into `this.templates` would rewrite the shared config. `loadTemplate()`
+  rebuilds `working[name]` per send from the live config + the saved row, and `htmlPath`/`textPath` files are
+  read by us (per send, so edits to the file apply without a restart) and the paths dropped — otherwise core's
+  once-per-instance file-load gate would never re-read them for the fresh object.
+- **Branding.** `brand.{name,companyName,siteTitle,logoUrl,serverUrl}` is merged into every send's variables (the
+  caller's own `brand` wins). `logoUrl` is made **absolute** against `auth:oauth_server:issuer` (uploaded logos →
+  `/api/settings/branding/logo`); an e-mail has no page to resolve a relative address against. Defaults now have a
+  branded `html` part. **Escaping rule:** in `subject`/`text`/`sms` write `{{{brand.name}}}` (three braces), in
+  `html` `{{brand.name}}` — Handlebars escapes `{{ }}` for HTML, which would turn "Tom & Jerry" into `Tom &amp;
+  Jerry` in plain text. `MessageTemplates.test.ts` enforces this. E-mail clients (Gmail especially) won't show an
+  SVG logo; the `alt` text (the brand name) shows instead — a PNG/JPEG logo is needed for it to render everywhere.
+- **Validation and preview are the same code path.** Handlebars compiles lazily, so a mistake only surfaces at the
+  first real send — which the routes log and swallow, i.e. the user never gets their code. `renderTemplate()` runs
+  the candidate through a real `MessagingUtils` (only the SMTP/Twilio transports swapped for echoes) and PUT is
+  refused with a 400 unless it renders; `POST .../preview` returns that same output (real branding, sample code
+  `123456`), shown in the console in a fully sandboxed `<iframe sandbox="" srcDoc>`.
+- **Empty means off.** An empty `subject` stops the e-mail, an empty `sms` stops the text, `enabled: false` stops
+  both, an empty `html` sends plain text only. (Core's own semantics, surfaced in the editor's hints.)
+- **Twilio.** ~~Saved SID+token over config's~~ — **superseded by the entry above** (config now only seeds the
+  database; the database is authoritative). What still holds: the SDK client is rebuilt only when the credentials in
+  effect change (`syncTwilio()`), starting from the client core's `init()` already built from config; a client the
+  SDK rejects is logged and not retried until they change; the token is **write-only** — encrypted at rest (AES-256-GCM,
+  the auth library's `enc:v1:` envelope, `src/messaging/SecretBox.ts`) under `auth:oauth_server:keys:encryption_key`,
+  never returned (`tokenSet` only), and with no valid key the PUT is refused (500) rather than falling back to
+  plaintext, unlike the auth library's TOTP helper. Rotating that key invalidates saved secrets. Kept at
+  `/api/settings/twilio`, not under `/settings/messages`, where `/:name` would claim it as a template called `twilio`.
+- **Scope decisions.** ~~SMTP and the `from` addresses stay deployment config~~ — **superseded by the entry above**:
+  they, and Twilio, are now database settings seeded from config. The console still lists only templates the config
+  defines (a downstream can add its own) and never `from`.
+- **`@Config` gotcha, again:** `@Config("x")` with no default throws at startup for an unset path — give every
+  optional one a default.
+- Tests: helpers/units (`MessageTemplateHelpers`, `BaseDatabaseMessagingUtils` — fake repos, failure paths,
+  `MessageRoutes`, `SecretBox`, `TwilioSettings`, model constructors), real-server SQL **and** Mongo
+  (`MessageTemplateRoute.{sql,mongo}.test.ts` — the Mongo file is generated from the SQL one; edit the SQL one and
+  re-derive it), and the UI (`TemplateEditor`, `TwilioCard`, `TemplateTable`, `MessagePreview`, both pages,
+  `messagingApi`). Full suite 1376/1376; 100% statements/functions/lines, branches 99.94% — the single uncovered
+  branch is `useSiteSettings.ts:44`, identical on the untouched baseline.
+- Also fixed in passing: the header/footer card's copy claimed the header shows on every page (untrue since the
+  header/brand UX change); the page heading is "E-mail & text messages" because the shell's top bar already has
+  an `<h1>Messages</h1>` (same pattern as Settings/"Site settings").
+
+### 2026-09-19 — `return_to` for downstream apps, TOTP proof-of-setup, and a cookie `Domain` option
 
 Three related changes, all left uncommitted per the standing decision.
 
@@ -209,11 +326,13 @@ Three related changes, all left uncommitted per the standing decision.
   `src/config.templates.ts` (`DEFAULT_MESSAGE_TEMPLATES`) and are wired into both configs as `templates`. The
   three names, by scanning `@rapidrest/auth`'s shipped code, are `login-otp` (OTP/MFA sign-in **and** elevation),
   `verify-contact-otp` and `register-otp`, each with `subject`+`text` (e-mail) and `sms`, variable `{{totp}}`.
-  Decisions: (1) **plain text, no default `html`** — mail clients prefer `html` over `text`, so a default one would
-  silently shadow a downstream `text` override; add `html`/`htmlPath` to send multipart. (2) **`from.email`/
+  Decisions: (1) ~~plain text, no default `html`~~ — **superseded 2026-09-19**: the defaults now have a branded
+  `html` part (a logo needs one), so an `html` part shadows a `text` override in mail clients; to send plain
+  text only, set `html: ""` (see the 2026-09-19 messages entry). (2) **`from.email`/
   `from.sms` are empty**, not a placeholder domain — with them empty `MessagingUtils` logs a clear warning
   instead of sending as a sender nobody set up. (3) Nothing sends until `smtp_config` (e-mail) / `twilio` (SMS)
-  are configured too; this change doesn't add those. (4) The configs get a `structuredClone()` of the defaults,
+  are configured too — Twilio's SID/token can now be saved in the database instead (see below); SMTP and both
+  `from` values stay deployment config. (4) The configs get a `structuredClone()` of the defaults,
   because nconf hands nested objects out by reference and `config.set("templates:…")` was rewriting the shared
   constant (caught by a test). `test/MessageTemplates.test.ts` scans the auth library for template names, so a
   message added upstream fails the suite until it gets a default. Downstream overrides merge key by key

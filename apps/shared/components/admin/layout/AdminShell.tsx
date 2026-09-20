@@ -4,7 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React, { PropsWithChildren, ReactNode, useEffect, useState } from "react";
 import { IconType } from "react-icons";
-import { FiKey, FiSettings, FiUsers } from "react-icons/fi";
+import { FiKey, FiMail, FiSettings, FiUsers } from "react-icons/fi";
 import { Alias, AliasType, ApiRequestError, getProfile, listAliases, logout, Profile } from "../../../lib/api.js";
 import { ensureElevated } from "../../../lib/adminApi.js";
 import { useSessionRefresh } from "../../../lib/useSessionRefresh.js";
@@ -16,7 +16,7 @@ import Alert from "../../feedback/Alert.js";
 import AvatarMenu from "./AvatarMenu.js";
 
 /** The top-level console sections, each with its own sidebar entry. */
-export type AdminSection = "users" | "oauth-clients" | "settings";
+export type AdminSection = "users" | "oauth-clients" | "messages" | "settings";
 
 interface NavItem {
     section: AdminSection;
@@ -28,6 +28,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
     { section: "users", label: "Users", href: "/admin", icon: FiUsers },
     { section: "oauth-clients", label: "OAuth Clients", href: "/admin/oauth-clients", icon: FiKey },
+    { section: "messages", label: "Messages", href: "/admin/messages", icon: FiMail },
     { section: "settings", label: "Settings", href: "/admin/settings", icon: FiSettings },
 ];
 

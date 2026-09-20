@@ -233,10 +233,19 @@ conf.defaults({
     // reverse proxy/load balancer's IP(s) if you deploy behind one.
     trusted_proxies: [],
     // The e-mail/SMS sent for every one-time code this server issues (sign-in, verifying a contact, registering).
-    // Override any part downstream — see `DEFAULT_MESSAGE_TEMPLATES` for how, and for the transport config
-    // (`smtp_config`, `twilio`) and `from` sender that must also be set before anything is actually sent.
+    // Edited in the admin console (Messages) with no redeploy; see `DEFAULT_MESSAGE_TEMPLATES` for the defaults.
     // A copy, because nconf hands nested objects out by reference: without it, `config.set("templates:…")` (or
     // `MessagingUtils` loading a template's file) would rewrite `DEFAULT_MESSAGE_TEMPLATES` itself.
+    //
+    // HOW they're sent isn't set here on purpose — a placeholder host or sender would be seeded into the database as
+    // if it were real. Set these for the FIRST start (in the environment, or your own config) and they seed the
+    // database; from then on the admin console's Messages page owns them, and changing them here has no effect on
+    // a running deployment until you restart and press "Reset to configuration" on that card:
+    //   E-mail:  smtp_config__host, smtp_config__port, smtp_config__secure, smtp_config__auth__user,
+    //            smtp_config__auth__pass, templates__from__email
+    //   SMS:     twilio__accountSid, twilio__token, templates__from__sms
+    // Secrets are encrypted at rest under `auth:oauth_server:keys:encryption_key`. Options the console doesn't model
+    // (nodemailer's `smtp_config__tls__*`, Twilio's `twilio__options__*`) stay here and are always merged in.
     templates: structuredClone(DEFAULT_MESSAGE_TEMPLATES),
 });
 

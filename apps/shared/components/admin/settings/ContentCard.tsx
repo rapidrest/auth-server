@@ -49,7 +49,10 @@ export default function ContentCard({ settings, onUpdated }: ContentCardProps) {
         <div className="rr-card">
             <div className="rr-card__title">Header &amp; footer</div>
             <p className="rr-card__subtitle">
-                Custom HTML rendered above and below the main content on every www and admin console page.
+                Custom HTML rendered around the main content. The header appears above pages that don’t already show
+                the logo, such as the account page — not in the admin console, and not on the sign-in, sign-up and
+                consent pages, which show the logo themselves. The footer appears below every www and admin console
+                page.
             </p>
             {error && <Alert>{error}</Alert>}
 

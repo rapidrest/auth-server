@@ -32,6 +32,7 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 * A dedicated admin dashboard app for managing user accounts — search/filter, create, view/edit detail (roles, scopes, verification, MFA), and delete
 * OAuth client management — create, view/edit, rotate secrets, and delete
 * Site branding customization — logo, site title, custom header/footer HTML and stylesheet
+* E-mail and SMS message templates — edit the wording of every one-time-code message with a live preview, stored in the database (no redeploy) and branded from the site branding by default — plus the SMTP server, Twilio credentials and sender addresses they're sent with, seeded from config on first start and editable from then on
 * Admin impersonation of user accounts, with a persistent banner while impersonating
 * Default account provisioning on startup via a configurable background job
 

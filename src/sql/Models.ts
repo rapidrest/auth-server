@@ -13,3 +13,5 @@ export {
     SigningKeySQL,
 } from "@rapidrest/auth/sql";
 export { SiteSettingsSQL } from "../models/sql/SiteSettingsSQL.js";
+export { MessageTemplateSQL } from "../models/sql/MessageTemplateSQL.js";
+export { MessagingSettingsSQL } from "../models/sql/MessagingSettingsSQL.js";

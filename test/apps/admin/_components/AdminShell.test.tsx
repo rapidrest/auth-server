@@ -93,6 +93,7 @@ describe("AdminShell", () => {
         expect(within(sidebar).getByRole("link", { name: "Users" })).toHaveAttribute("href", "/admin");
         expect(within(sidebar).getByRole("link", { name: "Users" })).toHaveAttribute("title", "Users");
         expect(within(sidebar).getByRole("link", { name: "OAuth Clients" })).toHaveAttribute("href", "/admin/oauth-clients");
+        expect(within(sidebar).getByRole("link", { name: "Messages" })).toHaveAttribute("href", "/admin/messages");
         expect(within(sidebar).getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/admin/settings");
         expect(within(sidebar).getByRole("link", { name: "RapidREST Admin" })).toHaveAttribute("href", "/admin");
         expect(screen.getByRole("heading", { level: 1, name: "Users" })).toBeInTheDocument();
@@ -114,6 +115,7 @@ describe("AdminShell", () => {
     it.each([
         ["users", "Users"],
         ["oauth-clients", "OAuth Clients"],
+        ["messages", "Messages"],
         ["settings", "Settings"],
     ] as const)("highlights only the %s sidebar entry and titles the top bar with it", async (section, label) => {
         mockFetch((url) => {
@@ -130,7 +132,7 @@ describe("AdminShell", () => {
 
         expect(await screen.findByText("content")).toBeInTheDocument();
         expect(screen.getByRole("heading", { level: 1, name: label })).toBeInTheDocument();
-        for (const name of ["Users", "OAuth Clients", "Settings"]) {
+        for (const name of ["Users", "OAuth Clients", "Messages", "Settings"]) {
             const link = screen.getByRole("link", { name });
             if (name === label) {
                 expect(link).toHaveAttribute("aria-current", "page");

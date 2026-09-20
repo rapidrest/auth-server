@@ -13,3 +13,5 @@ export {
     SigningKeyMongo,
 } from "@rapidrest/auth/mongo";
 export { SiteSettingsMongo } from "../models/mongo/SiteSettingsMongo.js";
+export { MessageTemplateMongo } from "../models/mongo/MessageTemplateMongo.js";
+export { MessagingSettingsMongo } from "../models/mongo/MessagingSettingsMongo.js";

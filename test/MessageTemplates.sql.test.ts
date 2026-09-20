@@ -32,6 +32,6 @@ describe("Message templates config (sql)", () => {
     it("leaves the shared defaults themselves untouched by an override", () => {
         config.set("templates:login-otp:subject", "Acme sign-in code");
 
-        expect(DEFAULT_MESSAGE_TEMPLATES["login-otp"].subject).toBe("Your sign-in verification code");
+        expect(DEFAULT_MESSAGE_TEMPLATES["login-otp"].subject).toBe("Your {{{brand.name}}} sign-in verification code");
     });
 });
