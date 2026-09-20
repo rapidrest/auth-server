@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.14] - 2026-09-20
+
+### Added
+- Added tests for the enabled provider list, the sql and mongo wwwRoute props and the sign-in page buttons
+
+### Changed
+- Hide the sign-in page's Continue with Google, Microsoft, Apple and Facebook buttons until that provider's clientID has been replaced from its shipped placeholder in the config, by sending the ids of the configured providers to the page as oauthProviders
+- Hide the or divider on the sign-in page when no OAuth provider is configured
+- Document the change in the README, CHANGELOG, release notes and NOTES
+
+
 ### Changed
 - Hide the Continue with Google, Microsoft, Apple and Facebook buttons on the sign-in page until that provider's clientID has been replaced from its shipped placeholder in the config, and the or divider too when none remain
 
@@ -445,7 +456,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.13...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.14...HEAD
+[1.0.0-beta.14]: github/auth-server/compare/v1.0.0-beta.13...v1.0.0-beta.14
 [1.0.0-beta.13]: github/auth-server/compare/v1.0.0-beta.12...v1.0.0-beta.13
 [1.0.0-beta.12]: github/auth-server/compare/v1.0.0-beta.11...v1.0.0-beta.12
 [1.0.0-beta.11]: github/auth-server/compare/v1.0.0-beta.10...v1.0.0-beta.11

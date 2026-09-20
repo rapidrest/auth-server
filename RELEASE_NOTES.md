@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.14
+
 * The sign-in page now only shows the Continue with Google, Microsoft, Apple and Facebook buttons for providers whose `auth.<provider>.clientID` has been changed from the shipped placeholder (e.g. `DEFAULT_MICROSOFT_CLIENT_ID`), since a button for a provider still on placeholder credentials can only end in that provider's error page; with none configured only the account ID / e-mail / phone form is shown
 
 ## v1.0.0-beta.13
