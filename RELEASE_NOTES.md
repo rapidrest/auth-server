@@ -11,6 +11,15 @@
 * Added a ReferenceGrant so a Gateway in another namespace can read the certificate Secret when `global.gateway.name`/`global.gateway.namespace` point at one
 * Fixed the vault-managed `service-secrets` ExternalSecret replacing the Secret the chart renders, which dropped `default_accounts` so the default admin account was never created; it now uses `creationPolicy: Merge`
 
+### k3s_install.sh
+
+* Fixed the script never finishing an install: it looked for a Gateway called `api-gateway` (the chart creates `<release>-gateway`), looked for its Envoy Service in the release's namespace (Envoy Gateway creates it in `envoy-gateway-system`) and waited for port 443 on that Service, which only exists once the certificate does, and the certificate is issued through the Service nginx forwards to after the wait
+* Fixed `--tls false` being ignored, and the ACME account being registered with `admin@domain.local`, by passing `global.gateway.*` and `global.certmanager.email` (`--email`) to the chart, which doesn't read `gateway.*`
+* Fixed nginx listening on IPv4 only, so Let's Encrypt and browsers that try IPv6 first for a host with an AAAA record couldn't connect
+* Fixed the reverse proxy check treating Envoy's HTTP 400 (a PROXY protocol mismatch) as reachable
+* Fixed the OpenBao unseal and the openbao-unsealer Deployment passing the key as `-`, which OpenBao takes literally
+* Removed the `letsencrypt-prod` ClusterIssuer the script created and the chart never used, now that the chart issues its certificates from its own Issuer (`--email` is passed to it); an install that made one still has it removed by `--uninstall`, and cert-manager's webhook is waited for with a server-side dry run of an Issuer instead
+
 ## v1.0.0-beta.11
 
 ## v1.0.0-beta.10

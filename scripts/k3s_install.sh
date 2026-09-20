@@ -36,11 +36,12 @@ OPENBAO_LOCAL_ADDRESS=http://127.0.0.1:8200
 OPENBAO_KEYS_SECRET=openbao-keys
 # The kv v2 mount, which must match the chart's global.openbao.kvMount.
 OPENBAO_KV_MOUNT=${OPENBAO_KV_MOUNT:-secret}
-# The chart creates this Gateway itself (its gateway.create/name/namespace defaults), on the envoy class below.
+# The chart creates this Gateway itself (its global.gateway defaults), in the release's namespace, on the envoy class below.
+# Its name is "<fullname>-gateway", so GATEWAY_NAME is set once FULLNAME is known.
 GATEWAY_NAMESPACE=$NAMESPACE
-GATEWAY_NAME=api-gateway
+GATEWAY_NAME=
 ENVOY_NAMESPACE=envoy-gateway-system
-# Let's Encrypt account email for the ClusterIssuer. Defaults to admin@<domain> (a bare host name isn't a valid domain).
+# Let's Encrypt account email for the chart's Issuer. Defaults to admin@<domain> (a bare host name isn't a valid domain).
 ACME_EMAIL=${ACME_EMAIL:-}
 UNINSTALL=false
 SKIP_K3S=false
@@ -335,9 +336,10 @@ function firewallOpenPort() {
   esac
 }
 
-# Reads field $1 (a jsonpath) of the Service Envoy Gateway created for the shared Gateway.
+# Reads field $1 (a jsonpath) of the Service Envoy Gateway created for the Gateway. Envoy Gateway runs it in its own
+# namespace, whatever namespace the Gateway is in.
 function gatewayService() {
-  kubectl -n "$GATEWAY_NAMESPACE" get svc -o jsonpath="{.items[0]$1}" 2>/dev/null \
+  kubectl -n "$ENVOY_NAMESPACE" get svc -o jsonpath="{.items[0]$1}" 2>/dev/null \
     -l "gateway.envoyproxy.io/owning-gateway-name=$GATEWAY_NAME,gateway.envoyproxy.io/owning-gateway-namespace=$GATEWAY_NAMESPACE"
 }
 
@@ -437,8 +439,10 @@ function installOpenbao() {
 
   if ! kubectl -n "$OPENBAO_NAMESPACE" exec "$OPENBAO_POD" -- bao status -address="$OPENBAO_LOCAL_ADDRESS" -format=json 2>/dev/null | tr -d ' ' | grep -q '"sealed":false'; then
     echo "Unsealing OpenBao..."
-    # Over stdin ("-"), so the key isn't in the vault pod's process list either.
-    if ! printf '%s' "$OPENBAO_UNSEAL_KEY" | kubectl -n "$OPENBAO_NAMESPACE" exec -i "$OPENBAO_POD" -- bao operator unseal -address="$OPENBAO_LOCAL_ADDRESS" - >/dev/null; then
+    # `bao operator unseal` takes the key only as an argument (it refuses stdin and, unlike Vault, "-"), so a shell in the
+    # pod reads it from stdin and passes it on: it isn't in this host's process list.
+    if ! printf '%s\n' "$OPENBAO_UNSEAL_KEY" | kubectl -n "$OPENBAO_NAMESPACE" exec -i "$OPENBAO_POD" -- \
+        sh -c 'read -r key && exec bao operator unseal -address="$1" "$key"' sh "$OPENBAO_LOCAL_ADDRESS" >/dev/null; then
       echo "There was a problem unsealing OpenBao."
       exit 1
     fi
@@ -476,7 +480,7 @@ spec:
             - |
               while true; do
                 if bao status -format=json 2>/dev/null | tr -d ' ' | grep -q '"sealed":true'; then
-                  if printf '%s' "\$UNSEAL_KEY" | bao operator unseal - >/dev/null 2>&1; then
+                  if bao operator unseal "\$UNSEAL_KEY" >/dev/null 2>&1; then
                     echo "Unsealed OpenBao."
                   else
                     echo "Could not unseal OpenBao; retrying."
@@ -593,6 +597,7 @@ function uninstall() {
       helm uninstall "$release" -n "$release"
     fi
     if [[ "`installedBy cluster_issuer`" = "true" ]]; then
+      # Made by earlier versions of this script; the chart has its own Issuer now.
       echo "Removing the letsencrypt-prod ClusterIssuer..."
       kubectl delete clusterissuer letsencrypt-prod --ignore-not-found
     fi
@@ -762,6 +767,7 @@ FULLNAME=$NAMESPACE
 if [[ "$NAMESPACE" != *auth-server* ]]; then
   FULLNAME="$NAMESPACE-auth-server"
 fi
+GATEWAY_NAME="$FULLNAME-gateway"
 OPENBAO_SECRETS_PATH="$FULLNAME/secrets"
 OPENBAO_ESO_SECRET="$FULLNAME-openbao-eso"
 if [[ "$TLS" = "false" ]]; then
@@ -976,41 +982,26 @@ if [[ "$TLS" = "true" ]]; then
     recordInstalled cert_manager
   fi
 
-  if ! kubectl get clusterissuer letsencrypt-prod >/dev/null 2>&1; then
-    CLUSTER_ISSUER_NEW=true
-  fi
-  # The webhook can take a moment to accept requests after its Deployment is Available.
+  # The chart brings its own Issuer (and Certificate), registered with $ACME_EMAIL, so no ClusterIssuer is made here. Its
+  # Issuer and Certificate are refused until cert-manager's webhook accepts requests, which can take a moment after its
+  # Deployment is Available; a server-side dry run of an Issuer goes through the webhook without creating anything.
   startTime=`date +%s`
-  until cat << EOF | kubectl apply -f -
+  until cat << EOF | kubectl apply --dry-run=server -f - >/dev/null 2>&1
 apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
+kind: Issuer
 metadata:
-  name: letsencrypt-prod
+  name: webhook-check
+  namespace: default
 spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: $ACME_EMAIL
-    privateKeySecretRef:
-      name: letsencrypt-issuer-key
-    solvers:
-    - http01:
-        gatewayHTTPRoute:
-          parentRefs:
-          - group: gateway.networking.k8s.io
-            kind: Gateway
-            name: $GATEWAY_NAME
-            namespace: $GATEWAY_NAMESPACE
+  selfSigned: {}
 EOF
   do
     if [[ $(( `date +%s` - startTime )) -ge 300 ]]; then
-      echo "There was a problem creating the letsencrypt-prod ClusterIssuer..."
+      echo "There was a problem with cert-manager: its webhook isn't accepting requests."
       exit 1
     fi
     sleep 5
   done
-  if [[ "$CLUSTER_ISSUER_NEW" = "true" ]]; then
-    recordInstalled cluster_issuer
-  fi
 fi
 
 if [[ "$OPENBAO" = "true" ]]; then
@@ -1080,11 +1071,16 @@ if [[ "$OPENBAO" = "true" ]]; then
     --set global.openbao.auth.tokenSecret="$OPENBAO_ESO_SECRET")
 fi
 # The chart creates its own Gateway ($GATEWAY_NAME in this namespace) on the envoy GatewayClass above, with an HTTPS
-# listener and a cert-manager Certificate whenever gateway.tls is on and the host can get one. gateway.hsts stays true:
-# browsers ignore HSTS over plain HTTP anyway.
+# listener and a cert-manager Certificate (from its own Issuer, registered with $ACME_EMAIL) whenever global.gateway.tls is
+# on and the host can get one. global.gateway.hsts stays true: browsers ignore HSTS over plain HTTP anyway.
+GATEWAY_TLS=false
+if [[ "$TLS" = "true" && "$AUTH_HOST" != "localhost" && "$AUTH_HOST" != *.local* ]]; then
+  GATEWAY_TLS=true
+fi
 if ! helm upgrade --install --create-namespace --namespace "$NAMESPACE" "$NAMESPACE" "$CHART" "${CHART_VERSION_ARGS[@]}" \
   "${OPENBAO_ARGS[@]}" \
-  --set host="$AUTH_HOST" --set gateway.tls="$TLS" --set gateway.hsts=true --set gateway.className=envoy; then
+  --set host="$AUTH_HOST" --set global.gateway.tls="$TLS" --set global.gateway.hsts=true --set global.gateway.className=envoy \
+  --set global.certmanager.email="$ACME_EMAIL"; then
   echo "There was a problem installing auth-server."
   exit 1
 fi
@@ -1099,16 +1095,18 @@ startTime=`date +%s`
 while [[ $(( `date +%s` - startTime )) -lt 300 ]]; do
   GATEWAY_IP=`gatewayService .spec.clusterIP`
   GATEWAY_TYPE=`gatewayService .spec.type`
-  GATEWAY_HTTPS_PORT=`gatewayService '.spec.ports[?(@.port==443)].port'`
-  if [[ -n "$GATEWAY_IP" && "$GATEWAY_TYPE" = "ClusterIP" && ( "$TLS" = "false" || -n "$GATEWAY_HTTPS_PORT" ) ]]; then
+  # Not port 443: Envoy leaves the HTTPS listener out until its certificate exists, and cert-manager issues that through
+  # this very Service once nginx forwards to it.
+  if [[ -n "$GATEWAY_IP" && "$GATEWAY_TYPE" = "ClusterIP" && -n "`gatewayService '.spec.ports[?(@.port==80)].port'`" ]]; then
     break
   fi
   GATEWAY_IP=""
   sleep 2
 done
 if [[ -z "$GATEWAY_IP" ]]; then
-  echo "There was a problem setting up $GATEWAY_NAME: its Envoy Service isn't a ClusterIP Service with the chart's ports."
-  echo "  kubectl -n $GATEWAY_NAMESPACE get gateway,svc"
+  echo "There was a problem setting up $GATEWAY_NAME: its Envoy Service isn't a ClusterIP Service with port 80."
+  echo "  kubectl -n $GATEWAY_NAMESPACE get gateway"
+  echo "  kubectl -n $ENVOY_NAMESPACE get svc -l gateway.envoyproxy.io/owning-gateway-name=$GATEWAY_NAME"
   exit 1
 fi
 GATEWAY_ADDRESS=$GATEWAY_IP
@@ -1188,7 +1186,7 @@ fi
 if ! sudo grep -qxF "$NGINX_BEGIN" "$NGINX_CONF" && sudo grep -Eq '^[[:space:]]*stream[[:space:]]*\{' "$NGINX_CONF"; then
   # Written by an earlier version of this script (without markers) or by hand: don't add a second stream block.
   echo "$NGINX_CONF already has a stream {} block this script didn't write; make sure it forwards port 80 to" \
-    "$GATEWAY_ADDRESS:80${GATEWAY_HTTPS_PORT:+ and port 443 to $GATEWAY_ADDRESS:443} with proxy_protocol on, then re-run."
+    "$GATEWAY_ADDRESS:80${GATEWAY_TLS:+ and port 443 to $GATEWAY_ADDRESS:443} with proxy_protocol on, then re-run."
 else
   if [[ ! -f "$NGINX_CONF.bak" ]]; then
     echo "Backing up nginx.conf..."
@@ -1197,12 +1195,22 @@ else
   echo "Writing nginx configuration..."
   # The stream proxy takes port 80 (and 443) for the Gateway, so no http server may listen there.
   disablePort80HttpServers
-  # Port 443 is only forwarded when the chart's Gateway has an HTTPS listener (gateway.tls).
+  # A host name with an AAAA record is tried over IPv6 first, by browsers and by Let's Encrypt alike, so listen there too
+  # when the host has IPv6.
+  LISTEN6_80=""
+  LISTEN6_443=""
+  if [[ -e /proc/net/if_inet6 && "`cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null`" != "1" ]]; then
+    LISTEN6_80="
+        listen [::]:80;"
+    LISTEN6_443="
+        listen [::]:443;"
+  fi
+  # Port 443 is only forwarded when the chart's Gateway has an HTTPS listener (global.gateway.tls and a public host).
   HTTPS_SERVER=""
-  if [[ -n "$GATEWAY_HTTPS_PORT" ]]; then
+  if [[ "$GATEWAY_TLS" = "true" ]]; then
     HTTPS_SERVER="
     server {
-        listen 443;
+        listen 443;$LISTEN6_443
         proxy_pass $GATEWAY_ADDRESS:443;
         proxy_protocol on;
     }"
@@ -1213,7 +1221,7 @@ else
 $NGINX_BEGIN
 stream {
     server {
-        listen 80;
+        listen 80;$LISTEN6_80
         proxy_pass $GATEWAY_ADDRESS:80;
         proxy_protocol on;
     }$HTTPS_SERVER
@@ -1243,17 +1251,25 @@ echo "Checking the reverse proxy reaches $GATEWAY_NAME..."
 result=000
 startTime=`date +%s`
 while [[ $(( `date +%s` - startTime )) -lt 300 ]]; do
-  # Any HTTP answer (a 404 before the chart's routes exist) means nginx reaches Envoy and Envoy accepts its PROXY header.
+  # Any HTTP answer but 400 (a 404 before the chart's routes exist) means nginx reaches Envoy and Envoy accepts its PROXY
+  # header. Envoy answers 400 when the header is sent and it isn't expecting one, or the other way round.
   result=`curl -s -o /dev/null -w "%{http_code}" http://localhost`
-  if [[ "$result" != "000" ]]; then
+  if [[ "$result" != "000" && "$result" != "400" ]]; then
     break
   fi
   echo "Waiting for the reverse proxy..."
   sleep 2
 done
-if [[ "$result" = "000" ]]; then
-  echo "There was a problem configuring nginx reverse proxy: http://localhost doesn't answer. Check the Envoy pods with"
-  echo "  kubectl -n $GATEWAY_NAMESPACE get pods -l gateway.envoyproxy.io/owning-gateway-name=$GATEWAY_NAME"
+if [[ "$result" = "000" || "$result" = "400" ]]; then
+  if [[ "$result" = "400" ]]; then
+    echo "There was a problem configuring nginx reverse proxy: Envoy answers http://localhost with 400, so it doesn't accept"
+    echo "the PROXY protocol header nginx sends. Check the ClientTrafficPolicy with"
+    echo "  kubectl -n $GATEWAY_NAMESPACE get clienttrafficpolicy"
+  else
+    echo "There was a problem configuring nginx reverse proxy: http://localhost doesn't answer."
+  fi
+  echo "Check the Envoy pods with"
+  echo "  kubectl -n $ENVOY_NAMESPACE get pods -l gateway.envoyproxy.io/owning-gateway-name=$GATEWAY_NAME"
   exit 1
 fi
 echo "Reverse proxy is setup."

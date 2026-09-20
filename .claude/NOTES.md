@@ -1369,3 +1369,21 @@ JP: treat OpenBao like cert-manager - pre-installed, with a flag on the installe
 
 Verified: `helm lint`, `helm template --api-versions external-secrets.io/v1` standalone and as the server's subchart,
 `bash -n` on the installer. Nothing has run against a cluster.
+
+## 2026-09-19 - k3s_install.sh brought in line with the fixes found running the server's single_node_install.sh
+
+The RapidMX server's installer (same author, same Envoy Gateway / nginx-stream design) was run for real on a k3s host and turned up bugs;
+this script had the same ones plus its own. Found by reading and rendering - **not yet run end to end on a cluster**, unlike the server's:
+- Gateway name: hard-coded `api-gateway`, the chart renders `<fullname>-gateway` (checked with `helm template` for three release names, the
+  script now computes it from FULLNAME); the Envoy Service lookup used the release namespace, it lives in `envoy-gateway-system`.
+- Waiting for port 443 on the Envoy Service deadlocks a fresh TLS install: the HTTPS listener isn't Programmed (so the port isn't there) until the
+  certificate exists, and cert-manager issues it through nginx -> that Service. Wait for port 80 only; forward 443 when TLS is on for a public host.
+- `--set gateway.tls/hsts/className` are ignored (values are `global.gateway.*`): `--tls false` still rendered an HTTPS listener and a Certificate
+  (verified by rendering both ways). `global.certmanager.email` now gets `--email`; without it the chart's Issuer used `admin@domain.local`, which
+  Let's Encrypt refuses.
+- Same as the server's: `bao operator unseal -` reads nothing (key as argument only), nginx stream IPv4-only, 400 counted as "reachable".
+- The script no longer creates the `letsencrypt-prod` ClusterIssuer (the chart has its own Issuer, registered with `--email`). It used to double
+  as the wait for cert-manager's webhook, which "Deployment Available" doesn't guarantee, so that wait is now a server-side dry run of a
+  throwaway Issuer (proven on a real cluster: a valid one is accepted and leaves nothing, an invalid one is refused by the webhook itself).
+  `--uninstall` still removes a ClusterIssuer that an earlier version recorded. The chart's `command: ["node"]` is fine here (this image has no entrypoint script to bypass); JWT audience still `global.domain`, which the script never sets.
+- The chart's own fixes (Issuer/issuerRef, ExternalSecrets refreshInterval and Merge, ReferenceGrant) were committed earlier (541a504, c22cc73).
