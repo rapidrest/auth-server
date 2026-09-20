@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.13] - 2026-09-20
+
+### Added
+- Added a return_to query parameter to the sign-in page that redirects to a same-origin path, or to an absolute URL whose origin is listed in cors.origins, once sign-in succeeds
+- Added default e-mail and SMS templates for login-otp, verify-contact-otp and register-otp to the sql and mongo configs, which had none so no one-time code was ever delivered
+- Added a larger logo option to the custom header and use it on the account page to render the logo twice as large
+- Added nodemailer to the dependencies, which @rapidrest/core's MessagingUtils loads to send e-mail but only lists as a development dependency, so with smtp_config set every e-mail send failed with a missing module
+- Added service.extraEnv to the helm chart so an SMTP password can come from a Secret instead of the service.config ConfigMap
+- Added editing of the e-mail and SMS templates from a new Messages page in the admin console, stored in the database so a wording change needs no redeploy, with a live preview and a per-part revert to the default
+- Added the site branding to every message as a brand variable and use it in the default templates, showing the logo, or the name without one, in a new HTML e-mail body
+- Added editing of the SMTP server, Twilio credentials and the address or number messages are sent from in the admin console, encrypting the SMTP password and Twilio token at rest and never returning them
+- Added seeding of those settings from the deployment's config the first time they are read, after which the database is the source of truth and a change takes effect on the next message without a restart
+- Added a Reset to configuration button to the SMTP and Twilio cards that overwrites that card's settings with what the config says
+- Added twilio dep
+
+### Changed
+- Carry return_to through an OAuth provider sign-in in the OAuth state, so it is no longer lost when the browser leaves for the provider and comes back
+- Require a valid authenticator app code before an authenticator app secret is added as a sign-in method, discarding the unproven secret when the setup is abandoned
+- Document the auth cookie domain option in the sql and mongo configs
+- Document the return_to, authenticator app verification, cookie domain and message template decisions in NOTES
+- Document the changes in the release notes
+- Document the messaging design and decisions in NOTES and the admin console feature in the README
+- Upgraded auth dep
+
+### Fixed
+- Fixed the admin console rendering the custom header, which is meant for the public pages
+- Fixed the sign-in, sign-up and authorize pages showing the same logo twice by not rendering the custom header alongside the brand block
+- Fixed the brand block showing the title beside a configured logo, so the title is only shown when no logo is configured
+- Fixed every one-time code message never being sent because the server had no templates configured, by adding defaults for login-otp, verify-contact-otp and register-otp to the sql and mongo configs
+- Fixed the header and footer settings card describing the header as shown on every page
+
 ## [1.0.0-beta.12] - 2026-09-20
 
 ### Added
@@ -411,7 +442,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.12...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.13...HEAD
+[1.0.0-beta.13]: github/auth-server/compare/v1.0.0-beta.12...v1.0.0-beta.13
 [1.0.0-beta.12]: github/auth-server/compare/v1.0.0-beta.11...v1.0.0-beta.12
 [1.0.0-beta.11]: github/auth-server/compare/v1.0.0-beta.10...v1.0.0-beta.11
 [1.0.0-beta.10]: github/auth-server/compare/v1.0.0-beta.9...v1.0.0-beta.10

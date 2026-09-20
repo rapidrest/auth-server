@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.13
+
 * Added `nodemailer` to the dependencies: `@rapidrest/core`'s `MessagingUtils` loads it to send e-mail (sign-in and verification codes) but only lists it as a development dependency, so with `smtp_config` set every e-mail send failed with a missing module
 
 ### Helm chart
