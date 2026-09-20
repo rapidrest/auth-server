@@ -3078,6 +3078,7 @@ __metadata:
     mongodb: "npm:^7.6.0"
     mongodb-memory-server: "npm:^11.2.0"
     nconf: "npm:^0.13.0"
+    nodemailer: "npm:^10.0.1"
     nodemon: "npm:^3.1.14"
     openapi3-ts: "npm:^4.6.1"
     otplib: "npm:^13.5.0"
@@ -7136,6 +7137,13 @@ __metadata:
   linkType: hard
 
 "nodemon@npm:^3.1.14":
+"nodemailer@npm:^10.0.1":
+  version: 10.0.10
+  resolution: "nodemailer@npm:10.0.10"
+  checksum: 10c0/062bf0861e4986eca150b8d78b8289c55f33ad689e9596aa71b4abd4ab4358b9c4881cec8acca3251643814d84d26ca6b1082153f47d35d65639d4ce858cfd67
+  languageName: node
+  linkType: hard
+
   version: 3.1.14
   resolution: "nodemon@npm:3.1.14"
   dependencies:

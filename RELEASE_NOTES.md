@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* Added `nodemailer` to the dependencies: `@rapidrest/core`'s `MessagingUtils` loads it to send e-mail (sign-in and verification codes) but only lists it as a development dependency, so with `smtp_config` set every e-mail send failed with a missing module
+
+### Helm chart
+
+* Added `service.extraEnv`, extra environment variables for the server container, so an SMTP password (`smtp_config__auth__pass`) can come from a Secret instead of the `service.config` ConfigMap
+
 ## v1.0.0-beta.12
 
 ### Helm chart

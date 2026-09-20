@@ -1453,3 +1453,10 @@ this script had the same ones plus its own. Found by reading and rendering - **n
   throwaway Issuer (proven on a real cluster: a valid one is accepted and leaves nothing, an invalid one is refused by the webhook itself).
   `--uninstall` still removes a ClusterIssuer that an earlier version recorded. The chart's `command: ["node"]` is fine here (this image has no entrypoint script to bypass); JWT audience still `global.domain`, which the script never sets.
 - The chart's own fixes (Issuer/issuerRef, ExternalSecrets refreshInterval and Merge, ReferenceGrant) were committed earlier (541a504, c22cc73).
+
+### 2026-09-20 - e-mail needs nodemailer, and the chart can take env from a Secret
+
+`@rapidrest/core`'s `MessagingUtils` dynamically imports `nodemailer` but declares it only as a devDependency, and this repo never listed it, so with `smtp_config` set every send failed on the missing module
+(the beta.12 image has no `/app/node_modules/nodemailer`). Added `nodemailer ^10.0.1` (package.json + yarn.lock via `yarn add --mode=update-lockfile`; nothing was installed or built here).
+Also added `service.extraEnv` to the chart (rendered as the container's `env:`), so an SMTP password can come from a Secret (`smtp_config__auth__pass`) instead of the `service.config` ConfigMap.
+The rapidmx server chart sets `smtp_config__*`/`templates__from__email` for this server (see its NOTES). Both changes are unreleased (no version bump).

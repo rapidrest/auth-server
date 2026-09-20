@@ -116,6 +116,11 @@ service:
     logs: true
     metrics: true
     releaseNotes: true
+  # Extra environment variables for the server container, as Kubernetes env entries. Use valueFrom for secrets, e.g. the
+  # password of the SMTP account in service.config's smtp_config__* settings:
+  #   - name: smtp_config__auth__pass
+  #     valueFrom: { secretKeyRef: { name: smtp-credentials, key: password } }
+  extraEnv: []
   terminationGracePeriodSeconds: 60
   preStopSleepSeconds: 10
   podSecurityContext:

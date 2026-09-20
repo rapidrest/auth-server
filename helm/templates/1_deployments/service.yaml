@@ -90,6 +90,12 @@ spec:
                 name: {{ include "rrst.fullname" . }}-service-db-info
             - secretRef:
                 name: {{ include "rrst.fullname" . }}-service-secrets
+          {{- with $.Values.service.extraEnv }}
+          # Variables of your own, typically a Secret's key through valueFrom (e.g. smtp_config__auth__pass), for
+          # what must not sit in the service.config ConfigMap.
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - containerPort: 3000
           {{- with $.Values.service.startupProbe }}
