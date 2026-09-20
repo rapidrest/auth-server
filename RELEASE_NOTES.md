@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.12
+
 ### Helm chart
 
 * Fixed the cert-manager Issuer, which was mis-indented (`name` and `acme` at the wrong level) and shared one ACME account key Secret with a parent chart's own Issuer; the account key is now named after the Issuer

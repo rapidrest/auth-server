@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.12] - 2026-09-20
+
+### Added
+- Added a ReferenceGrant to the helm chart so a Gateway in another namespace can read the certificate Secret with global.gateway.namespace set
+
+### Changed
+- Attach the helm chart's HTTPRoute to every listener of a Gateway it doesn't create that accepts the host, rather than to a listener named http
+- Document the helm chart fixes in the release notes
+- Document the fix in the release notes
+- Stop k3s_install.sh waiting for port 443 on the Gateway's Service, which only exists once the certificate does, and that is issued through the Service nginx forwards to after the wait, and forward 443 whenever TLS is on for a public host
+- Listen on IPv6 in the nginx stream proxy when the host has it, fail the reverse proxy check on the HTTP 400 Envoy answers a PROXY protocol mismatch with, and pass the OpenBao unseal key as an argument since bao refuses "-"
+- Document the fixes in the release notes and NOTES
+
+### Fixed
+- Fixed the cert-manager Issuer in the helm chart, which was mis-indented and shared its ACME account key Secret with a parent chart's Issuer, so the key is now named after the Issuer
+- Fixed the helm chart's Certificate reading certmanager.* instead of global.certmanager.*, which failed with a nil pointer, and drop the namespace from its issuerRef, which cert-manager rejects
+- Fixed the helm chart's ExternalSecrets reading externalSecrets.refreshInterval instead of global.externalSecrets.refreshInterval
+- Fixed the helm chart's vault-managed service-secrets ExternalSecret replacing the Secret the chart renders, which dropped default_accounts so the default admin account was never created, by merging its keys into that Secret with creationPolicy Merge
+- Fixed k3s_install.sh never finishing an install by looking for the Gateway the chart creates, <release>-gateway rather than api-gateway, and its Envoy Service in envoy-gateway-system rather than the release's namespace
+- Fixed --tls false being ignored and the ACME account registering as admin@domain.local by passing global.gateway.* and global.certmanager.email to the chart, which doesn't read gateway.*
+
+### Removed
+- Removed the letsencrypt-prod ClusterIssuer k3s_install.sh created and the chart never used, waiting for cert-manager's webhook with a server-side dry run of an Issuer instead, and keep --uninstall removing one an earlier version made
+
 ## [1.0.0-beta.11] - 2026-09-19
 
 ### Changed
@@ -387,7 +411,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.11...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.12...HEAD
+[1.0.0-beta.12]: github/auth-server/compare/v1.0.0-beta.11...v1.0.0-beta.12
 [1.0.0-beta.11]: github/auth-server/compare/v1.0.0-beta.10...v1.0.0-beta.11
 [1.0.0-beta.10]: github/auth-server/compare/v1.0.0-beta.9...v1.0.0-beta.10
 [1.0.0-beta.9]: github/auth-server/compare/v1.0.0-beta.8...v1.0.0-beta.9
