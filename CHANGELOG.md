@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Hide the Continue with Google, Microsoft, Apple and Facebook buttons on the sign-in page until that provider's clientID has been replaced from its shipped placeholder in the config, and the or divider too when none remain
+
 ## [1.0.0-beta.13] - 2026-09-20
 
 ### Added

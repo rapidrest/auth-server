@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* The sign-in page now only shows the Continue with Google, Microsoft, Apple and Facebook buttons for providers whose `auth.<provider>.clientID` has been changed from the shipped placeholder (e.g. `DEFAULT_MICROSOFT_CLIENT_ID`), since a button for a provider still on placeholder credentials can only end in that provider's error page; with none configured only the account ID / e-mail / phone form is shown
+
 ## v1.0.0-beta.13
 
 * Added `nodemailer` to the dependencies: `@rapidrest/core`'s `MessagingUtils` loads it to send e-mail (sign-in and verification codes) but only lists it as a development dependency, so with `smtp_config` set every e-mail send failed with a missing module

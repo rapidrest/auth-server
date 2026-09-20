@@ -73,14 +73,26 @@ interface SignInPageProps {
      * see `wwwRoute`'s `fetchProps()` override. Absent means only same-origin paths are honored.
      */
     returnToOrigins?: string[];
+    /**
+     * The built-in OAuth providers whose credentials this deployment has replaced from the shipped placeholders.
+     * Populated automatically by the framework — see `wwwRoute`'s `fetchProps()` override. Absent means every
+     * provider's button is shown.
+     */
+    oauthProviders?: string[];
 }
 
-export default function SignInPage({ siteSettings, systemSettings, returnToOrigins = [] }: SignInPageProps) {
+export default function SignInPage({
+    siteSettings,
+    systemSettings,
+    returnToOrigins = [],
+    oauthProviders,
+}: SignInPageProps) {
     return (
         <AuthShell brand settings={siteSettings}>
             <SignInFlow
                 onSuccess={(_result, carriedReturnTo) => completeSignIn(returnToOrigins, carriedReturnTo)}
                 returnTo={readReturnTo()}
+                oauthProviders={oauthProviders}
             />
             {/* Hidden only on an explicit `false` — a server that doesn't report the setting keeps sign-up open. */}
             {systemSettings?.allowRegistration !== false && (

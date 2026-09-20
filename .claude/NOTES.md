@@ -1579,3 +1579,11 @@ this script had the same ones plus its own. Found by reading and rendering - **n
 (the beta.12 image has no `/app/node_modules/nodemailer`). Added `nodemailer ^10.0.1` (package.json + yarn.lock via `yarn add --mode=update-lockfile`; nothing was installed or built here).
 Also added `service.extraEnv` to the chart (rendered as the container's `env:`), so an SMTP password can come from a Secret (`smtp_config__auth__pass`) instead of the `service.config` ConfigMap.
 The rapidmx server chart sets `smtp_config__*`/`templates__from__email` for this server (see its NOTES). Both changes are unreleased (no version bump).
+
+### 2026-09-19 - the sign-in page hides OAuth providers still on placeholder credentials
+
+`wwwRoute.fetchProps()` (sql + mongo) now also returns `oauthProviders`, the ids of the built-in providers whose `auth:<provider>:clientID` differs from the shipped `DEFAULT_*_CLIENT_ID` (`src/routes/OAuthProviders.ts`, `toEnabledOAuthProviders()`). `signin.tsx` → `SignInFlow` → `IdentifierStep` filters its four buttons by it, and drops the "or" divider when none are left.
+- **Config, not the database.** Unlike `allowRegistration`, this can't be edited at runtime, so it's read with `@Config` on the route rather than through `SystemSettingsUtils`, and only the ids are sent to the page (never a secret).
+- **Only `clientID` is compared**, as the request specified and as `assertProductionSecretsAreSet()` already uses it to recognise an unconfigured provider. A provider with a real `clientID` but a placeholder secret (or Apple's team/key id/private key) still shows its button. A missing, blank or non-string `clientID` counts as not configured.
+- **The prop is optional and absent means "show all"**, matching how a missing `allowRegistration` keeps sign-up open, so `SignInFlow` used without the route (tests, a future pop-up) behaves as before. `fetchProps()` itself always supplies it, and fails closed (`@Config` default `""`).
+- Only the buttons are hidden: `/api/auth/<provider>` still answers for a placeholder provider, as before.

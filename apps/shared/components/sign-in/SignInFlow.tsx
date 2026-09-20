@@ -52,13 +52,18 @@ export interface SignInFlowProps {
      * method completes without leaving the page, so the page can still read it for itself.
      */
     returnTo?: string | null;
+    /**
+     * The ids of the OAuth providers (`google`, `microsoft`, `apple`, `facebook`) to offer a "Continue with ..."
+     * button for — the ones the server has real credentials for. Absent means every built-in provider.
+     */
+    oauthProviders?: string[];
 }
 
 /**
  * The sign-in step machine (identifier → methods → challenge). Renders only its `.rr-card` content —
  * no page chrome — so it can be dropped into a `Modal` for a pop-up sign-in with no changes.
  */
-export default function SignInFlow({ onSuccess, returnTo }: SignInFlowProps) {
+export default function SignInFlow({ onSuccess, returnTo, oauthProviders }: SignInFlowProps) {
     const [step, setStep] = useState<Step>("identifier");
     const [identifier, setIdentifier] = useState("");
     const [discoverLoading, setDiscoverLoading] = useState(false);
@@ -405,6 +410,7 @@ export default function SignInFlow({ onSuccess, returnTo }: SignInFlowProps) {
                     onSubmit={handleIdentifierSubmit}
                     onOAuthSignIn={handleOAuthSignIn}
                     oauthLoadingProvider={oauthLoadingProvider}
+                    oauthProviders={oauthProviders}
                 />
             )}
 

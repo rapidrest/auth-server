@@ -18,6 +18,8 @@ export interface IdentifierStepProps {
     /** The provider id currently fetching its authorization URL, if any — shows a spinner on that
      * one button and disables the rest so a second click can't fire while the first is in flight. */
     oauthLoadingProvider: string | null;
+    /** The ids of the OAuth providers to offer a button for. Absent means every built-in provider. */
+    oauthProviders?: string[];
 }
 
 const OAUTH_PROVIDERS: Array<{ id: string; label: string; icon: ReactNode }> = [
@@ -35,7 +37,10 @@ export default function IdentifierStep({
     onSubmit,
     onOAuthSignIn,
     oauthLoadingProvider,
+    oauthProviders,
 }: IdentifierStepProps) {
+    const providers = oauthProviders ? OAUTH_PROVIDERS.filter(({ id }) => oauthProviders.includes(id)) : OAUTH_PROVIDERS;
+
     return (
         <form onSubmit={onSubmit}>
             <div className="rr-card__title">Sign in</div>
@@ -57,14 +62,14 @@ export default function IdentifierStep({
                 Continue
             </Button>
 
-            <div className="rr-divider">or</div>
+            {providers.length > 0 && <div className="rr-divider">or</div>}
 
-            {OAUTH_PROVIDERS.map(({ id, label, icon }, index) => (
+            {providers.map(({ id, label, icon }, index) => (
                 <Button
                     key={id}
                     variant="oauth"
                     type="button"
-                    style={index < OAUTH_PROVIDERS.length - 1 ? { marginBottom: "0.6rem" } : undefined}
+                    style={index < providers.length - 1 ? { marginBottom: "0.6rem" } : undefined}
                     onClick={() => onOAuthSignIn(id)}
                     loading={oauthLoadingProvider === id}
                     disabled={oauthLoadingProvider !== null}

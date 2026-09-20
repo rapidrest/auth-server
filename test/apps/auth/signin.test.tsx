@@ -138,6 +138,21 @@ describe("SignInPage — identifier step", () => {
         expect(screen.getByRole("button", { name: "Continue with Facebook" })).toBeEnabled();
     });
 
+    it("renders only the OAuth buttons for the providers the server reports as configured", () => {
+        render(<SignInPage oauthProviders={["microsoft", "facebook"]} />);
+        expect(screen.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
+        expect(screen.getByRole("button", { name: "Continue with Facebook" })).toBeEnabled();
+        expect(screen.queryByRole("button", { name: "Continue with Google" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Continue with Apple" })).not.toBeInTheDocument();
+    });
+
+    it("renders no OAuth buttons, and no \"or\" divider, when no provider is configured", () => {
+        render(<SignInPage oauthProviders={[]} />);
+        expect(screen.queryByRole("button", { name: /^Continue with / })).not.toBeInTheDocument();
+        expect(screen.queryByText("or")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+    });
+
     it("calls discoverAuthMethods and advances to the method-list step on submit", async () => {
         const user = userEvent.setup();
         await goToMethods(user, ALL_METHODS, "a@example.com");

@@ -10,7 +10,7 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 
 * Sign-in and self-service registration flows
 * Multi-factor authentication (MFA) — TOTP, one-time passwords (OTP), FIDO2/WebAuthn hardware keys, passkeys and recovery codes
-* Sign-in with Apple, Facebook, Google and Microsoft via OAuth 2.0/OpenID Connect
+* Sign-in with Apple, Facebook, Google and Microsoft via OAuth 2.0/OpenID Connect — a provider's button only appears on the sign-in page once its `auth.<provider>.clientID` is set to your real value
 * Step-up account elevation (`@RequiresElevation`) requiring re-verification before sensitive actions
 * Secure, `HttpOnly` cookie-based session issuance
 

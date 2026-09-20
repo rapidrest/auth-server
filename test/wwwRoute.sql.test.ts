@@ -10,6 +10,12 @@
 // silently degrade every www page's branding (or its registration-closed messaging).
 import { describe, expect, it, vi } from "vitest";
 import { SystemSettingsUtils } from "@rapidrest/auth";
+import {
+    DEFAULT_APPLE_CLIENT_ID,
+    DEFAULT_FACEBOOK_CLIENT_ID,
+    DEFAULT_GOOGLE_CLIENT_ID,
+    DEFAULT_MICROSOFT_CLIENT_ID,
+} from "../src/config.defaults.js";
 import { AppRoute } from "../src/sql/routes/wwwRoute.js";
 
 function withFakeObjectFactory(route: AppRoute, repoUtils: Record<string, any>, allowRegistration = true): void {
@@ -42,6 +48,32 @@ describe("AppRoute.fetchProps() (sql)", () => {
         const props = await (route as any).fetchProps({});
 
         expect(props.returnToOrigins).toEqual(["https://mail.mydomain.com"]);
+    });
+
+    it("returns no oauthProviders while every provider's clientID is still its shipped placeholder", async () => {
+        const route = new AppRoute();
+        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default" }) });
+        (route as any).googleClientID = DEFAULT_GOOGLE_CLIENT_ID;
+        (route as any).microsoftClientID = DEFAULT_MICROSOFT_CLIENT_ID;
+        (route as any).appleClientID = DEFAULT_APPLE_CLIENT_ID;
+        (route as any).facebookClientID = DEFAULT_FACEBOOK_CLIENT_ID;
+
+        const props = await (route as any).fetchProps({});
+
+        expect(props.oauthProviders).toEqual([]);
+    });
+
+    it("returns only the oauthProviders whose clientID has been replaced", async () => {
+        const route = new AppRoute();
+        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default" }) });
+        (route as any).googleClientID = "real.apps.googleusercontent.com";
+        (route as any).microsoftClientID = DEFAULT_MICROSOFT_CLIENT_ID;
+        (route as any).appleClientID = "com.acme.signin";
+        (route as any).facebookClientID = DEFAULT_FACEBOOK_CLIENT_ID;
+
+        const props = await (route as any).fetchProps({});
+
+        expect(props.oauthProviders).toEqual(["google", "apple"]);
     });
 
     it("falls back to safe defaults for siteSettings when that read fails, independent of systemSettings", async () => {

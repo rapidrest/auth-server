@@ -7,6 +7,7 @@ import { ObjectDecorators } from "@rapidrest/core";
 import { fetchSiteSettingsPropsForSSR, PublicSiteSettings } from "../../routes/BaseSiteSettingsRoute.js";
 import { SiteSettingsSQL } from "../../models/sql/SiteSettingsSQL.js";
 import { fetchSystemSettingsPropsForSSR, PublicSystemSettings } from "../../routes/SystemSettingsSSR.js";
+import { toEnabledOAuthProviders } from "../../routes/OAuthProviders.js";
 import { toTrustedOrigins } from "../../routes/TrustedOrigins.js";
 
 const { Route } = RouteDecorators;
@@ -24,6 +25,19 @@ export class AppRoute extends ReactRoute {
     @Config("cors:origins", [])
     protected corsOrigins: unknown = [];
 
+    /** The configured `clientID` of each built-in OAuth provider — see `toEnabledOAuthProviders()`. */
+    @Config("auth:google:clientID", "")
+    protected googleClientID: unknown = "";
+
+    @Config("auth:microsoft:clientID", "")
+    protected microsoftClientID: unknown = "";
+
+    @Config("auth:apple:clientID", "")
+    protected appleClientID: unknown = "";
+
+    @Config("auth:facebook:clientID", "")
+    protected facebookClientID: unknown = "";
+
     /**
      * Feeds this deployment's branding (`PublicSiteSettings`) into every page's props — and, since
      * `@rapidrest/react` now spreads the same props onto `_layout.tsx` too, into the page's `<head>`
@@ -33,14 +47,31 @@ export class AppRoute extends ReactRoute {
      * can render their closed-registration state (or hide the "Create one" link) on that same first byte.
      * Also feeds `returnToOrigins` (the configured `cors.origins`), which `apps/www/auth/signin.tsx` checks a
      * downstream app's `?return_to=` against before redirecting to another origin.
+     * Also feeds `oauthProviders`, the built-in OAuth providers whose `clientID` has been replaced, so
+     * `apps/www/auth/signin.tsx` only offers the "Continue with ..." buttons that can actually sign someone in.
      */
     protected override async fetchProps(
         _req: HttpRequest,
-    ): Promise<{ siteSettings: PublicSiteSettings; systemSettings: PublicSystemSettings; returnToOrigins: string[] }> {
+    ): Promise<{
+        siteSettings: PublicSiteSettings;
+        systemSettings: PublicSystemSettings;
+        returnToOrigins: string[];
+        oauthProviders: string[];
+    }> {
         const [siteSettings, systemSettings] = await Promise.all([
             fetchSiteSettingsPropsForSSR(this.siteSettingsObjectFactory, SiteSettingsSQL),
             fetchSystemSettingsPropsForSSR(this.siteSettingsObjectFactory, "sql"),
         ]);
-        return { ...siteSettings, ...systemSettings, returnToOrigins: toTrustedOrigins(this.corsOrigins) };
+        return {
+            ...siteSettings,
+            ...systemSettings,
+            returnToOrigins: toTrustedOrigins(this.corsOrigins),
+            oauthProviders: toEnabledOAuthProviders({
+                google: this.googleClientID,
+                microsoft: this.microsoftClientID,
+                apple: this.appleClientID,
+                facebook: this.facebookClientID,
+            }),
+        };
     }
 }
