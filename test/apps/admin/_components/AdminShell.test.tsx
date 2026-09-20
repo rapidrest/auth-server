@@ -179,7 +179,7 @@ describe("AdminShell", () => {
         await waitFor(() => expect(trigger.querySelector("img")).toHaveAttribute("src", "https://example.com/me.png"));
     });
 
-    it("renders custom branding, header, and footer once site settings resolve", async () => {
+    it("renders custom branding and footer, but not the custom header, once site settings resolve", async () => {
         mockFetch((url, init) => {
             if (url === "/api/users/me") {
                 return jsonResponse(200, { uid: "admin-1", roles: ["admin"], scopes: [] });
@@ -201,7 +201,9 @@ describe("AdminShell", () => {
         render(<AdminShell userUid="admin-1">content</AdminShell>);
 
         expect(await screen.findByRole("link", { name: "Acme Inc Admin" })).toBeInTheDocument();
-        expect(screen.getByText("Scheduled maintenance tonight")).toBeInTheDocument();
+        // The header is for the public pages; the console has its own brand mark and title.
+        expect(screen.queryByText("Scheduled maintenance tonight")).not.toBeInTheDocument();
+        expect(document.querySelector(".rr-custom-header")).toBeNull();
         expect(screen.getByText((_, el) => el?.tagName === "P" && el.textContent === "© Acme Inc")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Acme Inc Admin" }).querySelector("img")).toHaveAttribute(
             "src",

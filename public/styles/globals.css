@@ -176,6 +176,15 @@ a {
     margin-bottom: 1.5rem;
 }
 
+/*
+ * Doubles the header's logo. The header is operator-supplied HTML, so its image has whatever size they gave
+ * it — `zoom` scales that, `width`/`height` here could not. Only images, so the rest of the header (text, a
+ * divider spanning the container) keeps its own size and still fills the width.
+ */
+.rr-custom-header--large-logo img {
+    zoom: 2;
+}
+
 .rr-custom-footer {
     margin-top: 2rem;
     padding-top: 1.5rem;

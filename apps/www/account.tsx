@@ -85,7 +85,7 @@ export default function AccountPage({ userUid, siteSettings }: AccountPageProps)
     }
 
     return (
-        <AuthShell wide settings={siteSettings}>
+        <AuthShell wide largeHeaderLogo settings={siteSettings}>
             <AccountHeader profile={profile} onLogout={handleLogout} onAccountDeleted={handleAccountDeleted} isAdmin={isAdmin} />
 
             <UsernameCard aliases={aliases} setAliases={setAliases} />

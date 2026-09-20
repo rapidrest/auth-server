@@ -204,12 +204,8 @@ export default function AdminShell({
                         </header>
                         <main className="rr-admin-main">
                             <div className="rr-admin-content">
-                                {settings?.headerHtml && (
-                                    <div
-                                        className="rr-custom-header"
-                                        dangerouslySetInnerHTML={{ __html: settings.headerHtml }}
-                                    />
-                                )}
+                                {/* No custom header (`headerHtml`) here: it's for the public pages, and the console
+                                    already has its own brand mark and title in the sidebar and top bar. */}
                                 {children}
                                 {settings?.footerHtml && (
                                     <div
