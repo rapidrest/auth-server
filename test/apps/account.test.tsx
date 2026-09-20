@@ -17,6 +17,12 @@ vi.mock("qrcode", () => ({
     default: { toDataURL: vi.fn() },
 }));
 
+// The real check is covered against RFC 6238 vectors in `_lib/totp.test.ts`; here it's just a switch for whether
+// "the code the user typed" matches, so these tests don't depend on the clock.
+vi.mock("../../apps/shared/lib/totp.js", () => ({
+    verifyTotpCode: vi.fn(),
+}));
+
 vi.mock("../../apps/shared/lib/api.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../apps/shared/lib/api.js")>();
     return {
@@ -30,6 +36,7 @@ vi.mock("../../apps/shared/lib/api.js", async (importOriginal) => {
         deleteAccount: vi.fn(),
         deleteAlias: vi.fn(),
         deleteSecret: vi.fn(),
+        discardSecret: vi.fn(),
         getAccount: vi.fn(),
         getFido2RegistrationOptions: vi.fn(),
         getPasskeyRegistrationOptions: vi.fn(),
@@ -64,6 +71,7 @@ import {
     deleteAccount,
     deleteAlias,
     deleteSecret,
+    discardSecret,
     getAccount,
     getFido2RegistrationOptions,
     getPasskeyRegistrationOptions,
@@ -79,8 +87,11 @@ import {
     updateUsernameAlias,
     verifyContact,
 } from "../../apps/shared/lib/api.js";
+import { verifyTotpCode } from "../../apps/shared/lib/totp.js";
 import AccountPage from "../../apps/www/account.js";
 
+const mockedVerifyTotpCode = vi.mocked(verifyTotpCode);
+const mockedDiscardSecret = vi.mocked(discardSecret);
 const mockedStartRegistration = vi.mocked(startRegistration);
 const mockedToDataURL = vi.mocked(QRCode.toDataURL);
 const mockedLogout = vi.mocked(logout);
@@ -167,6 +178,8 @@ function secretsCard(): HTMLElement {
 beforeEach(() => {
     mockedGetAccount.mockResolvedValue(accountData());
     mockedGetPasswordRequirements.mockResolvedValue(FALLBACK_PASSWORD_REQUIREMENTS);
+    mockedVerifyTotpCode.mockReturnValue(true);
+    mockedDiscardSecret.mockResolvedValue(undefined);
     window.confirm = vi.fn(() => true);
 });
 
@@ -1314,6 +1327,8 @@ describe("AccountPage — password requirements fetch failure", () => {
 });
 
 describe("AccountPage — authenticator app (TOTP)", () => {
+    const TOTP_DATA = { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" };
+
     async function goToTotp(user: ReturnType<typeof userEvent.setup>) {
         render(<AccountPage userUid="u1" />);
         await screen.findByText("Sign-in methods");
@@ -1321,106 +1336,299 @@ describe("AccountPage — authenticator app (TOTP)", () => {
         await user.click(screen.getByRole("button", { name: "Authenticator app" }));
     }
 
-    it("adds one immediately (no label field first), renders the QR code, and appends it to the list on Confirm", async () => {
+    /** Creates the secret and lands on the QR + verification step. */
+    async function startSetup(
+        user: ReturnType<typeof userEvent.setup>,
+        created: Partial<SecretSummary> = {},
+        data: typeof TOTP_DATA = TOTP_DATA,
+    ) {
+        mockedCreateTotpSecret.mockResolvedValueOnce({
+            ...secret({ uid: "totp1", type: "totp", version: 0, ...created }),
+            data,
+        });
+        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
+        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
+        await screen.findByText(data.secret);
+    }
+
+    async function enterCode(user: ReturnType<typeof userEvent.setup>, code = "123456") {
+        await user.type(screen.getByLabelText("Verification code"), code);
+    }
+
+    function listedTotpRows() {
+        return within(secretsCard()).queryAllByText("Authenticator app");
+    }
+
+    it("creates one immediately (no label field first) and renders the QR code, but doesn't list it yet", async () => {
         const user = userEvent.setup();
         await goToTotp(user);
         // No label field before creation — the ceremony starts right away.
         expect(screen.queryByLabelText("Label (optional)")).toBeNull();
-        mockedCreateTotpSecret.mockResolvedValueOnce({
-            ...secret({ uid: "totp1", type: "totp" }),
-            data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
-        });
-        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
 
-        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
+        await startSetup(user);
 
-        expect(await screen.findByText("ABCD1234")).toBeInTheDocument();
         expect(mockedCreateTotpSecret).toHaveBeenCalledWith();
         expect(mockedToDataURL).toHaveBeenCalledWith("otpauth://totp/x", { width: 220, margin: 1 });
         expect(screen.getByAltText("Authenticator app QR code")).toHaveAttribute("src", "data:image/png;base64,xyz");
-
-        // No label entered — Confirm just closes, with no update call.
-        await user.click(screen.getByRole("button", { name: "Confirm" }));
-        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-        expect(mockedUpdateSecret).not.toHaveBeenCalled();
-        expect(screen.getByText("Authenticator app")).toBeInTheDocument();
+        // The server already holds it, but until the code is proven it isn't offered as a sign-in method.
+        expect(listedTotpRows()).toHaveLength(0);
     });
 
-    it("lets the label be entered after creation, in the same confirm step as the QR code, saving it via updateSecret", async () => {
+    it("requires a code of the secret's full length before it can be submitted", async () => {
         const user = userEvent.setup();
         await goToTotp(user);
-        mockedCreateTotpSecret.mockResolvedValueOnce({
-            ...secret({ uid: "totp1", type: "totp", version: 0 }),
-            data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
-        });
-        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
-        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
-        await screen.findByText("ABCD1234");
+        await startSetup(user);
+        const submit = screen.getByRole("button", { name: "Verify and add" });
 
+        expect(submit).toBeDisabled();
+        await enterCode(user, "12345");
+        expect(submit).toBeDisabled();
+        await enterCode(user, "6");
+        expect(submit).toBeEnabled();
+    });
+
+    it("sizes the code field to the secret's digits", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        await startSetup(user, {}, { ...TOTP_DATA, digits: 8 });
+
+        expect(screen.getByLabelText("Verification code")).toHaveAttribute("maxlength", "8");
+        await enterCode(user, "1234567");
+        expect(screen.getByRole("button", { name: "Verify and add" })).toBeDisabled();
+        await enterCode(user, "8");
+        expect(screen.getByRole("button", { name: "Verify and add" })).toBeEnabled();
+    });
+
+    it("checks the typed code against the secret's own parameters, then lists it and closes", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        await startSetup(user);
+        await enterCode(user, "123456");
+
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
+
+        expect(mockedVerifyTotpCode).toHaveBeenCalledWith(
+            expect.objectContaining({ secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1" }),
+            "123456",
+        );
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(listedTotpRows()).toHaveLength(1);
+        // No label entered — nothing to save, and a proven secret is never discarded.
+        expect(mockedUpdateSecret).not.toHaveBeenCalled();
+        expect(mockedDiscardSecret).not.toHaveBeenCalled();
+    });
+
+    it("keeps the plaintext key out of the secrets list", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        await startSetup(user);
+        await enterCode(user);
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
+
+        expect(screen.queryByText("ABCD1234")).not.toBeInTheDocument();
+    });
+
+    it("rejects a code that doesn't match: says so, stays open, and adds nothing", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        await startSetup(user);
+        await enterCode(user, "000000");
+        mockedVerifyTotpCode.mockReturnValueOnce(false);
+
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
+
+        expect(await screen.findByText(/That code doesn.t match/)).toBeInTheDocument();
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+        expect(listedTotpRows()).toHaveLength(0);
+        expect(mockedUpdateSecret).not.toHaveBeenCalled();
+    });
+
+    it("succeeds on a retry with the right code after a wrong one, clearing the error", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        await startSetup(user);
+        await enterCode(user, "000000");
+        mockedVerifyTotpCode.mockReturnValueOnce(false);
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
+        await screen.findByText(/That code doesn.t match/);
+
+        await user.clear(screen.getByLabelText("Verification code"));
+        await enterCode(user, "654321");
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
+
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(listedTotpRows()).toHaveLength(1);
+    });
+
+    it("explains when the secret's settings can't be checked, instead of reporting a mismatch", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        await startSetup(user);
+        await enterCode(user);
+        mockedVerifyTotpCode.mockImplementationOnce(() => {
+            throw new Error("Unsupported TOTP algorithm 'md5'.");
+        });
+
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
+
+        expect(await screen.findByText(/can.t be checked here/)).toBeInTheDocument();
+        expect(listedTotpRows()).toHaveLength(0);
+    });
+
+    it("lets the label be entered in the same step as the code, saving it via updateSecret once the code is proven", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        await startSetup(user);
         mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "totp1", type: "totp", version: 1, hint: "LastPass" }));
+        await enterCode(user);
         await user.type(screen.getByLabelText("Label (optional)"), "  LastPass  ");
-        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
 
         await waitFor(() => expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "totp1", version: 0, hint: "LastPass" }));
-        expect(screen.getByText("(LastPass)")).toBeInTheDocument();
+        expect(await screen.findByText("(LastPass)")).toBeInTheDocument();
     });
 
-    it("shows the ApiRequestError message when saving the label on Confirm fails", async () => {
+    it("doesn't save the label when the code doesn't match", async () => {
         const user = userEvent.setup();
         await goToTotp(user);
-        mockedCreateTotpSecret.mockResolvedValueOnce({
-            ...secret({ uid: "totp1", type: "totp", version: 0 }),
-            data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
-        });
-        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
-        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
-        await screen.findByText("ABCD1234");
-
-        mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("label taken", 400));
+        await startSetup(user);
+        await enterCode(user);
         await user.type(screen.getByLabelText("Label (optional)"), "LastPass");
-        await user.click(screen.getByRole("button", { name: "Confirm" }));
+        mockedVerifyTotpCode.mockReturnValueOnce(false);
+
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
+
+        await screen.findByText(/That code doesn.t match/);
+        expect(mockedUpdateSecret).not.toHaveBeenCalled();
+    });
+
+    it("shows the ApiRequestError message when saving the label fails, having already listed the proven secret", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        await startSetup(user);
+        mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("label taken", 400));
+        await enterCode(user);
+        await user.type(screen.getByLabelText("Label (optional)"), "LastPass");
+
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
 
         expect(await screen.findByText("label taken")).toBeInTheDocument();
+        expect(listedTotpRows()).toHaveLength(1);
     });
 
-    it("shows a generic message when saving the label on Confirm fails with a non-API error", async () => {
+    it("shows a generic message when saving the label fails with a non-API error", async () => {
         const user = userEvent.setup();
         await goToTotp(user);
-        mockedCreateTotpSecret.mockResolvedValueOnce({
-            ...secret({ uid: "totp1", type: "totp", version: 0 }),
-            data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
-        });
-        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
-        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
-        await screen.findByText("ABCD1234");
-
+        await startSetup(user);
         mockedUpdateSecret.mockRejectedValueOnce(new TypeError("boom"));
+        await enterCode(user);
         await user.type(screen.getByLabelText("Label (optional)"), "LastPass");
-        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
 
         expect(await screen.findByText("Could not save the label.")).toBeInTheDocument();
     });
 
-    it("leaves other existing secrets unchanged when saving the label after creation", async () => {
+    it("retries a failed label save without asking for the code again, and doesn't list the secret twice", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        await startSetup(user);
+        mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("label taken", 400));
+        await enterCode(user);
+        await user.type(screen.getByLabelText("Label (optional)"), "LastPass");
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
+        await screen.findByText("label taken");
+
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "totp1", type: "totp", version: 1, hint: "LastPass" }));
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
+
+        expect(await screen.findByText("(LastPass)")).toBeInTheDocument();
+        // The code was checked once; a code that has since expired isn't demanded again for a label typo.
+        expect(mockedVerifyTotpCode).toHaveBeenCalledTimes(1);
+        expect(listedTotpRows()).toHaveLength(1);
+        expect(mockedDiscardSecret).not.toHaveBeenCalled();
+    });
+
+    it("leaves other existing secrets unchanged when saving the label after verification", async () => {
         const user = userEvent.setup();
         mockedGetAccount.mockReset();
         mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "existing1", type: "password" })] }));
         await goToTotp(user);
-        mockedCreateTotpSecret.mockResolvedValueOnce({
-            ...secret({ uid: "totp1", type: "totp", version: 0 }),
-            data: { secret: "ABCD1234", digits: 6, period: 30, algorithm: "sha1", uri: "otpauth://totp/x" },
-        });
-        mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
-        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
-        await screen.findByText("ABCD1234");
-
+        await startSetup(user);
         mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "totp1", type: "totp", version: 1, hint: "LastPass" }));
+        await enterCode(user);
         await user.type(screen.getByLabelText("Label (optional)"), "LastPass");
-        await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
 
         await waitFor(() => expect(screen.getByText("(LastPass)")).toBeInTheDocument());
         // The pre-existing password secret (which the map iterated past without matching) is untouched.
         expect(screen.getByText("Password")).toBeInTheDocument();
+    });
+
+    describe("abandoning the setup", () => {
+        it("discards the unproven secret when the dialog is closed, and never lists it", async () => {
+            const user = userEvent.setup();
+            await goToTotp(user);
+            await startSetup(user);
+
+            await user.click(screen.getByRole("button", { name: "Close" }));
+
+            await waitFor(() => expect(mockedDiscardSecret).toHaveBeenCalledWith("totp1"));
+            expect(mockedDiscardSecret).toHaveBeenCalledTimes(1);
+            expect(listedTotpRows()).toHaveLength(0);
+        });
+
+        it("discards it after a wrong code too, since it was never proven", async () => {
+            const user = userEvent.setup();
+            await goToTotp(user);
+            await startSetup(user);
+            await enterCode(user, "000000");
+            mockedVerifyTotpCode.mockReturnValueOnce(false);
+            await user.click(screen.getByRole("button", { name: "Verify and add" }));
+            await screen.findByText(/That code doesn.t match/);
+
+            await user.click(screen.getByRole("button", { name: "Close" }));
+
+            await waitFor(() => expect(mockedDiscardSecret).toHaveBeenCalledWith("totp1"));
+        });
+
+        it("lists the secret instead when it couldn't be discarded, so it isn't left registered out of sight", async () => {
+            const user = userEvent.setup();
+            await goToTotp(user);
+            await startSetup(user);
+            mockedDiscardSecret.mockRejectedValueOnce(new ApiRequestError("elevation required", 401));
+
+            await user.click(screen.getByRole("button", { name: "Close" }));
+
+            await waitFor(() => expect(listedTotpRows()).toHaveLength(1));
+        });
+
+        it("seeds the list from [] when it couldn't be discarded and the account hadn't loaded yet", async () => {
+            const user = userEvent.setup();
+            mockedGetAccount.mockReset();
+            mockedGetAccount.mockReturnValueOnce(new Promise(() => undefined));
+            render(<AccountPage userUid="u1" />);
+            await screen.findByText("Sign-in methods");
+            await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
+            await user.click(screen.getByRole("button", { name: "Authenticator app" }));
+            await startSetup(user);
+            mockedDiscardSecret.mockRejectedValueOnce(new Error("offline"));
+
+            await user.click(screen.getByRole("button", { name: "Close" }));
+
+            await waitFor(() => expect(mockedDiscardSecret).toHaveBeenCalledWith("totp1"));
+        });
+
+        it("does nothing when closed before a secret was ever created", async () => {
+            const user = userEvent.setup();
+            await goToTotp(user);
+
+            await user.click(screen.getByRole("button", { name: "Close" }));
+
+            expect(mockedDiscardSecret).not.toHaveBeenCalled();
+        });
     });
 
     it("shows the ApiRequestError message when adding fails", async () => {
@@ -1430,6 +1638,8 @@ describe("AccountPage — authenticator app (TOTP)", () => {
 
         await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
         expect(await screen.findByText("nope")).toBeInTheDocument();
+        // Nothing was created, so there's nothing to clean up.
+        expect(mockedDiscardSecret).not.toHaveBeenCalled();
     });
 
     it("shows a generic message when adding fails with a non-API error", async () => {
@@ -1439,6 +1649,24 @@ describe("AccountPage — authenticator app (TOTP)", () => {
 
         await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
         expect(await screen.findByText("Could not add an authenticator app.")).toBeInTheDocument();
+    });
+
+    it("discards the secret when it was created but its QR code couldn't be drawn, since the user can never see it", async () => {
+        const user = userEvent.setup();
+        await goToTotp(user);
+        mockedCreateTotpSecret.mockResolvedValueOnce({
+            ...secret({ uid: "totp1", type: "totp", version: 0 }),
+            data: TOTP_DATA,
+        });
+        mockedToDataURL.mockRejectedValueOnce(new Error("canvas unavailable"));
+
+        await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
+
+        expect(await screen.findByText("Could not add an authenticator app.")).toBeInTheDocument();
+        await waitFor(() => expect(mockedDiscardSecret).toHaveBeenCalledWith("totp1"));
+        // ...and closing afterwards must not try to discard it a second time.
+        await user.click(screen.getByRole("button", { name: "Close" }));
+        expect(mockedDiscardSecret).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -1761,12 +1989,12 @@ describe("AccountPage — state updaters fire while the initial account fetch is
 
         await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
         await screen.findByText("ABCD1234");
-        // Also enters a label so the Confirm handler's `setSecrets((prev) => (prev ?? []).map(...))` path
-        // (distinct from the create handler's `[...(prev ?? []), created]` path above) gets exercised with
-        // `prev` still null too.
+        // Also enters a label so the label-save's `prev!.map(...)` path runs too, after verification has
+        // seeded the list from `prev` still being null.
         mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "totp1", type: "totp", version: 1, hint: "LastPass" }));
+        await user.type(screen.getByLabelText("Verification code"), "123456");
         await user.type(screen.getByLabelText("Label (optional)"), "LastPass");
-        await user.click(screen.getByRole("button", { name: "Confirm" }));
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
 
         expect(await screen.findByText("Authenticator app")).toBeInTheDocument();
     });
@@ -1901,7 +2129,7 @@ describe("AccountPage — mandatory second-factor setup prompt", () => {
         expect(screen.getByText("Two-factor authentication required")).toBeInTheDocument();
     });
 
-    it("stays open through the QR reveal step and only closes once the authenticator app setup is confirmed", async () => {
+    it("stays open through the QR reveal step and only closes once the authenticator app code is verified", async () => {
         const user = userEvent.setup();
         mockedGetAccount.mockReset();
         mockedGetAccount.mockResolvedValueOnce(
@@ -1918,13 +2146,24 @@ describe("AccountPage — mandatory second-factor setup prompt", () => {
         mockedToDataURL.mockResolvedValueOnce("data:image/png;base64,xyz");
         await user.click(screen.getByRole("button", { name: "Add authenticator app" }));
 
-        // The secret already satisfies hasSecondFactor at this point, but the dialog — and its QR code —
-        // must still be visible: the user hasn't confirmed yet.
+        // The dialog — and its QR code — must be visible while the user hasn't proven the code yet.
         expect(await screen.findByText("ABCD1234")).toBeInTheDocument();
         expect(screen.getByText("Two-factor authentication required")).toBeInTheDocument();
 
-        await user.click(screen.getByRole("button", { name: "Confirm" }));
+        // A wrong code doesn't get past this step: the account still has no second factor it could use.
+        await user.type(screen.getByLabelText("Verification code"), "000000");
+        mockedVerifyTotpCode.mockReturnValueOnce(false);
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
+        await screen.findByText(/That code doesn.t match/);
+        expect(screen.getByText("Two-factor authentication required")).toBeInTheDocument();
+
+        // Verifying lists the secret (so `hasSecondFactor` flips true), yet the dialog must survive that
+        // until the form itself closes it.
+        await user.clear(screen.getByLabelText("Verification code"));
+        await user.type(screen.getByLabelText("Verification code"), "123456");
+        await user.click(screen.getByRole("button", { name: "Verify and add" }));
         await waitFor(() => expect(screen.queryByText("Two-factor authentication required")).not.toBeInTheDocument());
+        expect(mockedDiscardSecret).not.toHaveBeenCalled();
     });
 
     it("also offers a hardware key, closing once registration is confirmed", async () => {

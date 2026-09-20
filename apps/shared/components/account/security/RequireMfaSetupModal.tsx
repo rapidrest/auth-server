@@ -20,12 +20,12 @@ export interface RequireMfaSetupModalProps {
 /**
  * Mandatory prompt shown whenever the account has `requireMFA: true` but no method the server's
  * `/auth/mfa` route would actually accept as a second factor yet (see `hasSecondFactor`). `open` is fully
- * derived by the caller from account state — but that state flips the moment `TotpSecretForm`/
- * `Fido2SecretForm` actually create the secret, which is *before* their own "here's your QR code, confirm
- * a label" step. Tracking visibility with local state (only ever opened *from* the `open` prop, never
- * closed by it) keeps this dialog on screen through that confirm step instead of yanking it out from under
- * the user the instant `hasSecondFactor` flips true — it only closes once the form itself calls `onClose`
- * (its own "Confirm" button). `Modal`'s built-in close button/backdrop/Escape handler is separately wired
+ * derived by the caller from account state — but that state flips before `TotpSecretForm`/`Fido2SecretForm`
+ * are finished (for TOTP, the moment its code is verified, which is *before* the optional label is saved;
+ * for a FIDO2 key, the moment it's registered). Tracking visibility with local state (only ever opened
+ * *from* the `open` prop, never closed by it) keeps this dialog on screen through those last steps instead
+ * of yanking it out from under the user the instant `hasSecondFactor` flips true — it only closes once the
+ * form itself calls `onClose`. `Modal`'s built-in close button/backdrop/Escape handler is separately wired
  * to a no-op, since this dialog isn't meant to be dismissable any other way.
  *
  * Only `totp`/`fido2` are offered: a `passkey` secret, while a perfectly good primary sign-in method,

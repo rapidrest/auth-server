@@ -28,6 +28,16 @@ describe("WwwRoute.fetchProps() (mongo)", () => {
         expect(props.systemSettings.allowRegistration).toBe(false);
     });
 
+    it("returns the configured cors origins as normalized returnToOrigins for the sign-in page's return_to check", async () => {
+        const route = new WwwRoute();
+        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default" }) });
+        (route as any).corsOrigins = ["https://mail.mydomain.com/inbox", "*", "not a url"];
+
+        const props = await (route as any).fetchProps({});
+
+        expect(props.returnToOrigins).toEqual(["https://mail.mydomain.com"]);
+    });
+
     it("falls back to safe defaults for siteSettings when that read fails, independent of systemSettings", async () => {
         const route = new WwwRoute();
         withFakeObjectFactory(route, { findOne: vi.fn().mockRejectedValue(new Error("db down")) }, true);

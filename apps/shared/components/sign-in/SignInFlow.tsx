@@ -27,6 +27,7 @@ import {
     verifyPasskeySignIn,
 } from "../../lib/api.js";
 import { guessIdentifierType } from "../../lib/identifier.js";
+import { decodeOAuthState, encodeOAuthState } from "../../lib/oauthState.js";
 import IdentifierStep from "./steps/IdentifierStep.js";
 import MethodListStep from "./steps/MethodListStep.js";
 import ChallengeStep from "./steps/ChallengeStep.js";
@@ -34,40 +35,30 @@ import MfaStep from "./steps/MfaStep.js";
 import OAuthCallbackStep from "./steps/OAuthCallbackStep.js";
 import { buildMethodList, EMPTY_DISCOVER, FixedMethod, Method, OtpHint, Step } from "./types.js";
 
-/**
- * Recovers the provider name this component encoded as OAuth `state` when it initiated the
- * redirect (see `handleOAuthSignIn`) from the combined `state` value the provider hands back on
- * its own redirect — `<csrfToken>.<provider>`, per `OIDCStrategy.buildAuthorizationURI`'s state
- * encoding (the CSRF half is a server-generated `crypto.randomBytes(...).toString("base64url")`
- * value; base64url's alphabet is `[A-Za-z0-9_-]`, RFC 4648 §5, which by construction never contains
- * a literal `.`, so splitting on the first `.` reliably recovers whatever this component appended
- * without this component needing to validate the CSRF half itself — the backend independently
- * re-checks that against the session when the code is exchanged). Per RFC 6749 §4.1.2/§4.1.2.1, a
- * compliant provider echoes `state` back unchanged on both the success and error redirects, so this
- * works for `?error=` callbacks too, not just `?code=` ones.
- */
-function extractProviderFromState(state: string | null): string {
-    if (!state) {
-        return "";
-    }
-    const separatorIndex = state.indexOf(".");
-    return separatorIndex >= 0 ? state.slice(separatorIndex + 1) : "";
-}
-
 export interface SignInFlowProps {
     /**
      * Called once sign-in completes successfully. The page renders this as "store the token and
      * navigate to /account"; a future pop-up usage would do something else instead (e.g. close itself)
      * — that's the whole reason this component doesn't do either of those things itself.
+     *
+     * `returnTo` is only given for an OAuth-provider sign-in that came back with one: the page's own query
+     * string doesn't survive that round trip, so it's the value this component carried through the
+     * provider's redirect in `state` (see `oauthState.ts`). It is untrusted, like any other return URL.
      */
-    onSuccess: (result: AuthResult) => void;
+    onSuccess: (result: AuthResult, returnTo?: string | null) => void;
+    /**
+     * Where the page wants the user sent after sign-in, if anywhere. Only used to carry it through an
+     * OAuth-provider redirect, where it would otherwise be lost — see `onSuccess`. Every other sign-in
+     * method completes without leaving the page, so the page can still read it for itself.
+     */
+    returnTo?: string | null;
 }
 
 /**
  * The sign-in step machine (identifier → methods → challenge). Renders only its `.rr-card` content —
  * no page chrome — so it can be dropped into a `Modal` for a pop-up sign-in with no changes.
  */
-export default function SignInFlow({ onSuccess }: SignInFlowProps) {
+export default function SignInFlow({ onSuccess, returnTo }: SignInFlowProps) {
     const [step, setStep] = useState<Step>("identifier");
     const [identifier, setIdentifier] = useState("");
     const [discoverLoading, setDiscoverLoading] = useState(false);
@@ -113,7 +104,7 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
         // copying the link) can't replay it against an already-consumed authorization code.
         window.history.replaceState(null, "", window.location.pathname);
 
-        const provider = extractProviderFromState(params.get("state"));
+        const { provider, returnTo: recoveredReturnTo } = decodeOAuthState(params.get("state"));
 
         setStep("oauth");
         setError(null);
@@ -128,7 +119,7 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
 
         setLoading(true);
         completeOAuthSignIn(provider, search)
-            .then((result) => onSuccess(result))
+            .then((result) => onSuccess(result, recoveredReturnTo))
             .catch((err) => {
                 setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");
                 setLoading(false);
@@ -149,12 +140,10 @@ export default function SignInFlow({ onSuccess }: SignInFlowProps) {
         setError(null);
         setOauthLoadingProvider(provider);
         try {
-            // Round-trips the provider name through the OAuth `state` param — exactly what `state`
-            // is for. `OIDCStrategy.buildAuthorizationURI` reads this as the "client app data" half
-            // of `state`, combines it with its own CSRF token, and the provider hands the whole
-            // thing back untouched on its own redirect — see extractProviderFromState above for how
-            // this component recovers it from there.
-            const { url } = await getOAuthAuthorizeURL(provider, provider);
+            // Round-trips the provider name — and the page's `return_to`, which this navigation away and
+            // back would otherwise lose — through the OAuth `state` param. See `oauthState.ts` for the
+            // encoding and how `decodeOAuthState()` recovers it on the way back.
+            const { url } = await getOAuthAuthorizeURL(provider, encodeOAuthState(provider, returnTo));
             window.location.href = url;
         } catch (err) {
             setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");

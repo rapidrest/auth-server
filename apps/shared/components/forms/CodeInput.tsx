@@ -10,17 +10,26 @@ export interface CodeInputProps {
     onChange: (value: string) => void;
     placeholder?: string;
     required?: boolean;
+    /** How many digits the code has. Default 6; only a TOTP secret created with other `digits` needs more. */
+    length?: number;
 }
 
-/** The shared 6-digit numeric verification-code input (sign-up code, sign-in TOTP/OTP, account verify-contact). */
-export default function CodeInput({ id, value, onChange, placeholder = "······", required = true }: CodeInputProps) {
+/** The shared numeric verification-code input (sign-up code, sign-in TOTP/OTP, account verify-contact) — 6 digits unless told otherwise. */
+export default function CodeInput({
+    id,
+    value,
+    onChange,
+    length = 6,
+    placeholder = "·".repeat(length),
+    required = true,
+}: CodeInputProps) {
     return (
         <input
             id={id}
             className="rr-code-input"
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={6}
+            maxLength={length}
             required={required}
             value={value}
             onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))}

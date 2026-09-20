@@ -158,7 +158,73 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
-### 2026-09-09 (latest) — `@rapidrest/react` 2.0.0-beta.0: dynamic `[id].tsx` routes + nested non-index pages; refactored every page onto them
+### 2026-09-19 (latest) — `return_to` for downstream apps, TOTP proof-of-setup, and a cookie `Domain` option
+
+Three related changes, all left uncommitted per the standing decision.
+
+- **`/auth/signin?return_to=<url>`** now redirects to an absolute URL on another origin after sign-in (the
+  scenario: this server on `auth.mydomain.com`, the app on `mail.mydomain.com`). The older same-origin
+  `?returnTo=` (used by `/auth/authorize`) still works; `return_to` wins if both are present. **An absolute URL
+  is only followed if its parsed `URL.origin` exactly matches one of `cors.origins`** — never a prefix/substring
+  match, so `https://good.com.evil.com` and `https://good.com@evil.com` are rejected. `cors.origins` was chosen as
+  the allowlist because it's already the operator's list of downstream browser apps (the Helm chart builds it from
+  `global.corsHosts`); a downstream app must be listed there. `src/routes/TrustedOrigins.ts` normalizes it (drops
+  `"*"`, non-http(s), malformed entries) and `wwwRoute.fetchProps()` passes it to the page as `returnToOrigins`.
+  It survives an OAuth-provider sign-in too: `SignInFlow` scrubs the query string on that round trip, so
+  `return_to` rides in the OAuth `state` instead. `OIDCStrategy` sends `<csrf>.<clientAppData>` and hands the
+  app half back untouched, so the app data is `<provider>` or `<provider>.<base64url(return_to)>`
+  (`apps/shared/lib/oauthState.ts`; neither half can contain a `.`). What comes back is untrusted — a callback URL
+  is as forgeable as any other — and goes through the same `isSafeReturnTo()` check. A `return_to` over 1024
+  encoded chars is dropped rather than sent, since a provider rejects an over-long `state` and that would break the
+  whole sign-in.
+- **"Redirected back to sign-in each time" was a real cookie-scope bug, not the redirect.** `@rapidrest/auth`'s
+  `TokenUtils.buildCookie()` never wrote a `Domain` attribute, so `jwt`/`refresh` were host-only and
+  `mail.mydomain.com` never received them. Fixed at the source in the sibling `auth` repo: `TokenCookieConfig`
+  gained an optional `domain`, emitted on both the set and the clearing header (a cookie is only cleared by a
+  matching Domain), and `BaseImpersonationRoute`'s session-cookie restore honors it too (otherwise a second
+  host-only `jwt` appears beside the scoped one). **Default is unchanged (host-only)** — opt in with
+  `auth__cookie__access__domain=.mydomain.com` and `auth__cookie__refresh__domain=.mydomain.com` (both, verified
+  to deep-merge with the config defaults). **Not published**: per the version standing decision the changed
+  `dist` files (`lib/auth/TokenUtils.js`, `lib/routes/BaseImpersonationRoute.js` + maps, and their `types/*.d.ts`)
+  were copied into `node_modules/@rapidrest/auth/dist` only, and revert on a clean `yarn install` until JP
+  publishes `auth` and this repo's constraint is bumped.
+- **`@Config("some:path")` with no default THROWS at startup when the path is unset** (`No configuration variable
+  is defined at path: ...`). A first attempt at the above did exactly that and would have crashed every
+  deployment that hadn't opted in; `auth`'s own unit tests construct routes directly so they can't see it — only
+  this repo's `Server.*`/`DefaultAccounts.*` tests do. Always give an optional `@Config` a default (`""` for an
+  optional string).
+- **Adding an authenticator app now requires a valid code** (`TotpSecretForm`). The server still registers the
+  secret at creation and it's live as a sign-in/second factor at once, so the form (a) checks the typed code
+  client-side against the returned `secret`/`digits`/`period`/`algorithm` (`apps/shared/lib/totp.ts`, RFC 6238,
+  `@noble/hashes`, ±1 step; verified against the RFC vectors), (b) only lists the secret once it's proven, and
+  (c) on unmount without proof calls `discardSecret()`. `discardSecret` deliberately passes `retry=false` to
+  `apiFetch`: `/secrets` is `@RequiresElevation(60)`, so after 60s a normal delete would raise a step-up prompt
+  as the dialog is dismissed. If the discard fails the secret is added to the list instead so it isn't left
+  registered out of sight. **Residual gap**: closing the tab mid-setup leaves an unproven secret registered; the
+  robust fix is a server-side pending/verified state in `@rapidrest/auth` (a `verify` endpoint, excluded from
+  `TOTPStrategy.getSecrets()` and `MFAStrategy.getMethods()` until proven), which is a larger change.
+- **The server had no e-mail/SMS templates at all** (`templates` unset in both configs), so every code it tried
+  to send — sign-in, contact verification, registration — failed in `MessagingUtils.loadTemplate()` ("No
+  template found") and the route logged and swallowed it: users just never got their code. Defaults now live in
+  `src/config.templates.ts` (`DEFAULT_MESSAGE_TEMPLATES`) and are wired into both configs as `templates`. The
+  three names, by scanning `@rapidrest/auth`'s shipped code, are `login-otp` (OTP/MFA sign-in **and** elevation),
+  `verify-contact-otp` and `register-otp`, each with `subject`+`text` (e-mail) and `sms`, variable `{{totp}}`.
+  Decisions: (1) **plain text, no default `html`** — mail clients prefer `html` over `text`, so a default one would
+  silently shadow a downstream `text` override; add `html`/`htmlPath` to send multipart. (2) **`from.email`/
+  `from.sms` are empty**, not a placeholder domain — with them empty `MessagingUtils` logs a clear warning
+  instead of sending as a sender nobody set up. (3) Nothing sends until `smtp_config` (e-mail) / `twilio` (SMS)
+  are configured too; this change doesn't add those. (4) The configs get a `structuredClone()` of the defaults,
+  because nconf hands nested objects out by reference and `config.set("templates:…")` was rewriting the shared
+  constant (caught by a test). `test/MessageTemplates.test.ts` scans the auth library for template names, so a
+  message added upstream fails the suite until it gets a default. Downstream overrides merge key by key
+  (e.g. `templates:login-otp:subject`); `enabled: false` turns one off. The codes are single-use session values
+  with no fixed lifetime, so the default text doesn't promise an expiry.
+- **Test-run gotchas**: the suite rewrites the *tracked* `junit.xml` in both repos on every run — `git checkout --
+  junit.xml` before stashing or committing (a `git stash pop` refused to restore because of it, leaving the work
+  in the stash). The full suite sits at 99.93% branches (one branch in `useSiteSettings.ts`), identical on the
+  untouched baseline, so it predates these changes.
+
+### 2026-09-09 — `@rapidrest/react` 2.0.0-beta.0: dynamic `[id].tsx` routes + nested non-index pages; refactored every page onto them
 
 `@rapidrest/react` 2.0.0-beta.0 (already the installed dependency version, bumped by a prior automated
 dep-bump commit before this session started) added two file-based-routing features this app previously

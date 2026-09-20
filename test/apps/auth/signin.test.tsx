@@ -95,9 +95,10 @@ async function goToMethods(
     user: ReturnType<typeof userEvent.setup>,
     discoverResult: DiscoverResult,
     identifier = "a@example.com",
+    pageProps: React.ComponentProps<typeof SignInPage> = {},
 ) {
     mockedDiscoverAuthMethods.mockResolvedValueOnce(discoverResult);
-    render(<SignInPage />);
+    render(<SignInPage {...pageProps} />);
     await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), identifier);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByText(/Choose how/);
@@ -110,8 +111,9 @@ async function goToChallenge(
     methodLabel: string,
     discoverResult: DiscoverResult = ALL_METHODS,
     identifier = "a@example.com",
+    pageProps: React.ComponentProps<typeof SignInPage> = {},
 ) {
-    await goToMethods(user, discoverResult, identifier);
+    await goToMethods(user, discoverResult, identifier, pageProps);
     await user.click(screen.getByRole("button", { name: new RegExp(`^${methodLabel}`) }));
 }
 
@@ -320,6 +322,56 @@ describe("SignInPage — OAuth callback", () => {
             "google",
             "?error=access_denied&error_description=User+denied+access&state=csrf.google",
         );
+    });
+
+    describe("return_to carried through the provider redirect", () => {
+        const TRUSTED = ["https://mail.mydomain.com"];
+        const b64url = (text: string) => Buffer.from(text, "utf-8").toString("base64url");
+
+        it("sends the page's return_to along in state when starting a provider sign-in", async () => {
+            const target = "https://mail.mydomain.com/inbox?folder=sent";
+            const location = mockOAuthCallbackLocation(`?return_to=${encodeURIComponent(target)}`);
+            mockedGetOAuthAuthorizeURL.mockResolvedValueOnce({ url: "https://accounts.google.com/o/oauth2/v2/auth?..." });
+            const user = userEvent.setup();
+
+            render(<SignInPage returnToOrigins={TRUSTED} />);
+            await user.click(screen.getByRole("button", { name: "Continue with Google" }));
+
+            expect(mockedGetOAuthAuthorizeURL).toHaveBeenCalledWith("google", `google.${b64url(target)}`);
+            await waitFor(() => expect(location.href).toBe("https://accounts.google.com/o/oauth2/v2/auth?..."));
+        });
+
+        it("redirects to the return_to that came back through state, since the query string is gone by then", async () => {
+            const target = "https://mail.mydomain.com/inbox?folder=sent";
+            const search = `?code=abc123&state=csrf.google.${b64url(target)}`;
+            const location = mockOAuthCallbackLocation(search);
+            mockedCompleteOAuthSignIn.mockResolvedValueOnce(AUTH_RESULT);
+
+            render(<SignInPage returnToOrigins={TRUSTED} />);
+
+            await waitFor(() => expect(mockedCompleteOAuthSignIn).toHaveBeenCalledWith("google", search));
+            await waitFor(() => expect(location.href).toBe(target));
+        });
+
+        it("still checks a return_to that came back through state, falling back to /account for an untrusted origin", async () => {
+            // A callback URL is as forgeable as any other, so nothing in `state` is followed blindly.
+            const location = mockOAuthCallbackLocation(`?code=abc123&state=csrf.google.${b64url("https://evil.com/phish")}`);
+            mockedCompleteOAuthSignIn.mockResolvedValueOnce(AUTH_RESULT);
+
+            render(<SignInPage returnToOrigins={TRUSTED} />);
+
+            await waitFor(() => expect(location.href).toBe("/account"));
+        });
+
+        it("still signs in, landing on /account, when the return_to in state is garbled", async () => {
+            const location = mockOAuthCallbackLocation("?code=abc123&state=csrf.google.!!!garbled!!!");
+            mockedCompleteOAuthSignIn.mockResolvedValueOnce(AUTH_RESULT);
+
+            render(<SignInPage returnToOrigins={TRUSTED} />);
+
+            await waitFor(() => expect(mockedCompleteOAuthSignIn).toHaveBeenCalledWith("google", expect.any(String)));
+            await waitFor(() => expect(location.href).toBe("/account"));
+        });
     });
 
     it("shows a fixed error without calling the API when state has no provider to recover", async () => {
@@ -586,6 +638,56 @@ describe("SignInPage — returnTo hand-off", () => {
 
         await waitFor(() => expect(location.href).toBe("/account"));
     });
+
+    describe("return_to (downstream apps)", () => {
+        const TRUSTED = ["https://mail.mydomain.com"];
+
+        async function signInWith(search: string, pageProps: React.ComponentProps<typeof SignInPage>) {
+            const location = stubLocationWithSearch(search);
+            const user = userEvent.setup();
+            await goToChallenge(user, "Password", ALL_METHODS, "a@example.com", pageProps);
+            mockedSignInWithPassword.mockResolvedValueOnce(AUTH_RESULT);
+            await user.type(screen.getByLabelText("Password"), "hunter2");
+            await user.click(screen.getByRole("button", { name: "Sign in" }));
+            return location;
+        }
+
+        it("redirects to the URL encoded in return_to when its origin is trusted", async () => {
+            const target = "https://mail.mydomain.com/inbox?folder=sent#top";
+            const location = await signInWith(`?return_to=${encodeURIComponent(target)}`, { returnToOrigins: TRUSTED });
+
+            await waitFor(() => expect(location.href).toBe(target));
+        });
+
+        it("prefers return_to over the legacy returnTo when both are present", async () => {
+            const location = await signInWith(
+                `?returnTo=${encodeURIComponent("/account")}&return_to=${encodeURIComponent("https://mail.mydomain.com/")}`,
+                { returnToOrigins: TRUSTED },
+            );
+
+            await waitFor(() => expect(location.href).toBe("https://mail.mydomain.com/"));
+        });
+
+        it("still honors a same-origin path in return_to with no trusted origins configured", async () => {
+            const location = await signInWith(`?return_to=${encodeURIComponent("/account/security")}`, {});
+
+            await waitFor(() => expect(location.href).toBe("/account/security"));
+        });
+
+        it("falls back to /account when return_to points at an origin that isn't trusted", async () => {
+            const location = await signInWith(`?return_to=${encodeURIComponent("https://evil.com/phish")}`, {
+                returnToOrigins: TRUSTED,
+            });
+
+            await waitFor(() => expect(location.href).toBe("/account"));
+        });
+
+        it("falls back to /account for an absolute return_to when no origins are configured at all", async () => {
+            const location = await signInWith(`?return_to=${encodeURIComponent("https://mail.mydomain.com/")}`, {});
+
+            await waitFor(() => expect(location.href).toBe("/account"));
+        });
+    });
 });
 
 describe("isSafeReturnTo", () => {
@@ -610,9 +712,73 @@ describe("isSafeReturnTo", () => {
     it("rejects a tab-injected variant that would still parse as //host once tabs are stripped", () => {
         expect(isSafeReturnTo("/\t/evil.com")).toBe(false);
     });
+
+    it("rejects a bare relative path with no leading slash", () => {
+        expect(isSafeReturnTo("account")).toBe(false);
+    });
+
+    describe("with trusted origins", () => {
+        const TRUSTED = ["https://mail.mydomain.com", "http://localhost:3000"];
+
+        it("accepts an absolute URL on a trusted origin, with any path, query or fragment", () => {
+            expect(isSafeReturnTo("https://mail.mydomain.com", TRUSTED)).toBe(true);
+            expect(isSafeReturnTo("https://mail.mydomain.com/inbox?x=1#y", TRUSTED)).toBe(true);
+            expect(isSafeReturnTo("http://localhost:3000/dash", TRUSTED)).toBe(true);
+        });
+
+        it("still accepts a same-origin path", () => {
+            expect(isSafeReturnTo("/account", TRUSTED)).toBe(true);
+        });
+
+        it("rejects an origin that isn't listed", () => {
+            expect(isSafeReturnTo("https://evil.com/", TRUSTED)).toBe(false);
+        });
+
+        it("rejects a different scheme or port on an otherwise trusted host", () => {
+            expect(isSafeReturnTo("http://mail.mydomain.com/", TRUSTED)).toBe(false);
+            expect(isSafeReturnTo("https://mail.mydomain.com:8443/", TRUSTED)).toBe(false);
+        });
+
+        it("rejects a lookalike host that only starts with, or embeds, a trusted one", () => {
+            expect(isSafeReturnTo("https://mail.mydomain.com.evil.com/", TRUSTED)).toBe(false);
+            expect(isSafeReturnTo("https://evilmail.mydomain.com/", TRUSTED)).toBe(false);
+            expect(isSafeReturnTo("https://evil.com/https://mail.mydomain.com/", TRUSTED)).toBe(false);
+        });
+
+        it("judges a userinfo trick by the URL's real host, not the trusted-looking text before the @", () => {
+            expect(isSafeReturnTo("https://mail.mydomain.com@evil.com/", TRUSTED)).toBe(false);
+        });
+
+        it("rejects a tab-injected scheme that a browser would still parse as a URL", () => {
+            expect(isSafeReturnTo("https://evil.com\t/", TRUSTED)).toBe(false);
+        });
+
+        it("rejects a non-http(s) scheme even if it somehow shares an origin string", () => {
+            expect(isSafeReturnTo("javascript://mail.mydomain.com/%0Aalert(1)", TRUSTED)).toBe(false);
+            expect(isSafeReturnTo("ftp://mail.mydomain.com/", TRUSTED)).toBe(false);
+        });
+    });
 });
 
 describe("readReturnTo", () => {
+    it("returns the return_to query param when present", () => {
+        Object.defineProperty(window, "location", {
+            configurable: true,
+            writable: true,
+            value: { search: "?return_to=https%3A%2F%2Fmail.mydomain.com%2F" },
+        });
+        expect(readReturnTo()).toBe("https://mail.mydomain.com/");
+    });
+
+    it("falls back to the legacy returnTo when return_to is absent or empty", () => {
+        Object.defineProperty(window, "location", {
+            configurable: true,
+            writable: true,
+            value: { search: "?return_to=&returnTo=%2Fauthorize" },
+        });
+        expect(readReturnTo()).toBe("/authorize");
+    });
+
     it("returns the returnTo query param when present", () => {
         Object.defineProperty(window, "location", {
             configurable: true,

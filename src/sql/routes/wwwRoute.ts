@@ -7,9 +7,10 @@ import { ObjectDecorators } from "@rapidrest/core";
 import { fetchSiteSettingsPropsForSSR, PublicSiteSettings } from "../../routes/BaseSiteSettingsRoute.js";
 import { SiteSettingsSQL } from "../../models/sql/SiteSettingsSQL.js";
 import { fetchSystemSettingsPropsForSSR, PublicSystemSettings } from "../../routes/SystemSettingsSSR.js";
+import { toTrustedOrigins } from "../../routes/TrustedOrigins.js";
 
 const { Route } = RouteDecorators;
-const { Inject } = ObjectDecorators;
+const { Config, Inject } = ObjectDecorators;
 
 @Route("/")
 export class AppRoute extends ReactRoute {
@@ -19,6 +20,10 @@ export class AppRoute extends ReactRoute {
     @Inject(ObjectFactory)
     protected siteSettingsObjectFactory!: ObjectFactory;
 
+    /** The configured CORS origins — the downstream apps a sign-in may hand the user back to. See `toTrustedOrigins()`. */
+    @Config("cors:origins", [])
+    protected corsOrigins: unknown = [];
+
     /**
      * Feeds this deployment's branding (`PublicSiteSettings`) into every page's props — and, since
      * `@rapidrest/react` now spreads the same props onto `_layout.tsx` too, into the page's `<head>`
@@ -26,14 +31,16 @@ export class AppRoute extends ReactRoute {
      * response, with no client-side flash from stock branding and no gap for a crawler to see only
      * the stock branding. Also feeds `systemSettings.allowRegistration`, so `apps/www/auth/{signup,signin}`
      * can render their closed-registration state (or hide the "Create one" link) on that same first byte.
+     * Also feeds `returnToOrigins` (the configured `cors.origins`), which `apps/www/auth/signin.tsx` checks a
+     * downstream app's `?return_to=` against before redirecting to another origin.
      */
     protected override async fetchProps(
         _req: HttpRequest,
-    ): Promise<{ siteSettings: PublicSiteSettings; systemSettings: PublicSystemSettings }> {
+    ): Promise<{ siteSettings: PublicSiteSettings; systemSettings: PublicSystemSettings; returnToOrigins: string[] }> {
         const [siteSettings, systemSettings] = await Promise.all([
             fetchSiteSettingsPropsForSSR(this.siteSettingsObjectFactory, SiteSettingsSQL),
             fetchSystemSettingsPropsForSSR(this.siteSettingsObjectFactory, "sql"),
         ]);
-        return { ...siteSettings, ...systemSettings };
+        return { ...siteSettings, ...systemSettings, returnToOrigins: toTrustedOrigins(this.corsOrigins) };
     }
 }

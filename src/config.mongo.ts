@@ -23,6 +23,7 @@ import {
     DEFAULT_OAUTH_SERVER_ENCRYPTION_KEY,
     DEFAULT_SESSION_SECRET,
 } from "./config.defaults.js";
+import { DEFAULT_MESSAGE_TEMPLATES } from "./config.templates.js";
 
 const _filename = fileURLToPath(import.meta.url);
 const _dirname = dirname(_filename);
@@ -107,6 +108,12 @@ conf.defaults({
         // origin, so this default also works for local dev without changes — only set `secure: false`
         // below if you need cookie persistence on a plain-HTTP origin that ISN'T `localhost` (e.g. a LAN
         // IP or a non-TLS staging host), and never do so for a real production deployment.
+        //
+        // Neither cookie sets a `domain`, so both are host-only: the browser returns them to exactly the host
+        // that issued them. To share the session with sibling apps (this server on `auth.mydomain.com`, a
+        // downstream app on `mail.mydomain.com`), set `domain` on BOTH `access` and `refresh` to the shared
+        // parent, e.g. `auth__cookie__access__domain=.mydomain.com` and `auth__cookie__refresh__domain=.mydomain.com`.
+        // Every subdomain under it then receives the session cookies, so only do this when all of them are trusted.
         cookie: {
             enabled: true,
             access: { name: "jwt", maxAge: 60 * 60 },
@@ -225,6 +232,12 @@ conf.defaults({
     // any deployment that actually sits behind one (the common case in production). Set this to your
     // reverse proxy/load balancer's IP(s) if you deploy behind one.
     trusted_proxies: [],
+    // The e-mail/SMS sent for every one-time code this server issues (sign-in, verifying a contact, registering).
+    // Override any part downstream — see `DEFAULT_MESSAGE_TEMPLATES` for how, and for the transport config
+    // (`smtp_config`, `twilio`) and `from` sender that must also be set before anything is actually sent.
+    // A copy, because nconf hands nested objects out by reference: without it, `config.set("templates:…")` (or
+    // `MessagingUtils` loading a template's file) would rewrite `DEFAULT_MESSAGE_TEMPLATES` itself.
+    templates: structuredClone(DEFAULT_MESSAGE_TEMPLATES),
 });
 
 export default conf;

@@ -22,6 +22,7 @@ import {
     deleteAccount,
     deleteAlias,
     deleteSecret,
+    discardSecret,
     discoverAuthMethods,
     elevateWithPassword,
     getAccount,
@@ -794,6 +795,26 @@ describe("secrets", () => {
         const fetchMock = mockFetch(() => emptyResponse(200));
         await deleteSecret("s/1");
         expect(fetchMock).toHaveBeenCalledWith("/api/secrets/s%2F1", expect.objectContaining({ method: "DELETE" }));
+    });
+
+    it("discardSecret DELETEs the encoded uid", async () => {
+        const fetchMock = mockFetch(() => emptyResponse(200));
+        await discardSecret("s/1");
+        expect(fetchMock).toHaveBeenCalledWith("/api/secrets/s%2F1", expect.objectContaining({ method: "DELETE" }));
+    });
+
+    // The whole point of discardSecret over deleteSecret: it runs as a dialog is dismissed, so a lapsed elevation
+    // must fail quietly instead of raising a step-up prompt the user never asked for.
+    it("discardSecret rejects on a lapsed elevation without prompting for a new one", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(403, { message: "Elevation required.", code: "api-104" }));
+        const listener = vi.fn();
+        const unsubscribe = subscribeElevation(listener);
+
+        await expect(discardSecret("s1")).rejects.toMatchObject({ code: "api-104" });
+
+        unsubscribe();
+        expect(listener).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it("updateSecret PUTs the encoded uid with data/hint", async () => {

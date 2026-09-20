@@ -640,6 +640,16 @@ export function deleteSecret(uid: string): Promise<void> {
     return apiFetch(`/secrets/${encodeURIComponent(uid)}`, { method: "DELETE" });
 }
 
+/**
+ * Removes a secret the caller has just created but abandoned — e.g. an authenticator app they never proved
+ * works. Unlike `deleteSecret()`, this never prompts for elevation: it runs as a modal is being dismissed, when
+ * a step-up dialog would be a surprise, and `/secrets` only honors an elevation from the last minute anyway. If
+ * elevation has lapsed it simply rejects, and the caller decides what to do with a secret that's still registered.
+ */
+export function discardSecret(uid: string): Promise<void> {
+    return apiFetch(`/secrets/${encodeURIComponent(uid)}`, { method: "DELETE" }, false);
+}
+
 export interface UpdateSecretInput {
     uid: string;
     /** Must be the `version` from the most recently fetched copy of this secret (optimistic concurrency). */
