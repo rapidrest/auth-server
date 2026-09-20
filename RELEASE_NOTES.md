@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.15
+
 * Added the `/auth/elevate?return_to=<url>` page, for a downstream app (on another origin under a shared cookie domain) whose API answered `api-104` (elevation required): it opens the elevation prompt for the signed-in user and, once they confirm, sends the browser to `return_to`, which is followed only if it is a same-origin path or an origin in `cors.origins`, otherwise `/account`. Cancelling the prompt goes to `/account` rather than back to `return_to`. With no session it sends the visitor to `/auth/signin` and back here after they sign in. The elevated token is issued as a cookie on `auth.cookie.access.domain`, so set that to the shared parent domain for the downstream app to see it
 
 ### Helm chart

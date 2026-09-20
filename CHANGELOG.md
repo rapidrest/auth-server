@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.15] - 2026-09-20
+
+### Added
+- Added an /auth/elevate page that asks a signed in user to confirm it's them and sends them back to a return_to on a trusted origin, or to /account when cancelled, so a downstream app can ask for an elevated token
+
+### Changed
+- Send a visitor with no session to sign in first, and back to the elevate page afterwards
+- Test the rendered origins against the trusted origin list, and the elevate page
+- Document the changes in the README, CHANGELOG, release notes and NOTES
+
+### Fixed
+- Fixed the chart writing every cors origin wrapped in literal quote characters, which left the server sending no Access-Control-Allow-Origin header and ignoring every return_to to another origin, by writing each origin once
+
 ### Added
 - Add an /auth/elevate?return_to=<url> page that lets a downstream app on another origin send a signed-in user through the elevation prompt and back with an elevated token, going to /account instead when the prompt is cancelled or the return_to is not a same-origin path or a configured cors origin, and to sign-in and back here when there is no session
 - Add an optional sign-in URL argument to useSessionRefresh
@@ -464,7 +477,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.14...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.15...HEAD
+[1.0.0-beta.15]: github/auth-server/compare/v1.0.0-beta.14...v1.0.0-beta.15
 [1.0.0-beta.14]: github/auth-server/compare/v1.0.0-beta.13...v1.0.0-beta.14
 [1.0.0-beta.13]: github/auth-server/compare/v1.0.0-beta.12...v1.0.0-beta.13
 [1.0.0-beta.12]: github/auth-server/compare/v1.0.0-beta.11...v1.0.0-beta.12
