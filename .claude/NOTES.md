@@ -158,6 +158,43 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-20 — `/auth/elevate` for downstream apps, and the chart's double-quoted `cors__origins`
+
+Two fixes for the RapidMX deployment (`auth.powerlevel.gg` + `mail.powerlevel.gg`). Left uncommitted.
+
+- **`cors__origins` was double-quoted (root cause of "`return_to` is ignored" and "sign-out from the mail app does
+  nothing").** `helm/templates/0_config/service-config.yaml` piped each `printf "%s://%s"` through `quote` *inside*
+  the `append`, then serialized the list with `toJson | quote`, so the env var held `["\"https://x\""]` — every
+  entry with literal quote characters. Effects: `cors` matched nothing, so no `Access-Control-Allow-Origin` was ever
+  sent (the cross-origin `POST /api/auth/logout` from the mail app was blocked), and `toTrustedOrigins()` dropped
+  every entry (`new URL('"https://x"')` throws), so no absolute `return_to` was honored. Fix: drop the inner `quote`;
+  the list is serialized once. The RapidMX chart's `c80ca7f` copied this template — it needs the same one-word fix.
+  Regression: `test/HelmCorsOrigins.test.ts` (a source check that always runs, plus `helm template` renders that skip
+  when `helm` isn't on PATH; it renders a copy of the chart with `dependencies`/`charts/`/`Chart.lock` removed, since
+  `helm template` refuses a chart whose subcharts are missing and they're git-ignored). To render by hand:
+  `helm template t ./helm --set global.secrets.cookies=c,global.secrets.sessions=s,global.jwt.secret=j` (a chart with
+  no cluster access refuses to generate secrets).
+- **`/auth/elevate?return_to=<url>`** (`apps/www/auth/elevate.tsx`): how a downstream app asks a signed-in user to
+  obtain an elevated token and come back (RapidMX's admin console gets `api-104` for a normal jwt and redirects here).
+  Signed in: it calls `requestElevation()` on mount — the same prompt any `api-104` raises, rendered by `AuthShell`'s
+  `ElevationHost` — and on success goes to `return_to` if `isSafeReturnTo(returnTo, returnToOrigins)` (same-origin
+  path, or an absolute URL whose origin is in `cors.origins`), else `/account`. **Cancel goes to `/account`, never back
+  to `return_to`** (the app would send the user straight back here). No session: `useSessionRefresh(userUid, signInUrl)`
+  tries one silent refresh (reload on success), else `replace`s to `/auth/signin?return_to=<encoded /auth/elevate?...>`
+  — a same-origin *relative* return_to, so this origin needn't be in `cors.origins` — and sign-in lands back here with the
+  original `return_to` intact. `readReturnTo`/`isSafeReturnTo` are reused from `signin.tsx`, not copied.
+  `useSessionRefresh` gained an optional `getSignInUrl` (called at redirect time; default unchanged).
+- **The elevated token reaches the downstream app as a cookie on the shared domain.** `POST /api/auth/elevation`
+  → `BaseAuthElevationRoute` → `tokenUtils.createAuthResult(..., res, elevated=true)` appends `Set-Cookie` for `jwt` (and a
+  fresh `refresh`) built by `buildCookie()`, which emits `Domain=` from `auth.cookie.{access,refresh}.domain`. The browser
+  applies `Set-Cookie` on a same-origin `fetch()` before the promise resolves, so the redirect that follows already
+  carries it. With no `domain` configured the cookie is host-only and the downstream app never sees it. The elevated
+  jwt's lifetime is `auth.elevated.expiresIn` if set (else the normal token lifetime) — the downstream app has only that long.
+- **Known, not changed:** `ElevationHost` is mounted twice on every www page — in `_layout.tsx` and again in
+  `AuthShell` — so two identical prompts stack (portals). Pre-existing (`account` has it too); the top one works and
+  resolving either closes both. Not touched here; worth removing one. Also: a browser holding an *older host-only* `jwt`
+  for the auth host beside the new `Domain=` one sends both, and which one the server reads first isn't guaranteed.
+
 ### 2026-09-19 (latest) — How messages are *sent* (SMTP, Twilio, sender addresses) moved into the database; config seeds it
 
 Follow-up to the entry below. Left uncommitted at the time of writing. **Supersedes** that entry's Twilio-precedence and

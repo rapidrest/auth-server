@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add an /auth/elevate?return_to=<url> page that lets a downstream app on another origin send a signed-in user through the elevation prompt and back with an elevated token, going to /account instead when the prompt is cancelled or the return_to is not a same-origin path or a configured cors origin, and to sign-in and back here when there is no session
+- Add an optional sign-in URL argument to useSessionRefresh
+- Add a test that renders the Helm chart's cors__origins and checks it is a plain JSON list of origins the server accepts
+
+### Fixed
+- Fix the Helm chart's cors__origins holding every origin wrapped in literal quote characters, which made the server send no Access-Control-Allow-Origin header and ignore every return_to after sign-in, by no longer quoting each origin before the list is serialized
+
 ## [1.0.0-beta.14] - 2026-09-20
 
 ### Added

@@ -184,3 +184,29 @@ describe("useSessionRefresh — with userUid (already authenticated)", () => {
         expect(mockedRefreshAccessToken).toHaveBeenCalledTimes(1);
     });
 });
+
+describe("useSessionRefresh — custom sign-in URL", () => {
+    it("redirects there, evaluated at redirect time, when the silent refresh fails", async () => {
+        const location = mockLocation();
+        mockedRefreshAccessToken.mockRejectedValueOnce(new Error("no refresh token"));
+        let target = "/auth/signin?return_to=%2Fbefore";
+        const getSignInUrl = vi.fn(() => target);
+
+        renderHook(() => useSessionRefresh(undefined, getSignInUrl));
+        expect(getSignInUrl).not.toHaveBeenCalled();
+        target = "/auth/signin?return_to=%2Fafter";
+
+        await waitFor(() => expect(location.replace).toHaveBeenCalledWith("/auth/signin?return_to=%2Fafter"));
+    });
+
+    it("redirects there when a scheduled refresh is rejected as unauthorized", async () => {
+        vi.useFakeTimers();
+        const location = mockLocation();
+        mockedRefreshAccessToken.mockRejectedValueOnce(new ApiRequestError("refresh token expired", 401));
+
+        renderHook(() => useSessionRefresh("u1", () => "/auth/signin?return_to=%2Felsewhere"));
+        await vi.advanceTimersByTimeAsync(55 * 60 * 1000);
+
+        await vi.waitFor(() => expect(location.replace).toHaveBeenCalledWith("/auth/signin?return_to=%2Felsewhere"));
+    });
+});

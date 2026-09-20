@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* Added the `/auth/elevate?return_to=<url>` page, for a downstream app (on another origin under a shared cookie domain) whose API answered `api-104` (elevation required): it opens the elevation prompt for the signed-in user and, once they confirm, sends the browser to `return_to`, which is followed only if it is a same-origin path or an origin in `cors.origins`, otherwise `/account`. Cancelling the prompt goes to `/account` rather than back to `return_to`. With no session it sends the visitor to `/auth/signin` and back here after they sign in. The elevated token is issued as a cookie on `auth.cookie.access.domain`, so set that to the shared parent domain for the downstream app to see it
+
+### Helm chart
+
+* Fixed `cors__origins` in the `service-config` ConfigMap wrapping every origin in literal quote characters (`["\"https://app.example.com\""]`), which the server can't use: it sent no `Access-Control-Allow-Origin` header for any origin, so a downstream app's cross-origin calls (for example `POST /api/auth/logout`) were blocked, and it dropped every origin from the `return_to` allowlist, so a sign-in never returned to a downstream app. It is now `["https://app.example.com"]`
+
 ## v1.0.0-beta.14
 
 * The sign-in page now only shows the Continue with Google, Microsoft, Apple and Facebook buttons for providers whose `auth.<provider>.clientID` has been changed from the shipped placeholder (e.g. `DEFAULT_MICROSOFT_CLIENT_ID`), since a button for a provider still on placeholder credentials can only end in that provider's error page; with none configured only the account ID / e-mail / phone form is shown

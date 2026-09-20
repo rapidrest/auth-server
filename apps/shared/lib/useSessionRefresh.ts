@@ -12,6 +12,9 @@ const RETRY_DELAY_MS = 30 * 1000;
 /** Retries exhausted before the recurring-timer path gives up and redirects to sign-in. */
 const MAX_TRANSIENT_RETRIES = 3;
 
+const DEFAULT_SIGN_IN_URL = "/auth/signin";
+const defaultSignInUrl = () => DEFAULT_SIGN_IN_URL;
+
 /**
  * Whether `err` means the refresh/session itself was rejected (expired or invalid refresh token) as
  * opposed to some transient failure (a network blip, a 5xx) that's worth retrying instead of treating as
@@ -37,8 +40,11 @@ function isAuthRejection(err: unknown): boolean {
  *
  * @param userUid The uid populated server-side from the current access-token cookie, or `undefined` if
  * the request arrived with none.
+ * @param getSignInUrl Where to send the user when the session can't be recovered. Called at the moment of the
+ * redirect (so it may read `window.location`), never during render. Defaults to the bare `/auth/signin`; a page
+ * that should come back to itself after signing in (e.g. `/auth/elevate`) passes one carrying `?return_to=`.
  */
-export function useSessionRefresh(userUid?: string): void {
+export function useSessionRefresh(userUid?: string, getSignInUrl: () => string = defaultSignInUrl): void {
     useEffect(() => {
         let cancelled = false;
 
@@ -48,7 +54,7 @@ export function useSessionRefresh(userUid?: string): void {
                     if (!cancelled) window.location.reload();
                 })
                 .catch(() => {
-                    if (!cancelled) window.location.replace("/auth/signin");
+                    if (!cancelled) window.location.replace(getSignInUrl());
                 });
             return () => {
                 cancelled = true;
@@ -66,7 +72,7 @@ export function useSessionRefresh(userUid?: string): void {
                 .catch((err) => {
                     if (cancelled) return;
                     if (isAuthRejection(err) || retriesLeft <= 0) {
-                        window.location.replace("/auth/signin");
+                        window.location.replace(getSignInUrl());
                         return;
                     }
                     retriesLeft -= 1;
