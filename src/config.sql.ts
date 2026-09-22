@@ -231,6 +231,14 @@ conf.defaults({
     // any deployment that actually sits behind one (the common case in production). Set this to your
     // reverse proxy/load balancer's IP(s) if you deploy behind one.
     trusted_proxies: [],
+    // The durable, queryable audit log (`BaseDatabaseAuditLogUtils`/`GET /api/audit-log`) keeps every entry
+    // forever by default — `retention_days` is strictly opt-in: leave it unset/`null` and nothing is ever purged.
+    // Set it to a positive number of days to let `AuditLogRetentionJob` (a small daily background job) delete
+    // entries older than that window. Unexpected data loss in an audit trail would be a serious regression, so
+    // there's no other way to enable purging.
+    audit_log: {
+        retention_days: null,
+    },
     // The e-mail/SMS sent for every one-time code this server issues (sign-in, verifying a contact, registering).
     // Edited in the admin console (Messages) with no redeploy; see `DEFAULT_MESSAGE_TEMPLATES` for the defaults.
     // A copy, because nconf hands nested objects out by reference: without it, `config.set("templates:…")` (or

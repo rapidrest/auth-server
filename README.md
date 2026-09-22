@@ -37,6 +37,7 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 * Site branding customization — logo, site title, custom header/footer HTML and stylesheet — which a deployment can pre-set from config (`site_settings`) and an admin can change afterwards
 * E-mail, SMS and WhatsApp message templates — edit the wording of every one-time-code message with a live preview, stored in the database (no redeploy) and branded from the site branding by default — plus the SMTP server, the SMS provider (Twilio or Telnyx, one at a time), the WhatsApp credentials and the sender addresses they're sent with, seeded from config on first start and editable from then on
 * Admin impersonation of user accounts, with a persistent banner while impersonating
+* A durable, filterable **Audit Log** of security-relevant account activity — sign-ins (by method), registration, elevation, impersonation, account deletion, "log out everywhere", MFA changes, and app-password lifecycle — plus a **Recent activity** section on each account's own detail page; see [Audit logging](#audit-logging)
 * Default account provisioning on startup via a configurable background job
 
 ### Data & Deployment
@@ -71,6 +72,7 @@ console owns it (see each row).
 | `whatsapp` | WhatsApp Business Cloud API credentials: `{ accessToken, phoneNumberId, apiVersion }` (`phoneNumberId` is Meta's ID for your number, not the number). Seeds once; edit it on the Messages page. |
 | `smtp_config` | The SMTP server for e-mail, as before. Seeds once. |
 | `auth:app_password:enabled` | Set to `false` to turn off app passwords deployment-wide: creating new ones is refused and existing ones stop authenticating (not deleted — re-enabling restores them). Defaults to `true`. |
+| `audit_log:retention_days` | How long an audit log entry is kept before the daily retention job purges it. Unset/`null` (the default) means **never purge** — an audit trail losing data unexpectedly would be a real regression, so there's no other way to enable purging. |
 
 > **Passkeys/FIDO2 on a real deployment:** the Helm chart now defaults `auth:passkey`/`auth:fido2`'s `rpID`/
 > `origin` to the server's own host (`service-config.yaml`), since `@rapidrest/auth`'s built-in default (rpID
@@ -101,6 +103,20 @@ Every secret — this one included — also tracks when it was last used to sign
 page (and to an admin viewing an account's Sign-in methods) as "Never used" until then; an admin can now
 also see and revoke a user's app passwords and recovery codes from that same card, which previously left
 both out.
+
+### Audit logging
+
+Every security-relevant account action — a sign-in (labeled by method: password, app password, MFA, passkey,
+security key, TOTP, OTP, an OAuth/OIDC provider), self-registration, elevation, admin impersonation, account
+deletion, "log out everywhere", a second factor enrolled or removed, a password changed, or an app password
+created/removed/used — is written to a durable, admin-queryable audit log. An admin's **Audit Log** page lists
+and filters every account's entries; each account's own detail page also shows its own **Recent activity**.
+This is deliberately a separate mechanism from `@rapidrest/core`'s `EventUtils`: that one is lossy, best-effort
+telemetry (with no `telemetry_services:url` configured — this app's default — it silently discards every event
+end to end, and nothing here registers a listener either) and was never meant to be relied on for a real audit
+trail. Writing an entry never blocks the action that triggered it — a failure is logged loudly instead of
+silently dropped — and nothing is ever purged unless `audit_log:retention_days` is explicitly set (see the
+config table above). This needs a release of `@rapidrest/auth` that includes it.
 
 ### WhatsApp one-time codes
 

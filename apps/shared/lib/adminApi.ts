@@ -401,3 +401,67 @@ export function uploadSiteStylesheet(file: File): Promise<PublicSiteSettings> {
 export function deleteSiteStylesheet(): Promise<PublicSiteSettings> {
     return apiFetch("/settings/branding/stylesheet", { method: "DELETE" });
 }
+
+/**
+ * One entry in the durable, admin-queryable security audit log — distinct from `EventUtils`' own
+ * telemetry mechanism (which only ever posts to an external `telemetry_services:url` sink and is not
+ * queryable from here). Curated security-relevant actions only: sign-ins (by `method`), account deletion,
+ * "log out everywhere", registration, elevation, admin impersonation, MFA enrolled/removed, password
+ * changed, app-password created/removed/used, recovery-code used.
+ *
+ * `actorUid` is only set when it differs from `userUid` — an admin acting on someone else's account
+ * (impersonation, an admin-initiated account deletion or session revocation). `method` is only meaningful
+ * for `type === "auth.signed_in"`; it's an open-ended string (`"password"`, `"app-password"`, `"mfa"`, a
+ * qualified `"mfa:totp"`/`"mfa:fido2"`/etc., `"passkey"`, `"fido2"`, `"totp"`, `"otp"`, or
+ * `"oidc:<provider>"`) rather than a fixed union, so a new method the backend adds still round-trips.
+ */
+export interface AuditLogEntry {
+    uid: string;
+    version: number;
+    type: string;
+    userUid?: string;
+    actorUid?: string;
+    ip?: string;
+    path?: string;
+    method?: string;
+    data?: Record<string, unknown>;
+    dateCreated: string;
+}
+
+export interface ListAuditLogParams {
+    userUid?: string;
+    type?: string;
+    page?: number;
+    limit?: number;
+}
+
+const DEFAULT_AUDIT_LOG_PAGE_SIZE = 25;
+
+function buildAuditLogQuery(params: ListAuditLogParams): string {
+    const parts: string[] = [
+        `limit=${params.limit ?? DEFAULT_AUDIT_LOG_PAGE_SIZE}`,
+        `page=${params.page ?? 0}`,
+        `sort=${encodeURIComponent("-dateCreated")}`,
+    ];
+    if (params.userUid) {
+        parts.push(`userUid=${encodeURIComponent(params.userUid)}`);
+    }
+    if (params.type) {
+        parts.push(`type=${encodeURIComponent(params.type)}`);
+    }
+    return parts.join("&");
+}
+
+/**
+ * Lists audit log entries, newest-first by default. Trusted-role-only, same as every other function in
+ * this file. `results.length === (params.limit ?? 25)` is used by callers as the "has next page" signal,
+ * mirroring `listUsers()`.
+ */
+export function listAuditLog(params: ListAuditLogParams = {}): Promise<AuditLogEntry[]> {
+    return apiFetch(`/audit-log?${buildAuditLogQuery(params)}`);
+}
+
+/** Fetches a single audit log entry by uid. */
+export function getAuditLogEntry(uid: string): Promise<AuditLogEntry> {
+    return apiFetch(`/audit-log/${encodeURIComponent(uid)}`);
+}

@@ -4,7 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React, { PropsWithChildren, ReactNode, useEffect, useState } from "react";
 import { IconType } from "react-icons";
-import { FiKey, FiMail, FiSettings, FiUsers } from "react-icons/fi";
+import { FiActivity, FiKey, FiMail, FiSettings, FiUsers } from "react-icons/fi";
 import { Alias, AliasType, ApiRequestError, getProfile, listAliases, logout, Profile } from "../../../lib/api.js";
 import { ensureElevated } from "../../../lib/adminApi.js";
 import { useSessionRefresh } from "../../../lib/useSessionRefresh.js";
@@ -16,7 +16,7 @@ import Alert from "../../feedback/Alert.js";
 import AvatarMenu from "./AvatarMenu.js";
 
 /** The top-level console sections, each with its own sidebar entry. */
-export type AdminSection = "users" | "oauth-clients" | "messages" | "settings";
+export type AdminSection = "users" | "oauth-clients" | "messages" | "audit-log" | "settings";
 
 interface NavItem {
     section: AdminSection;
@@ -29,6 +29,7 @@ const NAV_ITEMS: NavItem[] = [
     { section: "users", label: "Users", href: "/admin", icon: FiUsers },
     { section: "oauth-clients", label: "OAuth Clients", href: "/admin/oauth-clients", icon: FiKey },
     { section: "messages", label: "Messages", href: "/admin/messages", icon: FiMail },
+    { section: "audit-log", label: "Audit Log", href: "/admin/audit-log", icon: FiActivity },
     { section: "settings", label: "Settings", href: "/admin/settings", icon: FiSettings },
 ];
 

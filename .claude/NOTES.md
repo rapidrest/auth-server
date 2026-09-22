@@ -158,6 +158,93 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-22 (later) — A proper, durable audit log (not EventUtils)
+
+Follow-up to the app-passwords entry below, same day. JP's explicit prompt: "The EventUtils system is for basic
+system telemetry, which can be lossy, it is not intended for guaranteed audit log purposes. Let's build a proper
+internal system for that." Committed in both repos — `auth-server` and `auth` — still unpublished on the `auth`
+side (`2.0.0-beta.11`).
+
+- **Confirmed the concern with hard evidence before designing anything:** `telemetry_services:url` is not set
+  anywhere in this app (`config.sql.ts`/`config.mongo.ts`/`helm/`), and nothing registers an `EventUtils.on()`
+  listener either. So every `EventUtils.record()` call in this app — including the ones added in the app-passwords
+  follow-up just below — silently goes nowhere by default, not just "in theory."
+- **Architecture mirrors `MessagingUtils` exactly**, per JP's own established pattern: a lean injectable
+  `AuditLogUtils` class lives in `@rapidrest/auth` (`src/auth/AuditLogUtils.ts`) with a base, logger-only
+  implementation; `auth-server` registers a database-backed subclass under the same class name
+  (`src/sql/AuditLogUtils.ts`/`src/mongo/AuditLogUtils.ts`, mirroring `src/sql/MessagingUtils.ts`'s file-name-is-
+  the-registration-key trick) so every `@Inject(AuditLogUtils)` inside `@rapidrest/auth` resolves to it with zero
+  code changes in that library beyond declaring the class and calling `record()`. `EventUtils` calls were left
+  alone (not replaced) — `AuditLogUtils.record()` calls sit alongside them at the same ~8 pre-existing call sites.
+- **Asked three clarifying questions before building** (all three recommended defaults confirmed): (1) a durable
+  write failure fails OPEN — the triggering action still succeeds, logged loudly instead of silently swallowed;
+  (2) a CURATED event set, not a 1:1 mirror of every `AuthEventType` — specifically excluding routine token
+  refresh, which fires the same generic `SESSION_CREATED` as a real sign-in today with no way to tell them apart;
+  (3) both a global admin Audit Log page AND a per-user Recent Activity card.
+- **`AuditLogEntry` shape** (`auth` repo): `{ type, userUid?, actorUid?, ip?, path?, method?, data? }`. `actorUid`
+  is new — unifies `BaseAccountRoute`'s pre-existing, inconsistently-named `deletedBy`/`revokedBy` fields into one
+  name, only set when it differs from `userUid` (an admin acting on someone else's account). `type` reuses the
+  matching `AuthEventType` string wherever one already exists.
+- **The `SESSION_CREATED`-fires-on-refresh-too problem, solved without touching the refresh route's own logic:**
+  `TokenUtils.createAuthResult()` — the one chokepoint all 14+ auth flows already call through — gained an
+  optional `authMethod` parameter. Every real sign-in route passes its own descriptive string (`"password"`,
+  `"app-password"`, `"passkey"`, `"fido2"`, `"totp"`, `"otp"`, `` `oidc:${provider}` ``, `"registration"`, `"mfa"`);
+  `BaseAuthRefreshRoute` simply never passes one, so `SIGNED_IN` (a new `AuthEventType`) never fires for a refresh
+  — no flag threading, no special-casing in `TokenUtils` itself beyond "is `authMethod` present."
+  **One deliberate deviation from the original spec, flagged clearly by the backend agent and accepted:** `SIGNED_IN`
+  gates on `!impersonation && authMethod` only — NOT also `!elevated` — because self-registration passes
+  `elevated: true` (an immediately-usable token) and still needs to fire `SIGNED_IN` alongside its own
+  `REGISTRATION_COMPLETED`. `BaseAuthElevationRoute` achieves "no duplicate entry for a step-up elevation" simply
+  by never passing `authMethod` at its own `createAuthResult()` call, not via an `elevated` check. An app-password
+  login intentionally double-fires `APP_PASSWORD_USED` + `SIGNED_IN` — same accepted pattern as elevation's
+  pre-existing `SESSION_CREATED` + `ELEVATED` double-fire.
+- **New, previously-nonexistent audit trail for impersonation:** `BaseImpersonationRoute` now fires a dedicated
+  `IMPERSONATED` entry (`userUid` = target, `actorUid` = the admin) — impersonation had ZERO audit trail of any
+  kind before this, in either `EventUtils` or the new mechanism; a real, closed gap, not scope creep.
+- **A real integration bug I caught and fixed myself, post-agent, pre-commit:** `src/auth/index.ts` (the
+  package's own re-export barrel) never listed the new `AuditLogUtils.ts` file, so
+  `import { AuditLogUtils, type AuditLogEntry } from "@rapidrest/auth"` — exactly what `auth-server`'s
+  `BaseDatabaseAuditLogUtils.ts` needs — would have failed to resolve against the REAL published package, even
+  though all three parallel agents' own tests passed (the persistence-layer agent's local `node_modules` shim,
+  built to compile against the *documented* contract, happened to wire the export correctly, silently masking
+  that the real source didn't). Caught by independently re-deriving the export chain
+  (`src/index.ts` → `./auth/index.js` → per-file exports) rather than trusting "tests passed" as sufficient —
+  worth remembering: a local shim can validate a *contract*, never that the real implementation actually satisfies
+  it. Fixed with one line (`export * from "./AuditLogUtils.js";`) added to `src/auth/index.ts`; full `auth` suite
+  re-run clean afterward (110 files, 2212 passed).
+- **`auth-server` persistence:** `AuditLogEntrySQL`/`Mongo` (`@Protect()` deny-all, same as `MessagingSettingsSQL`),
+  `data` stored as JSON text on SQL vs. a real nested document on Mongo, normalized back to one shape on read.
+  `BaseDatabaseAuditLogUtils.record()` lets a write failure **reject** rather than swallowing it — the `auth`
+  repo's caller is the one that catches and logs loudly, per the agreed contract; don't accidentally swallow it
+  on this side too if this code is ever touched again.
+  Filtering/pagination/sort reuse the EXISTING generic `ModelUtils.buildSearchQuery()` engine `GET /users` already
+  uses (`eq()`/`in()`/`like()`/`gte()`/`lte()`/`range()`, `page`/`limit`/`sort`, default sort `-dateCreated`) — the
+  admin-UI agent's client code sends bare `userUid=<value>`/`type=<value>` with no `eq()` wrapper; confirmed NOT a
+  mismatch, since the engine treats an unwrapped operand as an exact match identically to `eq(value)` when
+  `exactMatch: true` (which `RepoUtils.find()` always passes).
+  `GET /api/audit-log` (list, filter/paginate) + `GET /api/audit-log/:id` — deliberately NOT a `ModelRoute`/
+  `CRUDRoute` (same reasoning as `BaseSiteSettingsRoute`), no `POST`/`PUT`/`DELETE` at all; an entry is written
+  only internally by `record()`, never through the API.
+- **Retention, opt-in only:** `BaseAuditLogRetentionJob` (`BackgroundService`, daily at 03:00, via the same
+  `ClassLoader`-discovers-`src/sql`/`src/mongo` mechanism `MessagingUtils`/`DefaultAccounts` already use), gated
+  by `audit_log:retention_days` (default `null` = never purge; a positive number of days is the only way to turn
+  purging on at all). Purges via `RepoUtils.truncate({dateCreated: lte(cutoff)}, {ignoreACL:true})` — reuses
+  existing bulk-delete infra rather than a hand-rolled query. A purge failure is logged and retried next run,
+  never throws.
+- **Admin UI:** a new top-level `apps/admin/audit-log.tsx` (filter by `userUid`/`type`, paginated, links to the
+  account's detail page, shows `actorUid` only when it differs from `userUid`) plus `UserActivityCard.tsx` (last
+  10 entries) on the user detail page, "View all" deep-linking to the filtered global page via
+  `?userUid=<uid>` (the global page reads its filter state from `window.location.search` on mount specifically to
+  make that link work). New `AdminShell` nav entry between Messages and Settings.
+- **Still cannot be exercised end to end** — same standing caveat as every `@rapidrest/auth`-touching feature this
+  session (WhatsApp OTP, app passwords): `2.0.0-beta.11` is unpublished, so none of this reaches a running
+  `auth-server` until JP publishes it and this repo's `"@rapidrest/auth"` constraint (still `^2.0.0-beta.10`) is
+  bumped. Every layer is independently unit/integration-tested against the documented contract, not tested
+  together as one running system.
+- **Deliberately not built:** exporting audit log entries (CSV/etc.), real-time/streaming updates to the admin
+  page, per-entry admin annotations or acknowledgement. None of these were asked for; flagging them here only so
+  a future session doesn't have to rediscover they were considered and skipped, not overlooked.
+
 ### 2026-09-22 — App passwords
 
 JP published auth-server `1.0.0-beta.16` (commit `a56c4c7`) at the start of this session, picking up everything through

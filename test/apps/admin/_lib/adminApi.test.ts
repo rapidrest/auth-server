@@ -13,10 +13,12 @@ import {
     deleteSiteStylesheet,
     deleteUser,
     ensureElevated,
+    getAuditLogEntry,
     getUser,
     getUserProfile,
     impersonateUser,
     listAliasesForUsers,
+    listAuditLog,
     listUserAliases,
     listUsers,
     listUserSecrets,
@@ -276,6 +278,52 @@ describe("secrets", () => {
             data: expect.stringMatching(CLIENT_HASHED_PASSWORD_PATTERN),
             userUid: "u1",
         });
+    });
+});
+
+describe("listAuditLog", () => {
+    const entry = { uid: "e1", version: 0, type: "auth.signed_in", userUid: "u1", dateCreated: "2026-01-01T00:00:00.000Z" };
+
+    it("builds the default query (limit, page, sort=-dateCreated) with no filters", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, [entry]));
+        await listAuditLog();
+        expect(fetchMock).toHaveBeenCalledWith(
+            `/api/audit-log?limit=25&page=0&sort=${encodeURIComponent("-dateCreated")}`,
+            expect.anything(),
+        );
+    });
+
+    it("includes userUid and type filters when provided", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, []));
+        await listAuditLog({ userUid: "u1", type: "auth.signed_in", page: 2, limit: 10 });
+        const url = fetchMock.mock.calls[0][0] as string;
+        expect(url).toContain("limit=10");
+        expect(url).toContain("page=2");
+        expect(url).toContain(`sort=${encodeURIComponent("-dateCreated")}`);
+        expect(url).toContain("userUid=u1");
+        expect(url).toContain(`type=${encodeURIComponent("auth.signed_in")}`);
+    });
+
+    it("omits userUid/type entirely when not provided", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, []));
+        await listAuditLog({ page: 1 });
+        const url = fetchMock.mock.calls[0][0] as string;
+        expect(url).not.toContain("userUid=");
+        expect(url).not.toContain("type=");
+    });
+
+    it("passes the response array through unchanged", async () => {
+        mockFetch(() => jsonResponse(200, [entry]));
+        await expect(listAuditLog()).resolves.toEqual([entry]);
+    });
+});
+
+describe("getAuditLogEntry", () => {
+    it("fetches /audit-log/:id", async () => {
+        const entry = { uid: "e1", version: 0, type: "auth.signed_in", dateCreated: "" };
+        const fetchMock = mockFetch(() => jsonResponse(200, entry));
+        await expect(getAuditLogEntry("e1")).resolves.toEqual(entry);
+        expect(fetchMock).toHaveBeenCalledWith("/api/audit-log/e1", expect.anything());
     });
 });
 

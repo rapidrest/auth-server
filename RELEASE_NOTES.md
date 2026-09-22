@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Added a durable, queryable **audit log** for security-relevant account activity — sign-ins (by method), registration, elevation, admin impersonation, account deletion, "log out everywhere", MFA enrolled/removed, password changed, and app-password created/removed/used. A new admin **Audit Log** page lists and filters every account's entries; each account's own detail page also shows its **Recent activity**. This replaces relying on `@rapidrest/core`'s `EventUtils` for anything audit-worthy — that mechanism is lossy, best-effort telemetry (with no `telemetry_services:url` configured, which is this app's default, it silently discards every event end to end) and was never meant for this. A write failure never blocks the action that triggered it — it's logged loudly instead — and nothing is ever purged unless `audit_log:retention_days` is explicitly set (unset means keep forever). Needs `@rapidrest/auth` 2.0.0-beta.11 or later
+
 * Added **app passwords**: from the account page's new "App passwords" card, a user can create a separate,
   server-generated password for one app or device that can't respond to a two-factor prompt — an older e-mail
   client speaking HTTP Basic Auth to a downstream service (e.g. a mail server) that validates its credentials

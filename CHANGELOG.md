@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add an auth:app_password:enabled config to turn app passwords off deployment-wide
 - Add a last-used date to every secret, shown on the account page and to an admin viewing an account's sign-in methods
 - Add app passwords and recovery codes to the admin Sign-in methods card, which previously left both out
+- Add a durable, admin-visible audit log for sign-ins, registration, elevation, impersonation, account deletion, sessions-revoked, MFA changes and app-password lifecycle, with an optional retention policy
 
 ## [1.0.0-beta.16] - 2026-09-22
 

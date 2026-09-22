@@ -15,3 +15,4 @@ export {
 export { SiteSettingsMongo } from "../models/mongo/SiteSettingsMongo.js";
 export { MessageTemplateMongo } from "../models/mongo/MessageTemplateMongo.js";
 export { MessagingSettingsMongo } from "../models/mongo/MessagingSettingsMongo.js";
+export { AuditLogEntryMongo } from "../models/mongo/AuditLogEntryMongo.js";

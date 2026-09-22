@@ -15,3 +15,4 @@ export {
 export { SiteSettingsSQL } from "../models/sql/SiteSettingsSQL.js";
 export { MessageTemplateSQL } from "../models/sql/MessageTemplateSQL.js";
 export { MessagingSettingsSQL } from "../models/sql/MessagingSettingsSQL.js";
+export { AuditLogEntrySQL } from "../models/sql/AuditLogEntrySQL.js";

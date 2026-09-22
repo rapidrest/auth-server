@@ -11,6 +11,7 @@ import UserOverviewCard from "../../shared/components/admin/users/detail/UserOve
 import UserProfileCard from "../../shared/components/admin/users/detail/UserProfileCard.js";
 import UserIdentifiersCard from "../../shared/components/admin/users/detail/UserIdentifiersCard.js";
 import UserSecretsCard from "../../shared/components/admin/users/detail/UserSecretsCard.js";
+import UserActivityCard from "../../shared/components/admin/users/detail/UserActivityCard.js";
 import DeleteUserModal from "../../shared/components/admin/users/DeleteUserModal.js";
 import Alert from "../../shared/components/feedback/Alert.js";
 import Button from "../../shared/components/buttons/Button.js";
@@ -93,6 +94,7 @@ function UserDetailContent({ uid }: { uid: string }) {
                     <UserProfileCard uid={user.uid} />
                     <UserIdentifiersCard uid={user.uid} />
                     <UserSecretsCard uid={user.uid} />
+                    <UserActivityCard uid={user.uid} />
 
                     <div className="rr-card">
                         <div className="rr-card__title">Impersonate</div>

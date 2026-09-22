@@ -23,6 +23,7 @@ vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
         getUserProfile: vi.fn(),
         listUserAliases: vi.fn(),
         listUserSecrets: vi.fn(),
+        listAuditLog: vi.fn(),
         ensureElevated: vi.fn(),
     };
 });
@@ -35,6 +36,7 @@ import {
     getUser,
     getUserProfile,
     impersonateUser,
+    listAuditLog,
     listUserAliases,
     listUserSecrets,
 } from "../../../../apps/shared/lib/adminApi.js";
@@ -47,6 +49,7 @@ const mockedImpersonateUser = vi.mocked(impersonateUser);
 const mockedGetUserProfile = vi.mocked(getUserProfile);
 const mockedListUserAliases = vi.mocked(listUserAliases);
 const mockedListUserSecrets = vi.mocked(listUserSecrets);
+const mockedListAuditLog = vi.mocked(listAuditLog);
 const mockedEnsureElevated = vi.mocked(ensureElevated);
 
 const adminSelf = { uid: "admin-1", version: 1, roles: ["admin"], scopes: [] };
@@ -68,11 +71,13 @@ beforeEach(() => {
     mockedGetUserProfile.mockReset();
     mockedListUserAliases.mockReset();
     mockedListUserSecrets.mockReset();
+    mockedListAuditLog.mockReset();
     mockedEnsureElevated.mockReset();
     mockedGetCurrentUser.mockResolvedValue(adminSelf);
     mockedGetUserProfile.mockResolvedValue(null);
     mockedListUserAliases.mockResolvedValue([]);
     mockedListUserSecrets.mockResolvedValue([]);
+    mockedListAuditLog.mockResolvedValue([]);
     mockedEnsureElevated.mockResolvedValue(undefined);
 });
 
