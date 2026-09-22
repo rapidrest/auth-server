@@ -1984,10 +1984,37 @@ describe("AccountPage — passkey", () => {
         expect(await screen.findByText("session expired")).toBeInTheDocument();
     });
 
-    it("shows a generic message on a non-API, non-cancellation error", async () => {
+    it("shows a generic message plus the underlying error's name and message on a non-API, non-cancellation error", async () => {
         const user = userEvent.setup();
         await goToPasskey(user);
         mockedGetPasskeyRegistrationOptions.mockRejectedValueOnce(new TypeError("boom"));
+
+        await user.click(screen.getByRole("button", { name: "Add passkey" }));
+        expect(await screen.findByText("Could not add a passkey. (TypeError: boom)")).toBeInTheDocument();
+    });
+
+    it("shows the browser's WebAuthn error, e.g. a relying-party ID mismatch, so it can actually be diagnosed", async () => {
+        const user = userEvent.setup();
+        await goToPasskey(user);
+        mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({});
+        const mismatch = new Error(
+            "The relying party ID is not a registrable domain suffix of, nor equal to, the current domain.",
+        );
+        mismatch.name = "SecurityError";
+        mockedStartRegistration.mockRejectedValueOnce(mismatch);
+
+        await user.click(screen.getByRole("button", { name: "Add passkey" }));
+        expect(
+            await screen.findByText(
+                "Could not add a passkey. (SecurityError: The relying party ID is not a registrable domain suffix of, nor equal to, the current domain.)",
+            ),
+        ).toBeInTheDocument();
+    });
+
+    it("falls back to the plain generic message when the error has no message", async () => {
+        const user = userEvent.setup();
+        await goToPasskey(user);
+        mockedGetPasskeyRegistrationOptions.mockRejectedValueOnce("not an Error at all");
 
         await user.click(screen.getByRole("button", { name: "Add passkey" }));
         expect(await screen.findByText("Could not add a passkey.")).toBeInTheDocument();
@@ -2116,10 +2143,19 @@ describe("AccountPage — FIDO2 security key", () => {
         expect(await screen.findByText("session expired")).toBeInTheDocument();
     });
 
-    it("shows a generic message on a non-API, non-cancellation error", async () => {
+    it("shows a generic message plus the underlying error's name and message on a non-API, non-cancellation error", async () => {
         const user = userEvent.setup();
         await goToFido2(user);
         mockedGetFido2RegistrationOptions.mockRejectedValueOnce(new TypeError("boom"));
+
+        await user.click(screen.getByRole("button", { name: "Add security key" }));
+        expect(await screen.findByText("Could not add a security key. (TypeError: boom)")).toBeInTheDocument();
+    });
+
+    it("falls back to the plain generic message when the error has no message", async () => {
+        const user = userEvent.setup();
+        await goToFido2(user);
+        mockedGetFido2RegistrationOptions.mockRejectedValueOnce("not an Error at all");
 
         await user.click(screen.getByRole("button", { name: "Add security key" }));
         expect(await screen.findByText("Could not add a security key.")).toBeInTheDocument();

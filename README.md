@@ -70,6 +70,12 @@ console owns it (see each row).
 | `whatsapp` | WhatsApp Business Cloud API credentials: `{ accessToken, phoneNumberId, apiVersion }` (`phoneNumberId` is Meta's ID for your number, not the number). Seeds once; edit it on the Messages page. |
 | `smtp_config` | The SMTP server for e-mail, as before. Seeds once. |
 
+> **Passkeys/FIDO2 on a real deployment:** the Helm chart now defaults `auth:passkey`/`auth:fido2`'s `rpID`/
+> `origin` to the server's own host (`service-config.yaml`), since `@rapidrest/auth`'s built-in default (rpID
+> `rapidrest`) never matches a real domain and made every passkey/security-key registration fail instantly. Not
+> using the Helm chart? Set `auth__passkey__rpID`/`auth__passkey__origin` and `auth__fido2__rpID`/
+> `auth__fido2__origin` (a bare domain, and a full `https://` origin) yourself.
+
 > **Breaking (@rapidrest/core 6):** the top-level `twilio` config key is gone — move it to
 > `sms_config: { provider: twilio, config: { accountSid, token } }` (env: `sms_config__provider`,
 > `sms_config__config__accountSid`, `sms_config__config__token`). A deployment that already started keeps working

@@ -158,9 +158,56 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-21 (later) — Reset branding button, and the passkey/FIDO2 Helm rpID bug
+
+Follow-up to the entry directly below, same day. Both committed (auth-server `a16ca15` for the first batch below, plus
+this follow-up on top; `auth` `7adfeda`) — JP to version/publish when ready.
+
+- **Reset branding.** `POST /api/settings/branding/reset` (`BaseSiteSettingsRoute.resetSettings()`) + a "Reset branding"
+  card on the Site Settings page. Unlike messaging's per-provider resets, this is ONE button for the whole row, since
+  one `site_settings` config block spans all four branding cards. Also clears any directly uploaded logo/icon/
+  stylesheet (`logoData`/`iconData`/`stylesheetCss` + content types) — without that, an upload still takes precedence
+  over the reference URL a reset just restored, so the reset would visibly do nothing.
+- **Passkey/FIDO2 registration failing on every real deployment, fixed at the root.** JP reported "Could not add a
+  passkey" on a real deployed domain (not localhost). Root cause: `@rapidrest/auth`'s built-in `auth:passkey`/
+  `auth:fido2` default is `{ rpID: "rapidrest", origin: "http://localhost:3000" }` — neither a real domain nor this
+  deployment's origin — and **the Helm chart never set either for any real domain** (`grep -i passkey helm/` came back
+  empty before this fix). WebAuthn refuses even to start (`navigator.credentials.create()` throws a `SecurityError`
+  synchronously, before any OS prompt) unless the relying-party ID matches the page's own registrable domain — so
+  every attempt failed instantly, on every non-`localhost:3000` deployment, until this fix. `service-config.yaml` now
+  derives `auth__passkey__rpID`/`auth__passkey__origin`/`auth__fido2__rpID`/`auth__fido2__origin` from `.Values.host`
+  (the same host `cors__origins`/`jwt.issuer` already use), at whichever scheme TLS/HSTS settings prefer — see
+  `test/HelmPasskeyRpID.test.ts`. **Learned while building this:** `service.config`'s override mechanism
+  (`cors__origins`/`trusted_proxies`'s existing pattern — emit a default unconditionally, let a `service.config` entry
+  of the same name append *after* it) does not actually override anything; a YAML mapping can't hold the same key
+  twice, and both `helm template`'s renderer and `kubectl apply` reject the duplicate outright. Confirmed by writing
+  the override test the straightforward way first and watching `js-yaml` throw `YAMLException: duplicated mapping
+  key`. Fixed the same day, for every chart-derived default at once (not just the new passkey/FIDO2 keys):
+  `NODE_ENV`/`cors__origins`/`trusted_proxies`/the four `auth__passkey__*`/`auth__fido2__*` keys are now gathered into
+  one `$defaults` dict and looped with a `hasKey $.Values.service.config $k` guard before each is emitted, so
+  `service.config` setting any one of them is a real override rather than a chart that fails to render at all — see
+  `test/HelmCorsOrigins.test.ts`'s override test.
+  - **auth-server env-var case sensitivity (same rule as `site_settings`, see below) applies to the *inner* JS
+    property too here.** `@Config("auth:passkey")` reads the whole object, then the route code accesses `.rpID` on it
+    as a plain JS property — so the ConfigMap key must be exactly `auth__passkey__rpID` (capital ID). Confirmed this
+    reaches the container with that exact casing: the Deployment uses `envFrom: configMapRef` (`service.yaml`), and
+    Kubernetes ConfigMap `data` keys (and the env vars `envFrom` creates from them) are case-sensitive strings with no
+    normalization — a mixed-case key survives from the rendered YAML to `process.env` untouched.
+  - **RapidMX's own chart needs the same fix separately** (it doesn't consume this chart as a dependency — see the
+    2026-09-20 entry's `cors__origins` incident for the same situation and why).
+  - **Also fixed:** `PasskeySecretForm.tsx`/`Fido2SecretForm.tsx` caught *any* non-`ApiRequestError`, non-cancellation
+    error (which is exactly what a client-side WebAuthn failure like the one above is) and showed a bare, undiagnosable
+    "Could not add a passkey."/"Could not add a security key." — now appended with the real `(ErrorName: message)`,
+    e.g. `(SecurityError: The relying party ID is not a registrable domain suffix of, nor equal to, the current
+    domain.)`. This is what actually surfaced the root cause above; worth doing regardless of this specific bug, since
+    it's the one thing that explains an otherwise-silent WebAuthn failure. The equivalent swallow in
+    `SignInFlow.tsx`/`ElevationHost.tsx` (passkey/FIDO2 *sign-in*, not registration) was left alone — not reported,
+    and out of scope for this pass, but the exact same weakness.
+
 ### 2026-09-21 — core 6 (Telnyx SMS + WhatsApp), WhatsApp OTP, config-seeded branding, user-menu/account/password UI
 
-Seven requests, done in one pass. Left uncommitted. **Supersedes** the 2026-09-19 entries' "Twilio" naming (see below).
+Seven requests, done in one pass. **Committed** (auth-server `a16ca15`, auth `7adfeda`) — JP to version/publish when
+ready. **Supersedes** the 2026-09-19 entries' "Twilio" naming (see below).
 
 - **`@rapidrest/core` 6.0.0 (dependency bumped to `^6.0.0`, installed).** Core moved SMS config from the top-level `twilio` key to
   `sms_config: { provider: "twilio"|"telnyx", config }` (the old key is *ignored*), and added `whatsapp: { accessToken, phoneNumberId,

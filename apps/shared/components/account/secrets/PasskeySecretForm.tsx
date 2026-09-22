@@ -34,8 +34,14 @@ export default function PasskeySecretForm({ setSecrets, onClose }: PasskeySecret
         } catch (err) {
             if (err instanceof Error && err.name === "NotAllowedError") {
                 setError("Passkey setup was cancelled.");
+            } else if (err instanceof ApiRequestError) {
+                setError(err.message);
             } else {
-                setError(err instanceof ApiRequestError ? err.message : "Could not add a passkey.");
+                // The browser's own WebAuthn error (e.g. a `SecurityError` from a relying-party ID/origin that
+                // doesn't match this page's, which no server round trip would ever see) is worth showing: it's
+                // the one thing that actually explains an otherwise-silent failure to whoever has to diagnose it.
+                const detail = err instanceof Error && err.message ? ` (${err.name}: ${err.message})` : "";
+                setError(`Could not add a passkey.${detail}`);
             }
         } finally {
             setAdding(false);

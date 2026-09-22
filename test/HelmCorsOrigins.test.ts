@@ -40,7 +40,7 @@ describe.skipIf(!helmAvailable)("service-config.yaml cors__origins (helm templat
 
     afterAll(() => rmSync(workDir, { recursive: true, force: true }));
 
-    function renderOrigins(...sets: string[]): string {
+    function renderData(...sets: string[]): Record<string, string> {
         const args = [
             "template",
             "t",
@@ -56,7 +56,11 @@ describe.skipIf(!helmAvailable)("service-config.yaml cors__origins (helm templat
         const result = spawnSync("helm", args, { encoding: "utf8" });
         expect(result.stderr).toBe("");
         expect(result.status).toBe(0);
-        return (load(result.stdout) as { data: Record<string, string> }).data.cors__origins;
+        return (load(result.stdout) as { data: Record<string, string> }).data;
+    }
+
+    function renderOrigins(...sets: string[]): string {
+        return renderData(...sets).cors__origins;
     }
 
     it("renders a plain JSON array of un-quoted origins", () => {
@@ -88,5 +92,20 @@ describe.skipIf(!helmAvailable)("service-config.yaml cors__origins (helm templat
             "https://mail.example.com",
             "https://auth.example.com",
         ]);
+    });
+
+    // Regression test: cors__origins/trusted_proxies/NODE_ENV are chart-derived defaults, gathered with every other
+    // one into a single `$defaults` dict and only emitted when `service.config` doesn't already set that key — a
+    // YAML mapping can't hold the same key twice, so setting one of these through `service.config` used to render a
+    // ConfigMap `helm template`/`kubectl apply` both reject outright, rather than actually overriding anything.
+    it("lets service.config override cors__origins, trusted_proxies and NODE_ENV, each exactly once in the render", () => {
+        const data = renderData(
+            "service.config.cors__origins={https://override.example}",
+            "service.config.trusted_proxies={10.10.0.0/16}",
+            "service.config.NODE_ENV=staging",
+        );
+        expect(JSON.parse(data.cors__origins)).toEqual(["https://override.example"]);
+        expect(JSON.parse(data.trusted_proxies)).toEqual(["10.10.0.0/16"]);
+        expect(data.NODE_ENV).toBe("staging");
     });
 });

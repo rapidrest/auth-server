@@ -1,6 +1,18 @@
 # Release Notes
 
 ## Unreleased
+* Fixed the Helm chart never setting `auth:passkey`/`auth:fido2`'s `rpID`/`origin`, so a deployment fell back to
+  `@rapidrest/auth`'s built-in defaults (rpID `rapidrest`, origin `http://localhost:3000`) — neither of which matches a
+  real domain. WebAuthn refuses even to start when the relying-party ID doesn't match the page's own domain, so every
+  "Add a passkey"/"Add a security key" attempt failed instantly with a browser `SecurityError`, before any prompt ever
+  appeared. Both now default to the server's own host/origin (`service-config.yaml`); `service.config` can still
+  override either
+* Fixed `PasskeySecretForm`/`Fido2SecretForm` showing only a generic "Could not add a passkey."/"Could not add a
+  security key." for any browser-side WebAuthn failure (like the one above) — they now include the browser's own
+  error name and message, e.g. `(SecurityError: ...)`
+* Fixed the Helm chart's `service.config` being unable to actually override `cors__origins`, `trusted_proxies`,
+  `NODE_ENV` or the new `auth__passkey__*`/`auth__fido2__*` keys above: setting any of them there previously produced
+  a ConfigMap with the same key twice, which both `helm template` and `kubectl apply` refuse to render/apply at all
 
 * Added a dark/light theme toggle to the user menu. The choice is remembered in the browser (`localStorage`, key `rr-theme`), applied before the page paints so there is no flash, and otherwise follows the operating system
 * Added an "Exit Admin Console" item to the user menu inside the admin console, which goes to `/`

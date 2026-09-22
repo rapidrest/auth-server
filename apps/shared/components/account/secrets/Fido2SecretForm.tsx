@@ -34,8 +34,12 @@ export default function Fido2SecretForm({ setSecrets, onClose }: Fido2SecretForm
         } catch (err) {
             if (err instanceof Error && err.name === "NotAllowedError") {
                 setError("Hardware key setup was cancelled.");
+            } else if (err instanceof ApiRequestError) {
+                setError(err.message);
             } else {
-                setError(err instanceof ApiRequestError ? err.message : "Could not add a security key.");
+                // See PasskeySecretForm's identical branch: the browser's own WebAuthn error is worth showing.
+                const detail = err instanceof Error && err.message ? ` (${err.name}: ${err.message})` : "";
+                setError(`Could not add a security key.${detail}`);
             }
         } finally {
             setAdding(false);

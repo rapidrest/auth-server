@@ -4,7 +4,6 @@ apiVersion: v1
 metadata:
   name: {{ include "rrst.fullname" . }}-service-config
 data:
-  NODE_ENV: "{{ $.Values.environment }}"
   {{- $schemes := list "http" }}
   {{- if .Values.global.gateway.tls }}
   {{-   $schemes = ternary (list "https") (list "http" "https") .Values.global.gateway.hsts }}
@@ -16,8 +15,35 @@ data:
   {{-     $origins = append $origins (printf "%s://%s" $scheme (include "rrst.render" (dict "value" $host "context" $))) }}
   {{-   end }}
   {{- end }}
-  cors__origins: {{ $origins | toJson | quote }}
-  trusted_proxies: {{ $.Values.global.trustedProxies | default list | toJson | quote }}
+  {{- /*
+    WebAuthn (passkeys and FIDO2 security keys) refuses even to start unless the relying-party ID matches this
+    server's own domain and the origin matches exactly (scheme included) — @rapidrest/auth's built-in default
+    (rpID "rapidrest", origin "http://localhost:3000") matches neither, so every registration fails instantly in
+    the browser with a SecurityError, before any prompt appears. Default both to this server's own host/origin
+    (the same host used to build $hosts/$origins above), at whichever scheme HTTPS/HSTS settings prefer.
+  */}}
+  {{- $selfHost := include "rrst.render" (dict "value" $.Values.host "context" $) }}
+  {{- $selfOrigin := printf "%s://%s" (last $schemes) $selfHost }}
+  {{- /*
+    Every value this chart derives on its own, gathered here so service.config can genuinely *override* one (not
+    just add another beside it): a YAML mapping can't hold the same key twice, and both `helm template` and
+    `kubectl apply` reject a manifest that does outright, so each key below is only emitted when service.config
+    doesn't already set it. (Confirmed the hard way — see the passkey/FIDO2 entry that added this in NOTES.md.)
+  */}}
+  {{- $defaults := dict
+        "NODE_ENV" $.Values.environment
+        "cors__origins" ($origins | toJson)
+        "trusted_proxies" ($.Values.global.trustedProxies | default list | toJson)
+        "auth__passkey__rpID" $selfHost
+        "auth__passkey__origin" $selfOrigin
+        "auth__fido2__rpID" $selfHost
+        "auth__fido2__origin" $selfOrigin
+  }}
+  {{- range $k, $v := $defaults }}
+  {{- if not (hasKey $.Values.service.config $k) }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+  {{- end }}
   {{- range $k, $v := $.Values.service.config }}
   {{- if kindIs "string" $v }}
   {{ $k }}: {{ tpl $v $ | quote }}

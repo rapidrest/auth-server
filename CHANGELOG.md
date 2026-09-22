@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix the Helm chart never setting a passkey/FIDO2 relying-party ID or origin for the deployment's own domain, which made every passkey or security key registration fail instantly with a browser SecurityError
+- Fix the passkey and security key forms showing only a generic failure message instead of the browser's own WebAuthn error
+- Fix the Helm chart's service.config being unable to actually override cors__origins, trusted_proxies, NODE_ENV or the passkey/FIDO2 keys, which previously rendered an invalid ConfigMap with a duplicate key
+
 ### Added
 - Add a dark/light theme toggle to the user menu, remembered in the browser and applied before first paint
 - Add an Exit Admin Console item to the admin console's user menu
