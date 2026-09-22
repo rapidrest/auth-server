@@ -27,3 +27,4 @@ rrst-test
 # Fetched by `helm dependency update` (see helm/Chart.yaml) - regenerable from helm/Chart.lock (which
 # *should* be committed, unlike these binary archives).
 /helm/charts/*.tgz
+junit.xml
