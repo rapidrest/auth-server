@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.17] - 2026-09-22
+
+### Added
+- Added app passwords: a separate, server-generated password a user creates on the account page for an app or device that can't complete a two-factor prompt, shown once at creation, independently revocable, and immutable once created
+- Added an auth:app_password:enabled config to turn app passwords off deployment-wide, and note it needs a release of @rapidrest/auth that includes the feature
+- Added a last-used date to every secret, shown on the account page and to an admin viewing an account's sign-in methods, as Never used until the secret has authenticated a sign-in
+- Added app passwords and recovery codes to the admin Sign-in methods card, which previously left both out, so an admin can now see and revoke either
+- Added a durable, admin-queryable audit log for security-relevant account activity, separate from EventUtils, which is lossy telemetry and never meant for this: sign-ins by method, registration, elevation, impersonation, account deletion, sessions revoked, MFA changes, and app-password lifecycle
+- Added AuditLogEntrySQL and AuditLogEntryMongo, append-only and deny-all like MessagingSettingsSQL, written only internally by BaseDatabaseAuditLogUtils
+- Added GET /api/audit-log and GET /api/audit-log/:id, trusted-role-only and read-only, reusing the same filter and pagination query syntax GET /users already exposes
+- Added an admin Audit Log page with filtering and pagination, and a Recent Activity card on each account's detail page linking to it
+- Added an audit_log:retention_days config, unset by default so nothing is ever purged, and a daily background job that only purges when it is explicitly set
+- Added junit.xml to gitignore
+
+### Changed
+- Document the changes in the README, CHANGELOG, release notes and NOTES
+- Document the changes in the README, CHANGELOG, release notes and NOTES
+- Upgraded auth dep
+
+
 ### Added
 - Add app passwords: a separate, server-generated password a user creates for an app that can't complete a two-factor prompt, shown once at creation and independently revocable
 - Add an auth:app_password:enabled config to turn app passwords off deployment-wide
@@ -528,7 +548,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.16...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.17...HEAD
+[1.0.0-beta.17]: github/auth-server/compare/v1.0.0-beta.16...v1.0.0-beta.17
 [1.0.0-beta.16]: github/auth-server/compare/v1.0.0-beta.15...v1.0.0-beta.16
 [1.0.0-beta.15]: github/auth-server/compare/v1.0.0-beta.14...v1.0.0-beta.15
 [1.0.0-beta.14]: github/auth-server/compare/v1.0.0-beta.13...v1.0.0-beta.14

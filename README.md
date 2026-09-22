@@ -135,7 +135,7 @@ and `parameters`, e.g. `["{{totp}}"]`). Until you do, the free-form text is sent
 | ------------ | :-------------------: |
 | Registry     | ghcr.io |
 | Repository   | /rapidrest/auth-server |
-| Tag          | 1.0.0-beta.16 |
+| Tag          | 1.0.0-beta.17 |
 
 This project provides scripts for running in Docker or Kubernetes. For Docker, you will find *docker-compose* scripts
 in the project source. For Kubernetes, a *helm* chart is available both in the project source and via GitHub Container
@@ -164,7 +164,7 @@ is easy using either the published helm chart in GitHub or install from the helm
 #### From GHCR
 
 ```bash
-helm install --create-namespace --namespace auth-server auth-server oci://ghcr.io/rapidrest/charts/auth-server --version 1.0.0-beta.16
+helm install --create-namespace --namespace auth-server auth-server oci://ghcr.io/rapidrest/charts/auth-server --version 1.0.0-beta.17
 ```
 
 #### From Local
