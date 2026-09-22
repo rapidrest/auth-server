@@ -29,7 +29,23 @@ interface Values {
     text: string;
     html: string;
     sms: string;
+    whatsapp: string;
+    whatsappTemplateName: string;
+    whatsappTemplateLanguage: string;
+    whatsappTemplateParameters: string;
 }
+
+/** The parts of a message with content of their own, as the server names them; `enabled` is a switch, not content. */
+const CONTENT_FIELDS = [
+    "subject",
+    "text",
+    "html",
+    "sms",
+    "whatsapp",
+    "whatsappTemplateName",
+    "whatsappTemplateLanguage",
+    "whatsappTemplateParameters",
+] as const;
 
 function valuesOf(template: MessageTemplateDetail): Values {
     return {
@@ -38,6 +54,10 @@ function valuesOf(template: MessageTemplateDetail): Values {
         text: template.text ?? "",
         html: template.html ?? "",
         sms: template.sms ?? "",
+        whatsapp: template.whatsapp ?? "",
+        whatsappTemplateName: template.whatsappTemplateName ?? "",
+        whatsappTemplateLanguage: template.whatsappTemplateLanguage ?? "",
+        whatsappTemplateParameters: template.whatsappTemplateParameters ?? "",
     };
 }
 
@@ -48,7 +68,7 @@ function valuesOf(template: MessageTemplateDetail): Values {
  */
 function inputFor(template: MessageTemplateDetail, values: Values): MessageTemplateInput {
     const input: MessageTemplateInput = { enabled: values.enabled === template.defaults.enabled ? null : values.enabled };
-    for (const field of ["subject", "text", "html", "sms"] as const) {
+    for (const field of CONTENT_FIELDS) {
         input[field] = values[field] === (template.defaults[field] ?? "") ? null : values[field];
     }
     return input;
@@ -64,20 +84,29 @@ interface FieldProps {
     rows?: number;
     /** A one-line input rather than a text area. */
     single?: boolean;
+    placeholder?: string;
     onChange: (value: string) => void;
 }
 
-function Field({ id, label, hint, value, defaultValue, rows = 6, single, onChange }: FieldProps) {
+function Field({ id, label, hint, value, defaultValue, rows = 6, single, placeholder, onChange }: FieldProps) {
     const modified = value !== (defaultValue ?? "");
     return (
         <FormField label={label} htmlFor={id}>
             {single ? (
-                <input id={id} className="rr-input" type="text" value={value} onChange={(e) => onChange(e.target.value)} />
+                <input
+                    id={id}
+                    className="rr-input"
+                    type="text"
+                    placeholder={placeholder}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                />
             ) : (
                 <textarea
                     id={id}
                     className="rr-input"
                     rows={rows}
+                    placeholder={placeholder}
                     spellCheck={false}
                     style={{ fontFamily: "monospace", fontSize: "0.85rem" }}
                     value={value}
@@ -105,7 +134,8 @@ function Field({ id, label, hint, value, defaultValue, rows = 6, single, onChang
 }
 
 /**
- * Edits one message: whether it's sent, and its e-mail subject/plain-text/HTML bodies and SMS. Every part is shown
+ * Edits one message: whether it's sent, its e-mail subject/plain-text/HTML bodies, its SMS, and its WhatsApp message
+ * (free-form text, or an approved WhatsApp message template). Every part is shown
  * as it's currently sent — the default, until someone changes it — and can be reverted to the default on its own.
  * "Preview" renders the draft exactly as a send would, with the real site branding, before anything is saved.
  */
@@ -249,10 +279,64 @@ export default function TemplateEditor({ template, onChanged }: TemplateEditorPr
             </div>
 
             <div className="rr-card">
+                <div className="rr-card__title">WhatsApp</div>
+                <Field
+                    id="messageWhatsapp"
+                    label="WhatsApp message"
+                    rows={3}
+                    hint="Free-form text. WhatsApp only delivers it to someone who has messaged you in the last 24 hours, so it won't reach most people waiting for a code. Leave empty, with no approved template below, to stop sending this message on WhatsApp."
+                    value={values.whatsapp}
+                    defaultValue={template.defaults.whatsapp}
+                    onChange={(whatsapp) => edit({ whatsapp })}
+                />
+
+                <div role="group" aria-labelledby="whatsappTemplateHeading" style={{ marginTop: "1.5rem" }}>
+                    <div id="whatsappTemplateHeading" style={{ fontWeight: 600 }}>
+                        Approved WhatsApp template
+                    </div>
+                    <p className="rr-hint">
+                        A message template approved in Meta&rsquo;s WhatsApp Manager can be sent to anyone, whenever they last
+                        wrote. When it has a name, it&rsquo;s sent instead of the WhatsApp message above. Leave the name empty
+                        to send that message.
+                    </p>
+                    <Field
+                        id="messageWhatsappTemplateName"
+                        label="Template name"
+                        single
+                        placeholder="login_code"
+                        hint="The name it was approved under, exactly as it appears in the WhatsApp Manager."
+                        value={values.whatsappTemplateName}
+                        defaultValue={template.defaults.whatsappTemplateName}
+                        onChange={(whatsappTemplateName) => edit({ whatsappTemplateName })}
+                    />
+                    <Field
+                        id="messageWhatsappTemplateLanguage"
+                        label="Language code"
+                        single
+                        placeholder="en_US"
+                        hint="The language it was approved in, like en_US. Needed whenever there's a template name."
+                        value={values.whatsappTemplateLanguage}
+                        defaultValue={template.defaults.whatsappTemplateLanguage}
+                        onChange={(whatsappTemplateLanguage) => edit({ whatsappTemplateLanguage })}
+                    />
+                    <Field
+                        id="messageWhatsappTemplateParameters"
+                        label="Parameters"
+                        rows={3}
+                        placeholder="{{totp}}"
+                        hint="One per line, filling the template's {{1}}, {{2}}… in order. Each can use variables, like {{totp}}. Blank lines are ignored."
+                        value={values.whatsappTemplateParameters}
+                        defaultValue={template.defaults.whatsappTemplateParameters}
+                        onChange={(whatsappTemplateParameters) => edit({ whatsappTemplateParameters })}
+                    />
+                </div>
+            </div>
+
+            <div className="rr-card">
                 <div className="rr-card__title">Variables</div>
                 <p className="rr-card__subtitle">
-                    Write a variable between double braces, like <code>{"{{totp}}"}</code>. In the subject, plain-text body
-                    and text message, write the brand ones with three — <code>{"{{{brand.name}}}"}</code> — so a name like
+                    Write a variable between double braces, like <code>{"{{totp}}"}</code>. In the subject, plain-text body,
+                    text message and WhatsApp message, write the brand ones with three — <code>{"{{{brand.name}}}"}</code> — so a name like
                     &ldquo;Tom &amp; Jerry&rdquo; isn&rsquo;t turned into HTML. The site branding is set under Settings.
                 </p>
                 <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>

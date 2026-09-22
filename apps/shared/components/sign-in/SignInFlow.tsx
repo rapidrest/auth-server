@@ -339,7 +339,9 @@ export default function SignInFlow({ onSuccess, returnTo, oauthProviders }: Sign
         setError(null);
         setLoading(true);
         try {
-            await getOtpChallenge(otpContact.trim());
+            // Only reachable via OtpChallenge's contact form, which only renders once an OTP hint is selected.
+            // `channel` is undefined for a plain SMS/e-mail hint, so the request carries no `channel` for those.
+            await getOtpChallenge(otpContact.trim(), selectedOtpHint!.channel);
             setOtpStep("code");
         } catch (err) {
             setError(err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.");

@@ -158,6 +158,57 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-21 — core 6 (Telnyx SMS + WhatsApp), WhatsApp OTP, config-seeded branding, user-menu/account/password UI
+
+Seven requests, done in one pass. Left uncommitted. **Supersedes** the 2026-09-19 entries' "Twilio" naming (see below).
+
+- **`@rapidrest/core` 6.0.0 (dependency bumped to `^6.0.0`, installed).** Core moved SMS config from the top-level `twilio` key to
+  `sms_config: { provider: "twilio"|"telnyx", config }` (the old key is *ignored*), and added `whatsapp: { accessToken, phoneNumberId,
+  apiVersion }` + `sendWhatsApp()` + template fields `whatsapp`/`whatsapp_template`. `@rapidrest/auth@2.0.0-beta.10` still declares a
+  `^5.0.0` core peer (yarn prints a peer warning — expected until auth is republished).
+- **Messaging settings row is provider-neutral now** (`MessagingSettingsStore`, `MessagingSettings.ts`): `smsProvider` picks ONE of
+  twilio/telnyx; both providers' saved fields are kept in the row but only the chosen one is resolved, and `syncSms()` clears the other on
+  core's private `twilio`/`telnyx` fields so a send can only go through the chosen one. A row with `smsProvider` null (deployed before the
+  choice existed) infers the provider from whichever has credentials, Twilio first (`effectiveSmsProvider()`) — so existing deployments
+  keep working with no migration. New columns (sql+mongo): `smsProvider`, `telnyxApiKey` (secret), `telnyxMessagingProfileId`,
+  `whatsappPhoneNumberId`, `whatsappAccessToken` (secret), `whatsappApiVersion`; secrets are `SecretBox` envelopes as before. The legacy
+  `twilio` config key is deliberately NOT read (an already-started deployment has it in the DB; a new one uses `sms_config`).
+- **Routes moved:** `/api/settings/twilio` → `/api/settings/sms`; `/api/settings/whatsapp` is new (`BaseSmsSettingsRoute`,
+  `BaseWhatsAppSettingsRoute`, sql+mongo subclasses). `BaseDatabaseMessagingUtils` gained `sendWhatsApp()` (syncs creds then sends) and
+  `isWhatsAppConfigured()` — the hook `@rapidrest/auth` calls to decide whether to offer WhatsApp as an OTP channel.
+- **WhatsApp template editing is flattened** so it fits the existing override machinery: `whatsapp` (free text) plus
+  `whatsappTemplateName`/`whatsappTemplateLanguage`/`whatsappTemplateParameters` (one Handlebars string per line) stand in for core's nested
+  `whatsapp_template`; `mergeTemplate()` rebuilds it (empty name ⇒ no template ⇒ free text). `contentOf()` is the flat view used for defaults.
+  Language is required when a name is set (`renderTemplate()` throws ⇒ a 400 on save). Preview drives core's real `sendWhatsApp()` with
+  `postJson` stubbed, so it shows exactly the request body.
+  **Known limitation:** core builds only a `body` component for template messages, so a Meta *authentication*-category template (which needs the
+  code again as a `button` parameter) can't be sent yet; a utility-style template whose body has the code works. Fix belongs in core.
+- **WhatsApp OTP lives in `@rapidrest/auth`** (sibling repo, source done + tested, **not published/bumped** — JP versions it): new
+  `OTPContactType.WHATSAPP`; a verified phone alias gets an extra WhatsApp entry (discover hint `{type:"phone", channel:"whatsapp"}`; MFA/
+  elevation method id `"<aliasUid>:whatsapp"`; `POST /auth/otp` takes optional `channel:"whatsapp"`); offered only when
+  `messagingUtils.isWhatsAppConfigured()` (or core's private `whatsapp` field) says so. auth-server's client side is done
+  (`apps/shared/components/sign-in/**`, `ElevationHost`, `getOtpChallenge(contact, channel?)`) but can't be exercised end to end until the
+  auth release that contains it is published and this repo's `@rapidrest/auth` constraint is bumped to it. Contact verification and
+  registration still send e-mail/SMS only. The auth package's own peer range still says core `5.x` — JP to widen on release.
+- **Site branding from config** (`site_settings`): same precedent as the messaging settings — config seeds the row ONCE (`seeded` column on
+  SiteSettings sql+mongo), fields still empty only, then the row wins. One seeding-aware path, `getOrCreateSiteSettings()` in
+  `BaseSiteSettingsRoute.ts`, used by the route, `readPublicSiteSettings()` (which now takes the raw config as a 3rd argument) and thus wwwRoute/
+  AdminConsoleRoute/`loadBrand()`. Validated by `SiteSettingsSeed.ts` (http(s) or root-relative URLs; bad values logged and skipped, never
+  fatal; uploads can't come from config). **Consequence to remember:** empty/invalid config still marks the row seeded, so adding
+  `site_settings` to a deployment whose branding was already seeded does nothing on its own — **fixed same-day**: `POST /api/settings/
+  branding/reset` (`BaseSiteSettingsRoute.resetSettings()`, admin-console "Reset branding" button on the Site Settings page) overwrites every
+  branding field with what `site_settings` says right now and also clears any directly uploaded logo/icon/stylesheet, since an upload takes
+  precedence over a reference URL and would otherwise hide a reset config value taking effect — mirrors messaging's resetSmtp/resetSms/
+  resetWhatsApp, but as one button for the whole row rather than per-card, since one `site_settings` config block spans all four branding cards.
+- **nconf env vars keep their case** (`.env({separator:"__"})` with no `lowerCase`): `APP_URL` lands under key `APP_URL`, not `app_url`, so
+  `@Config("app_url")` never sees it. Write config env vars in lowercase like the rest (`app_url`, `site_settings__siteTitle`,
+  `smtp_config__host`). (`assertProductionSecretsAreSet()` names `COOKIE_SECRET`-style uppercase vars in its message — that's pre-existing and
+  worth a separate look.)
+- **UI:** theme toggle in `AvatarMenu` (localStorage `rr-theme`, `data-theme` on `<html>`, inline head script in both layouts to avoid a flash);
+  `AvatarMenu` exists only in `AdminShell`, so `/account` has no user menu and therefore no toggle. "Exit Admin Console" is an `exitHref` prop on
+  `AvatarMenu`. "Return to App" comes from `@Config("app_url")` → `toAppUrl()` (absolute http(s) only) → `appUrl` page prop. "Change" password
+  reuses the existing `PUT /api/secrets/:id` (`updateSecret()`), which needs elevation but not the current password.
+
 ### 2026-09-20 — `/auth/elevate` for downstream apps, and the chart's double-quoted `cors__origins`
 
 Two fixes for the RapidMX deployment (`auth.powerlevel.gg` + `mail.powerlevel.gg`). Left uncommitted.

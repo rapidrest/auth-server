@@ -201,6 +201,7 @@ export default function AdminShell({
                                 displayName={resolveDisplayName(userUid, profile, aliases)}
                                 avatarUrl={profile?.avatar}
                                 onSignOut={handleSignOut}
+                                exitHref="/"
                             />
                         </header>
                         <main className="rr-admin-main">

@@ -9,7 +9,7 @@ import { SiteSettingsMongo } from "../../models/mongo/SiteSettingsMongo.js";
 import { fetchSystemSettingsPropsForSSR, PublicSystemSettings } from "../../routes/SystemSettingsSSR.js";
 
 const { Route } = RouteDecorators;
-const { Inject } = ObjectDecorators;
+const { Config, Inject } = ObjectDecorators;
 
 @Route("/admin")
 export class AdminConsoleRoute extends ReactRoute {
@@ -18,6 +18,10 @@ export class AdminConsoleRoute extends ReactRoute {
 
     @Inject(ObjectFactory)
     protected siteSettingsObjectFactory!: ObjectFactory;
+
+    /** The deployment's `site_settings` config, which seeds the branding row if this page is the first to read it. */
+    @Config("site_settings", null)
+    protected siteSettingsConfig: unknown = null;
 
     /**
      * See `WwwRoute.fetchProps()` (`src/mongo/routes/wwwRoute.ts`) — identical purpose, for the admin console.
@@ -28,7 +32,7 @@ export class AdminConsoleRoute extends ReactRoute {
         _req: HttpRequest,
     ): Promise<{ siteSettings: PublicSiteSettings; systemSettings: PublicSystemSettings }> {
         const [siteSettings, systemSettings] = await Promise.all([
-            fetchSiteSettingsPropsForSSR(this.siteSettingsObjectFactory, SiteSettingsMongo),
+            fetchSiteSettingsPropsForSSR(this.siteSettingsObjectFactory, SiteSettingsMongo, this.siteSettingsConfig),
             fetchSystemSettingsPropsForSSR(this.siteSettingsObjectFactory, "mongo"),
         ]);
         return { ...siteSettings, ...systemSettings };

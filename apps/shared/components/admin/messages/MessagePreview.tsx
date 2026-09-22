@@ -22,7 +22,8 @@ const PRE_STYLE: React.CSSProperties = {
 /**
  * What a template renders to, as a real send would produce it (real branding, a sample code). The HTML part is
  * shown in a fully sandboxed frame — no scripts, no forms, no navigation — since it's markup an admin typed, and
- * this is the admin console.
+ * this is the admin console. A WhatsApp message is either the free-form text or, for an approved WhatsApp template, its
+ * name and language followed by each parameter it's filled with, exactly as the server describes it.
  */
 export default function MessagePreview({ rendered }: MessagePreviewProps) {
     return (
@@ -72,6 +73,15 @@ export default function MessagePreview({ rendered }: MessagePreviewProps) {
                     <pre style={PRE_STYLE}>{rendered.sms}</pre>
                     <p className="rr-hint">{rendered.sms.length} characters</p>
                 </>
+            )}
+
+            <div className="rr-card__title" style={{ fontSize: "1rem", marginTop: "1.25rem" }}>
+                WhatsApp message
+            </div>
+            {rendered.whatsapp === null ? (
+                <p className="rr-hint">This WhatsApp message would not be sent: it is empty.</p>
+            ) : (
+                <pre style={PRE_STYLE}>{rendered.whatsapp}</pre>
             )}
         </div>
     );

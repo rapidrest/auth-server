@@ -20,9 +20,11 @@ interface AccountPageProps {
     userUid?: string;
     /** Populated automatically by the framework — see `wwwRoute`'s `fetchProps()` override. */
     siteSettings?: PublicSiteSettings;
+    /** Populated automatically by the framework — the configured `app_url` (see `wwwRoute`'s `fetchProps()` override); empty/absent when none is configured. */
+    appUrl?: string;
 }
 
-export default function AccountPage({ userUid, siteSettings }: AccountPageProps) {
+export default function AccountPage({ userUid, siteSettings, appUrl }: AccountPageProps) {
     const [user, setUser] = useState<ApiUser | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [profileExists, setProfileExists] = useState(false);
@@ -86,7 +88,13 @@ export default function AccountPage({ userUid, siteSettings }: AccountPageProps)
 
     return (
         <AuthShell wide largeHeaderLogo settings={siteSettings}>
-            <AccountHeader profile={profile} onLogout={handleLogout} onAccountDeleted={handleAccountDeleted} isAdmin={isAdmin} />
+            <AccountHeader
+                profile={profile}
+                onLogout={handleLogout}
+                onAccountDeleted={handleAccountDeleted}
+                isAdmin={isAdmin}
+                appUrl={appUrl}
+            />
 
             <UsernameCard aliases={aliases} setAliases={setAliases} />
 

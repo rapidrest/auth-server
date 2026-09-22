@@ -12,7 +12,10 @@ const FULL = {
     text: "Acme: 123456",
     html: "<p>Acme <b>123456</b></p>",
     sms: "Acme: 123456",
+    whatsapp: "Acme: your code is 123456",
 };
+
+const WHATSAPP_TEMPLATE = 'Template "login_code" (en_US)\n{{1}}: 123456\n{{2}}: Acme';
 
 describe("MessagePreview", () => {
     it("shows the subject, the plain-text version and the text message", () => {
@@ -53,5 +56,27 @@ describe("MessagePreview", () => {
 
         expect(screen.getByText("This text message would not be sent: it is empty.")).toBeInTheDocument();
         expect(screen.queryByText(/characters/)).not.toBeInTheDocument();
+    });
+
+    it("shows the free-form WhatsApp message", () => {
+        render(<MessagePreview rendered={FULL} />);
+
+        expect(screen.getByText("WhatsApp message")).toBeInTheDocument();
+        expect(screen.getByText("Acme: your code is 123456")).toBeInTheDocument();
+    });
+
+    it("shows an approved WhatsApp template's name, language and parameters as the server describes them", () => {
+        render(<MessagePreview rendered={{ ...FULL, whatsapp: WHATSAPP_TEMPLATE }} />);
+
+        expect(
+            screen.getByText((_, element) => element?.tagName === "PRE" && element.textContent === WHATSAPP_TEMPLATE),
+        ).toBeInTheDocument();
+    });
+
+    it("says the WhatsApp message wouldn't be sent when it's empty", () => {
+        render(<MessagePreview rendered={{ ...FULL, whatsapp: null }} />);
+
+        expect(screen.getByText("This WhatsApp message would not be sent: it is empty.")).toBeInTheDocument();
+        expect(screen.queryByText("Acme: your code is 123456")).not.toBeInTheDocument();
     });
 });

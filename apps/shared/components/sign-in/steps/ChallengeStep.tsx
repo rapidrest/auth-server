@@ -10,7 +10,7 @@ import TotpChallenge from "../challenges/TotpChallenge.js";
 import OtpChallenge from "../challenges/OtpChallenge.js";
 import PasskeyChallenge from "../challenges/PasskeyChallenge.js";
 import Fido2Challenge from "../challenges/Fido2Challenge.js";
-import { CONTACT_TYPE_LABELS, FIXED_METHOD_LABELS, Method, OtpHint } from "../types.js";
+import { FIXED_METHOD_LABELS, Method, OtpHint, otpHintLabel } from "../types.js";
 
 export interface ChallengeStepProps {
     method: Method;
@@ -72,7 +72,7 @@ export default function ChallengeStep({
     return (
         <div>
             <div className="rr-card__title">
-                {method === "otp" ? CONTACT_TYPE_LABELS[selectedOtpHint!.type] : FIXED_METHOD_LABELS[method]}
+                {method === "otp" ? otpHintLabel(selectedOtpHint!) : FIXED_METHOD_LABELS[method]}
             </div>
             <p className="rr-card__subtitle">
                 Signing in as <strong>{identifier}</strong>.

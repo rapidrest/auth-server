@@ -24,6 +24,19 @@ export const CONTACT_TYPE_LABELS: Record<OtpHint["type"], string> = {
     phone: "Phone",
 };
 
+/**
+ * The label for an OTP hint's method. A WhatsApp hint shares its phone's `type` (and obfuscated contact)
+ * with the SMS hint, so the channel — not the type — decides which label it gets.
+ */
+export function otpHintLabel(hint: OtpHint): string {
+    return hint.channel === "whatsapp" ? "WhatsApp" : CONTACT_TYPE_LABELS[hint.type];
+}
+
+/** A stable unique key for an OTP hint — includes the channel so a phone's SMS and WhatsApp hints don't collide. */
+export function otpHintKey(hint: OtpHint): string {
+    return `otp-${hint.type}-${hint.channel ?? "default"}-${hint.contact}`;
+}
+
 export const EMPTY_DISCOVER: DiscoverResult = { password: false, totp: false, passkey: false, fido2: false, otp: [] };
 
 // One list item per discovered OTP-eligible contact — each is its own selectable sign-in method, not a

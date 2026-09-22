@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { FormEvent, ReactNode } from "react";
-import { FiHardDrive, FiMail, FiShield } from "react-icons/fi";
+import { FiHardDrive, FiMail, FiMessageCircle, FiShield } from "react-icons/fi";
 import { MfaMethod } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
@@ -18,16 +18,25 @@ function methodLabel(method: MfaMethod): string {
         case "totp":
             return "Authenticator app";
         case "otp":
-            return method.data?.contact ? `Code to ${method.data.contact}` : "One-time code";
+            if (!method.data?.contact) {
+                return "One-time code";
+            }
+            // The server lists WhatsApp as its own otp method (`data.type === "whatsapp"`), right after the
+            // same phone's SMS one, so the label has to say which one a code would come from.
+            return `${isWhatsApp(method) ? "WhatsApp code" : "Code"} to ${method.data.contact}`;
     }
 }
 
-function methodIcon(type: MfaMethod["type"]): ReactNode {
-    switch (type) {
+function isWhatsApp(method: MfaMethod): boolean {
+    return method.data?.type === "whatsapp";
+}
+
+function methodIcon(method: MfaMethod): ReactNode {
+    switch (method.type) {
         case "fido2":
             return <FiHardDrive size={18} aria-hidden="true" />;
         case "otp":
-            return <FiMail size={18} aria-hidden="true" />;
+            return isWhatsApp(method) ? <FiMessageCircle size={18} aria-hidden="true" /> : <FiMail size={18} aria-hidden="true" />;
         case "totp":
             return <FiShield size={18} aria-hidden="true" />;
     }
@@ -75,7 +84,7 @@ export default function MfaStep({
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                     {methods.map((method) => (
                         <Button key={method.id} variant="secondary" type="button" onClick={() => onSelectMethod(method)}>
-                            {methodIcon(method.type)}
+                            {methodIcon(method)}
                             {methodLabel(method)}
                         </Button>
                     ))}

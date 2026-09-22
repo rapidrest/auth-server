@@ -6,20 +6,28 @@ import { ApiError } from "@rapidrest/core";
 import { ApiErrors, type RepoUtils } from "@rapidrest/service-core";
 import {
     ConfiguredMessaging,
+    effectiveSmsProvider,
     MESSAGING_SETTINGS_UID,
     MessagingSettingsEntity,
     messagingFromConfig,
     ResolvedMessaging,
+    SecretField,
     seedFieldsFromConfig,
+    SmsSettingsDTO,
+    SmsSettingsInput,
+    smsCredentialsFrom,
     SmtpSettingsDTO,
     SmtpSettingsInput,
     smtpOptionsFrom,
+    toSmsSettingsDTO,
     toSmtpSettingsDTO,
-    toTwilioSettingsDTO,
-    TwilioSettingsDTO,
-    TwilioSettingsInput,
+    toWhatsAppSettingsDTO,
+    validateSmsInput,
     validateSmtpInput,
-    validateTwilioInput,
+    validateWhatsAppInput,
+    whatsAppCredentialsFrom,
+    WhatsAppSettingsDTO,
+    WhatsAppSettingsInput,
 } from "./MessagingSettings.js";
 import { decryptSecret, encryptSecret } from "./SecretBox.js";
 
@@ -28,7 +36,14 @@ const SMTP_FIELDS = {
     plain: ["smtpHost", "smtpPort", "smtpSecure", "smtpUser", "fromEmail"],
     secrets: ["smtpPassword"],
 } as const;
-const TWILIO_FIELDS = { plain: ["twilioAccountSid", "fromSms"], secrets: ["twilioToken"] } as const;
+const SMS_FIELDS = {
+    plain: ["smsProvider", "twilioAccountSid", "telnyxMessagingProfileId", "fromSms"],
+    secrets: ["twilioToken", "telnyxApiKey"],
+} as const;
+const WHATSAPP_FIELDS = {
+    plain: ["whatsappPhoneNumberId", "whatsappApiVersion"],
+    secrets: ["whatsappAccessToken"],
+} as const;
 
 export interface MessagingSettingsStoreDeps {
     repo: () => Promise<RepoUtils<MessagingSettingsEntity>>;
@@ -36,21 +51,22 @@ export interface MessagingSettingsStoreDeps {
     modelClass: new (other?: Partial<MessagingSettingsEntity>) => MessagingSettingsEntity;
     /** The key secrets are encrypted with. Read on each use, so a missing one is only a problem when it's needed. */
     encryptionKey: () => string;
-    /** The deployment's `smtp_config`, `templates.from` and `twilio`, read live. */
+    /** The deployment's `smtp_config`, `templates.from`, `sms_config` and `whatsapp`, read live. */
     configured: () => ConfiguredMessaging;
     warn: (message: string, err: unknown) => void;
 }
 
 /**
- * Where the SMTP settings, the sender addresses and the Twilio credentials live: one row in the database (see
- * `MessagingSettingsSQL`), edited in the admin console.
+ * Where the SMTP settings, the sender addresses, the SMS provider's credentials and the WhatsApp credentials live: one
+ * row in the database (see `MessagingSettingsSQL`), edited in the admin console. Texts go out through one SMS
+ * provider at a time (`smsProvider`); the other's saved settings are kept but not used.
  *
  * **The deployment's config seeds the row, then the row is the source of truth.** The first time the row is read it's
- * filled from `smtp_config`, `templates.from` and `twilio` — only the fields that are still empty, so anything
- * already saved is kept — and marked seeded. From then on config is no longer consulted for those values: an admin
+ * filled from `smtp_config`, `templates.from`, `sms_config` and `whatsapp` — only the fields that are still
+ * empty, so anything already saved is kept — and marked seeded. From then on config is no longer consulted for those values: an admin
  * clearing a field really clears it, rather than it quietly coming back from config. (The first time is the only time,
  * so changing config afterwards doesn't reach a seeded row; it's edited in the console, or copied in with
- * `resetSmtp()`/`resetTwilio()`.) Options beyond the
+ * `resetSmtp()`/`resetSms()`/`resetWhatsApp()`.) Options beyond the
  * modeled fields — nodemailer's `tls`, Twilio's `options` — stay in config and are merged in when the row is used.
  *
  * Until a row is seeded, and whenever it can't be read, config alone applies, so a database problem never stops a
@@ -139,7 +155,10 @@ export class MessagingSettingsStore {
                 return fallback;
             }
         };
-        const token = secret(row.twilioToken, configured.twilio?.token || undefined);
+        // Only the provider the config names has a config value to fall back to.
+        const configuredSms = messagingFromConfig(configured).sms;
+        const configuredTwilio = configuredSms?.provider === "twilio" ? configuredSms.config : undefined;
+        const configuredTelnyx = configuredSms?.provider === "telnyx" ? configuredSms.config : undefined;
         return {
             smtp: smtpOptionsFrom(
                 configured.smtp,
@@ -150,10 +169,18 @@ export class MessagingSettingsStore {
                 secret(row.smtpPassword, configured.smtp?.auth?.pass || undefined),
             ),
             from: { email: row.fromEmail || undefined, sms: row.fromSms || undefined },
-            twilio:
-                row.twilioAccountSid && token
-                    ? { accountSid: row.twilioAccountSid, token, options: configured.twilio?.options }
-                    : undefined,
+            sms: smsCredentialsFrom(effectiveSmsProvider(row), {
+                twilioAccountSid: row.twilioAccountSid || undefined,
+                twilioToken: secret(row.twilioToken, configuredTwilio?.token),
+                twilioOptions: configuredTwilio?.options,
+                telnyxApiKey: secret(row.telnyxApiKey, configuredTelnyx?.apiKey),
+                telnyxMessagingProfileId: row.telnyxMessagingProfileId || undefined,
+            }),
+            whatsapp: whatsAppCredentialsFrom(
+                secret(row.whatsappAccessToken, configured.whatsapp?.accessToken || undefined),
+                row.whatsappPhoneNumberId || undefined,
+                row.whatsappApiVersion || undefined,
+            ),
         };
     }
 
@@ -167,18 +194,39 @@ export class MessagingSettingsStore {
         return repo.update(new this.deps.modelClass({ ...existing, ...changes }), existing, { ignoreACL: true });
     }
 
-    async getTwilio(): Promise<TwilioSettingsDTO> {
-        return toTwilioSettingsDTO(await this.get());
+    async getSms(): Promise<SmsSettingsDTO> {
+        return toSmsSettingsDTO(await this.get());
+    }
+
+    /** Encrypts each secret that's being set (`null` clears it) into `changes`; a secret that wasn't sent is left alone. */
+    private encryptInto(
+        changes: Partial<MessagingSettingsEntity>,
+        secrets: Partial<Record<SecretField, string | null>>,
+    ): void {
+        for (const [key, value] of Object.entries(secrets) as [SecretField, string | null | undefined][]) {
+            if (value !== undefined) {
+                changes[key] = value === null ? null : this.encrypt(value);
+            }
+        }
     }
 
     /** Checked before anything is read or written, so a bad value is refused without side effects. */
-    async updateTwilio(input: TwilioSettingsInput): Promise<TwilioSettingsDTO> {
-        const { fields, token } = validateTwilioInput(input ?? {});
+    async updateSms(input: SmsSettingsInput): Promise<SmsSettingsDTO> {
+        const { fields, secrets } = validateSmsInput(input ?? {});
         const changes: Partial<MessagingSettingsEntity> = { ...fields };
-        if (token !== undefined) {
-            changes.twilioToken = token === null ? null : this.encrypt(token);
-        }
-        return toTwilioSettingsDTO(await this.save(changes));
+        this.encryptInto(changes, secrets);
+        return toSmsSettingsDTO(await this.save(changes));
+    }
+
+    async getWhatsApp(): Promise<WhatsAppSettingsDTO> {
+        return toWhatsAppSettingsDTO(await this.get());
+    }
+
+    async updateWhatsApp(input: WhatsAppSettingsInput): Promise<WhatsAppSettingsDTO> {
+        const { fields, accessToken } = validateWhatsAppInput(input ?? {});
+        const changes: Partial<MessagingSettingsEntity> = { ...fields };
+        this.encryptInto(changes, { whatsappAccessToken: accessToken });
+        return toWhatsAppSettingsDTO(await this.save(changes));
     }
 
     /**
@@ -192,7 +240,7 @@ export class MessagingSettingsStore {
      */
     private async resetFromConfig(group: {
         plain: readonly (keyof MessagingSettingsEntity)[];
-        secrets: readonly ("smtpPassword" | "twilioToken")[];
+        secrets: readonly SecretField[];
     }): Promise<MessagingSettingsEntity> {
         const { plain, secrets } = seedFieldsFromConfig(this.deps.configured());
         const changes: Partial<MessagingSettingsEntity> = {};
@@ -210,9 +258,14 @@ export class MessagingSettingsStore {
         return toSmtpSettingsDTO(await this.resetFromConfig(SMTP_FIELDS));
     }
 
-    /** Puts the Twilio credentials and the SMS sender back to what the deployment's config says. */
-    async resetTwilio(): Promise<TwilioSettingsDTO> {
-        return toTwilioSettingsDTO(await this.resetFromConfig(TWILIO_FIELDS));
+    /** Puts the SMS provider, its credentials and the SMS sender back to what the deployment's config says. */
+    async resetSms(): Promise<SmsSettingsDTO> {
+        return toSmsSettingsDTO(await this.resetFromConfig(SMS_FIELDS));
+    }
+
+    /** Puts the WhatsApp credentials back to what the deployment's config says. */
+    async resetWhatsApp(): Promise<WhatsAppSettingsDTO> {
+        return toWhatsAppSettingsDTO(await this.resetFromConfig(WHATSAPP_FIELDS));
     }
 
     async getSmtp(): Promise<SmtpSettingsDTO> {

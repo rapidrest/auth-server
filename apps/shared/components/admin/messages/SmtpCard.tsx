@@ -15,7 +15,7 @@ export interface SmtpCardProps {
 }
 
 /**
- * The SMTP server and sender e-mail is sent with. As with the Twilio card, they were set from this deployment's
+ * The SMTP server and sender e-mail is sent with. As with the SMS card, they were set from this deployment's
  * configuration the first time the server started, and what's saved here takes over from then on — used from the very
  * next e-mail, with no restart. The password is write-only: stored encrypted, never shown again, so a blank password
  * field means "keep the one that's saved".

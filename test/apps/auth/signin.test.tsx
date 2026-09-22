@@ -5,6 +5,7 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { FiMail, FiMessageCircle, FiPhone } from "react-icons/fi";
 import { describe, expect, it, vi } from "vitest";
 import { mockLocation } from "../testUtils.js";
 
@@ -53,6 +54,7 @@ import {
     verifyMfaFido2,
     verifyPasskeySignIn,
 } from "../../../apps/shared/lib/api.js";
+import { otpHintKey } from "../../../apps/shared/components/sign-in/types.js";
 import SignInPage, { isSafeReturnTo, readReturnTo } from "../../../apps/www/auth/signin.js";
 
 const mockedStartAuthentication = vi.mocked(startAuthentication);
@@ -75,6 +77,8 @@ const AUTH_RESULT = { token: "tok-123", user: { uid: "u1", version: 1, roles: []
 
 const EMAIL_HINT = { contact: "j***n@example.com", type: "email" as const };
 const PHONE_HINT = { contact: "***1234", type: "phone" as const };
+// The server lists WhatsApp as an extra hint right after the same phone's SMS hint — same type and contact.
+const WHATSAPP_HINT = { contact: "***1234", type: "phone" as const, channel: "whatsapp" as const };
 
 const ALL_METHODS: DiscoverResult = {
     password: true,
@@ -88,6 +92,14 @@ const EMPTY_DISCOVER: DiscoverResult = { password: false, totp: false, passkey: 
 
 function escapeRegExp(s: string) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** The DOM markup an icon element renders as, for comparing against the `<svg>` inside a rendered button. */
+function iconHtml(icon: React.ReactElement): string {
+    const { container, unmount } = render(icon);
+    const html = container.innerHTML;
+    unmount();
+    return html;
 }
 
 /** Drives the identifier step to completion, landing on the method-list step (no modal involved). */
@@ -120,12 +132,12 @@ async function goToChallenge(
 /** Drives all the way to a given OTP contact's own challenge screen, by clicking its specific list entry. */
 async function goToOtpChallenge(
     user: ReturnType<typeof userEvent.setup>,
-    hint: { contact: string; type: "email" | "phone" },
+    hint: { contact: string; type: "email" | "phone"; channel?: "whatsapp" },
     discoverResult: DiscoverResult = ALL_METHODS,
     identifier = "a@example.com",
 ) {
     await goToMethods(user, discoverResult, identifier);
-    const typeLabel = hint.type === "email" ? "Email" : "Phone";
+    const typeLabel = hint.channel === "whatsapp" ? "WhatsApp" : hint.type === "email" ? "Email" : "Phone";
     await user.click(screen.getByRole("button", { name: new RegExp(`^${typeLabel}: ${escapeRegExp(hint.contact)}`) }));
 }
 
@@ -479,6 +491,44 @@ describe("SignInPage — method list", () => {
         expect(screen.getByRole("button", { name: new RegExp(`^Email: ${escapeRegExp(EMAIL_HINT.contact)}`) })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: new RegExp(`^Phone: ${escapeRegExp(PHONE_HINT.contact)}`) })).toBeInTheDocument();
         expect(screen.queryByRole("button", { name: /^One-time code/ })).not.toBeInTheDocument();
+    });
+
+    it("lists a WhatsApp hint as its own entry right after the same phone's SMS entry", async () => {
+        const user = userEvent.setup();
+        await goToMethods(user, { ...EMPTY_DISCOVER, otp: [EMAIL_HINT, PHONE_HINT, WHATSAPP_HINT] });
+
+        const items = screen.getAllByRole("button").filter((b) => b.className.includes("rr-method-list-item"));
+        const strip = (s: string) => s.replace(/[^\w\- ]/g, "").trim();
+        expect(items.map((b) => strip(b.textContent || ""))).toEqual([
+            strip(`Email: ${EMAIL_HINT.contact}`),
+            strip(`Phone: ${PHONE_HINT.contact}`),
+            strip(`WhatsApp: ${WHATSAPP_HINT.contact}`),
+        ]);
+    });
+
+    it("gives the WhatsApp entry its own icon, distinct from the phone SMS entry", async () => {
+        const user = userEvent.setup();
+        await goToMethods(user, { ...EMPTY_DISCOVER, otp: [PHONE_HINT, WHATSAPP_HINT] });
+
+        const sms = screen.getByRole("button", { name: new RegExp(`^Phone: ${escapeRegExp(PHONE_HINT.contact)}`) });
+        const whatsapp = screen.getByRole("button", { name: new RegExp(`^WhatsApp: ${escapeRegExp(WHATSAPP_HINT.contact)}`) });
+        expect(sms.querySelector("svg")!.outerHTML).toBe(iconHtml(<FiPhone size={18} aria-hidden="true" />));
+        expect(whatsapp.querySelector("svg")!.outerHTML).toBe(iconHtml(<FiMessageCircle size={18} aria-hidden="true" />));
+    });
+
+    it("gives a phone's SMS and WhatsApp entries distinct list keys, so neither is dropped or duplicated", async () => {
+        const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+        try {
+            const user = userEvent.setup();
+            await goToMethods(user, { ...EMPTY_DISCOVER, otp: [PHONE_HINT, WHATSAPP_HINT] });
+
+            // Two entries render, and React never warns about a duplicate key between them.
+            expect(screen.getAllByRole("button").filter((b) => b.className.includes("rr-method-list-item"))).toHaveLength(2);
+            expect(errorSpy.mock.calls.some((call) => String(call[0]).includes("same key"))).toBe(false);
+        } finally {
+            errorSpy.mockRestore();
+        }
+        expect(otpHintKey(PHONE_HINT)).not.toBe(otpHintKey(WHATSAPP_HINT));
     });
 
     it("only lists methods discover returned as available", async () => {
@@ -881,7 +931,8 @@ describe("SignInPage — otp method", () => {
         await user.type(screen.getByLabelText("E-mail or phone"), "a@example.com");
         await user.click(screen.getByRole("button", { name: "Send code" }));
 
-        expect(mockedGetOtpChallenge).toHaveBeenCalledWith("a@example.com");
+        // A plain e-mail hint has no channel, so none is passed along (and none reaches the request body).
+        expect(mockedGetOtpChallenge).toHaveBeenCalledWith("a@example.com", undefined);
         await screen.findByText("We sent a code to a@example.com.");
 
         mockedSignInWithOtp.mockResolvedValueOnce(AUTH_RESULT);
@@ -892,6 +943,61 @@ describe("SignInPage — otp method", () => {
 
         await waitFor(() => expect(location.href).toBe("/account"));
         expect(mockedSignInWithOtp).toHaveBeenCalledWith("a@example.com", "123456");
+    });
+
+    it("sends a plain phone (SMS) challenge without a channel", async () => {
+        const user = userEvent.setup();
+        await goToOtpChallenge(user, PHONE_HINT, { ...EMPTY_DISCOVER, otp: [PHONE_HINT, WHATSAPP_HINT] });
+        mockedGetOtpChallenge.mockResolvedValueOnce({});
+
+        await user.type(screen.getByLabelText("E-mail or phone"), "+15551231234");
+        await user.click(screen.getByRole("button", { name: "Send code" }));
+
+        await screen.findByText("We sent a code to +15551231234.");
+        expect(mockedGetOtpChallenge.mock.calls.at(-1)).toEqual(["+15551231234", undefined]);
+    });
+
+    it("shows WhatsApp wording on the challenge screen for a WhatsApp entry", async () => {
+        const user = userEvent.setup();
+        await goToOtpChallenge(user, WHATSAPP_HINT, { ...EMPTY_DISCOVER, otp: [PHONE_HINT, WHATSAPP_HINT] });
+
+        expect(screen.getByText("WhatsApp")).toBeInTheDocument();
+        expect(screen.getByText(/We can send a code to \*\*\*1234 on WhatsApp\./)).toBeInTheDocument();
+        // The user still types their real phone number, so the field asks for one rather than "E-mail or phone".
+        expect(screen.getByLabelText("Phone number")).toHaveAttribute("placeholder", "+15551234567");
+        expect(screen.queryByLabelText("E-mail or phone")).not.toBeInTheDocument();
+    });
+
+    it("sends the WhatsApp channel with the typed phone number, then verifies the code as usual", async () => {
+        const location = mockLocation();
+        const user = userEvent.setup();
+        await goToOtpChallenge(user, WHATSAPP_HINT, { ...EMPTY_DISCOVER, otp: [PHONE_HINT, WHATSAPP_HINT] });
+        mockedGetOtpChallenge.mockResolvedValueOnce({});
+
+        await user.type(screen.getByLabelText("Phone number"), "+15551231234");
+        await user.click(screen.getByRole("button", { name: "Send code" }));
+
+        expect(mockedGetOtpChallenge).toHaveBeenLastCalledWith("+15551231234", "whatsapp");
+        await screen.findByText("We sent a code to +15551231234 on WhatsApp.");
+
+        mockedSignInWithOtp.mockResolvedValueOnce(AUTH_RESULT);
+        await user.type(screen.getByLabelText("One-time code"), "123456");
+        await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+        await waitFor(() => expect(location.href).toBe("/account"));
+        // The verify request is the same whichever channel delivered the code.
+        expect(mockedSignInWithOtp).toHaveBeenLastCalledWith("+15551231234", "123456");
+    });
+
+    it("skips straight to the WhatsApp challenge if a WhatsApp hint is somehow the only available method", async () => {
+        const user = userEvent.setup();
+        mockedDiscoverAuthMethods.mockResolvedValueOnce({ ...EMPTY_DISCOVER, otp: [WHATSAPP_HINT] });
+        render(<SignInPage />);
+        await user.type(screen.getByLabelText("Account ID, e-mail, or phone"), "a@example.com");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        expect(await screen.findByText(/We can send a code to \*\*\*1234 on WhatsApp\./)).toBeInTheDocument();
+        expect(screen.queryByText(/Choose how/)).not.toBeInTheDocument();
     });
 
     it("shows the ApiRequestError message when the challenge fails", async () => {
@@ -1100,6 +1206,28 @@ describe("SignInPage — password method requiring a second factor (/auth/mfa)",
 
         await waitFor(() => expect(location.href).toBe("/account"));
         expect(mockedVerifyMfaCode).toHaveBeenCalledWith("u1", "123456");
+    });
+
+    it("lists a WhatsApp method after the phone's SMS one, with its own label and icon", async () => {
+        const user = userEvent.setup();
+        const sms: MfaMethod = { id: "alias-phone-1", type: "otp", data: { contact: "********4567", type: "phone", verified: true } };
+        const whatsapp: MfaMethod = {
+            id: "alias-phone-1:whatsapp",
+            type: "otp",
+            data: { contact: "********4567", type: "whatsapp", verified: true },
+        };
+        await goToMfaChallenge(user, [sms, whatsapp]);
+
+        const smsButton = screen.getByRole("button", { name: "Code to ********4567" });
+        const whatsappButton = screen.getByRole("button", { name: "WhatsApp code to ********4567" });
+        expect(smsButton.querySelector("svg")!.outerHTML).toBe(iconHtml(<FiMail size={18} aria-hidden="true" />));
+        expect(whatsappButton.querySelector("svg")!.outerHTML).toBe(iconHtml(<FiMessageCircle size={18} aria-hidden="true" />));
+        expect(smsButton.compareDocumentPosition(whatsappButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+        mockedBeginMfaChallenge.mockResolvedValueOnce({});
+        await user.click(whatsappButton);
+        expect(mockedBeginMfaChallenge).toHaveBeenLastCalledWith("u1", "alias-phone-1:whatsapp");
+        expect(await screen.findByLabelText("One-time code")).toBeInTheDocument();
     });
 
     it("labels an OTP method generically when the server didn't include its contact", async () => {

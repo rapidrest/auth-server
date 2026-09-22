@@ -159,6 +159,35 @@ describe("SiteSettingsRoute (sql)", () => {
         expect(second.body.companyName).toBeUndefined();
     });
 
+    it("POST /reset rejects a caller without the trusted 'admin' role", async () => {
+        const plainAgent = agent(server);
+        await createAndSignInUser(plainAgent, "plain-user-reset");
+
+        const res = await plainAgent.post("/api/settings/branding/reset").send();
+
+        expect(res.status).toBe(403);
+    });
+
+    it("POST /reset rejects an anonymous caller", async () => {
+        const res = await request(server).post("/api/settings/branding/reset").send();
+        expect(res.status).toBe(401);
+    });
+
+    it("POST /reset clears an admin's edits (nothing is configured in this deployment)", async () => {
+        const adminAgent = await createSignedInTrustedAgent("admin-reset-1");
+        await adminAgent
+            .put("/api/settings/branding")
+            .send({ siteTitle: "Acme Corp", companyName: "Acme", logoUrl: "https://example.com/logo.png" });
+
+        const res = await adminAgent.post("/api/settings/branding/reset").send();
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ logoUploaded: false, iconUploaded: false, stylesheetUploaded: false });
+
+        const after = await request(server).get("/api/settings/branding");
+        expect(after.body).toEqual({ logoUploaded: false, iconUploaded: false, stylesheetUploaded: false });
+    });
+
     it("uploads, serves, and deletes a logo image (trusted only)", async () => {
         const adminAgent = await createSignedInTrustedAgent("admin-logo");
 

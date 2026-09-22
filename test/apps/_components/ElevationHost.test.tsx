@@ -6,6 +6,7 @@ import React from "react";
 import { act, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
+import { FiMail, FiMessageCircle } from "react-icons/fi";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@simplewebauthn/browser", () => ({ startAuthentication: vi.fn() }));
@@ -46,8 +47,26 @@ const TOTP_METHOD: ElevationMethod = { id: "secret-totp-1", type: "totp", data: 
 const FIDO2_METHOD: ElevationMethod = { id: "secret-fido2-1", type: "fido2", data: {} };
 const OTP_METHOD: ElevationMethod = { id: "alias-otp-1", type: "otp", data: { contact: "j***n@example.com" } };
 const OTP_METHOD_NO_CONTACT: ElevationMethod = { id: "alias-otp-2", type: "otp", data: {} };
+const SMS_METHOD: ElevationMethod = {
+    id: "alias-phone-1",
+    type: "otp",
+    data: { contact: "********4567", type: "phone", verified: true },
+};
+const WHATSAPP_METHOD: ElevationMethod = {
+    id: "alias-phone-1:whatsapp",
+    type: "otp",
+    data: { contact: "********4567", type: "whatsapp", verified: true },
+};
 
 const AUTH_RESULT = { token: "tok-123", user: { uid: "u1", version: 1, roles: [], scopes: [] } };
+
+/** The DOM markup an icon element renders as, for comparing against the `<svg>` inside a rendered button. */
+function iconHtml(icon: React.ReactElement): string {
+    const { container, unmount } = render(icon);
+    const html = container.innerHTML;
+    unmount();
+    return html;
+}
 
 /**
  * `requestElevation()`/`resolveElevation()` mutate `ElevationHost`'s external store directly, standing in
@@ -101,6 +120,31 @@ describe("ElevationHost — loading methods", () => {
         expect(screen.getByRole("button", { name: /^Hardware key/ })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: `Code to ${OTP_METHOD.data.contact}` })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "One-time code" })).toBeInTheDocument();
+    });
+
+    it("lists a WhatsApp method as its own entry, labelled and iconed apart from the phone's SMS one", async () => {
+        mockedListMethods.mockResolvedValueOnce([SMS_METHOD, WHATSAPP_METHOD]);
+        render(<ElevationHost />);
+
+        void open();
+
+        const sms = await screen.findByRole("button", { name: "Code to ********4567" });
+        const whatsapp = screen.getByRole("button", { name: "WhatsApp code to ********4567" });
+        expect(sms.querySelector("svg")!.outerHTML).toBe(iconHtml(<FiMail size={18} aria-hidden="true" />));
+        expect(whatsapp.querySelector("svg")!.outerHTML).toBe(iconHtml(<FiMessageCircle size={18} aria-hidden="true" />));
+    });
+
+    it("sends the WhatsApp method's own id when it is chosen", async () => {
+        mockedListMethods.mockResolvedValueOnce([SMS_METHOD, WHATSAPP_METHOD]);
+        mockedBegin.mockResolvedValueOnce({});
+        render(<ElevationHost />);
+        void open();
+        const user = userEvent.setup();
+
+        await user.click(await screen.findByRole("button", { name: "WhatsApp code to ********4567" }));
+
+        expect(mockedBegin).toHaveBeenCalledWith("alias-phone-1:whatsapp");
+        expect(await screen.findByLabelText("One-time code")).toBeInTheDocument();
     });
 
     it("falls back to the password form when the caller has no enrolled methods", async () => {

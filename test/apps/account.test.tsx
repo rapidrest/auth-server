@@ -1312,6 +1312,197 @@ describe("AccountPage — password", () => {
     });
 });
 
+describe("AccountPage — change password", () => {
+    async function openChangeModal(user: ReturnType<typeof userEvent.setup>, secrets: SecretSummary[] = [secret({ uid: "pw1", type: "password" })]) {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets }));
+        render(<AccountPage userUid="u1" />);
+        const row = (await screen.findByText("Password")).closest("tr")!;
+        await user.click(within(row).getByRole("button", { name: "Change" }));
+        await screen.findByRole("dialog", { name: "Change password" });
+    }
+
+    async function typeNewPassword(user: ReturnType<typeof userEvent.setup>, password = "Sup3r$ecret1", confirm = password) {
+        await user.type(screen.getByLabelText("New password"), password);
+        await user.type(screen.getByLabelText("Confirm new password"), confirm);
+    }
+
+    it("shows a Change button only on the password row", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                secrets: [
+                    secret({ uid: "pw1", type: "password" }),
+                    secret({ uid: "st", type: "totp" }),
+                    secret({ uid: "sk", type: "passkey" }),
+                    secret({ uid: "sf", type: "fido2" }),
+                ],
+            }),
+        );
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Password");
+
+        expect(within(secretsCard()).getAllByRole("button", { name: "Change" })).toHaveLength(1);
+        const passwordRow = screen.getByText("Password").closest("tr")!;
+        expect(within(passwordRow).getByRole("button", { name: "Change" })).toBeInTheDocument();
+        expect(within(passwordRow).getByRole("button", { name: "Remove" })).toBeInTheDocument();
+        expect(within(screen.getByText("Authenticator app").closest("tr")!).queryByRole("button", { name: "Change" })).toBeNull();
+    });
+
+    it("does not show a Change button when no password has been set", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "st", type: "totp" })] }));
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Authenticator app");
+
+        expect(screen.queryByRole("button", { name: "Change" })).toBeNull();
+    });
+
+    it("opens a modal with the new password and confirmation fields", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user);
+
+        expect(screen.getByLabelText("New password")).toBeInTheDocument();
+        expect(screen.getByLabelText("Confirm new password")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Save password" })).toBeDisabled();
+    });
+
+    it("disables submit for a weak password", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user);
+
+        await typeNewPassword(user, "a");
+        expect(screen.getByRole("button", { name: "Save password" })).toBeDisabled();
+    });
+
+    it("shows a mismatch error and disables submit when confirmation differs", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user);
+
+        await typeNewPassword(user, "Sup3r$ecret1", "Different1!");
+        expect(screen.getByText("Passwords do not match.")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Save password" })).toBeDisabled();
+    });
+
+    it("re-validates a weak password on a force-submit", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user);
+        await user.type(screen.getByLabelText("New password"), "weak");
+
+        fireEvent.submit(screen.getByRole("button", { name: "Save password" }).closest("form")!);
+        expect(await screen.findByRole("alert")).toHaveTextContent("Password does not meet the requirements below.");
+        expect(mockedUpdateSecret).not.toHaveBeenCalled();
+    });
+
+    it("re-validates a mismatch on a force-submit", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user);
+        await typeNewPassword(user, "Sup3r$ecret1", "Different1!");
+
+        fireEvent.submit(screen.getByRole("button", { name: "Save password" }).closest("form")!);
+        expect(await screen.findByRole("alert")).toHaveTextContent("Passwords do not match.");
+        expect(mockedUpdateSecret).not.toHaveBeenCalled();
+    });
+
+    it("updates the password secret in place, closing the modal and keeping the row", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user, [
+            secret({ uid: "pw1", version: 3, type: "password", hint: "LastPass" }),
+            secret({ uid: "st", type: "totp" }),
+        ]);
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 4, type: "password", hint: "LastPass" }));
+
+        await typeNewPassword(user);
+        await user.click(screen.getByRole("button", { name: "Save password" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        // Only `data` changes — the version guards against a concurrent edit, and the label is left untouched.
+        expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "pw1", version: 3, data: "Sup3r$ecret1" }, "u1");
+        expect(mockedCreatePasswordSecret).not.toHaveBeenCalled();
+        expect(mockedDeleteSecret).not.toHaveBeenCalled();
+        expect(screen.getByText("(LastPass)")).toBeInTheDocument();
+        expect(screen.getByText("Authenticator app")).toBeInTheDocument();
+    });
+
+    it("uses the refreshed version for a second change made after the first", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user, [secret({ uid: "pw1", version: 0, type: "password" })]);
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 1, type: "password" }));
+        await typeNewPassword(user);
+        await user.click(screen.getByRole("button", { name: "Save password" }));
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 2, type: "password" }));
+        await user.click(within(screen.getByText("Password").closest("tr")!).getByRole("button", { name: "Change" }));
+        await typeNewPassword(user, "An0ther$ecret");
+        await user.click(screen.getByRole("button", { name: "Save password" }));
+
+        await waitFor(() => expect(mockedUpdateSecret).toHaveBeenCalledTimes(2));
+        expect(mockedUpdateSecret).toHaveBeenLastCalledWith({ uid: "pw1", version: 1, data: "An0ther$ecret" }, "u1");
+    });
+
+    it("shows the ApiRequestError message and keeps the modal open when saving fails", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user);
+        mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("too weak", 400));
+
+        await typeNewPassword(user);
+        await user.click(screen.getByRole("button", { name: "Save password" }));
+
+        expect(await screen.findByText("too weak")).toBeInTheDocument();
+        expect(screen.getByRole("dialog", { name: "Change password" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Save password" })).toBeEnabled();
+    });
+
+    it("shows a generic message when saving fails with a non-API error", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user);
+        mockedUpdateSecret.mockRejectedValueOnce(new TypeError("boom"));
+
+        await typeNewPassword(user);
+        await user.click(screen.getByRole("button", { name: "Save password" }));
+
+        expect(await screen.findByText("Could not change your password.")).toBeInTheDocument();
+    });
+
+    it("clears a previous error on the next submit", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user);
+        mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("too weak", 400));
+        await typeNewPassword(user);
+        await user.click(screen.getByRole("button", { name: "Save password" }));
+        await screen.findByText("too weak");
+
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 1, type: "password" }));
+        await user.click(screen.getByRole("button", { name: "Save password" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(screen.queryByText("too weak")).toBeNull();
+    });
+
+    it("closes without saving on cancel, discarding anything typed", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user);
+        await user.type(screen.getByLabelText("New password"), "something");
+
+        await user.click(screen.getByRole("button", { name: "Close" }));
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(mockedUpdateSecret).not.toHaveBeenCalled();
+
+        await user.click(within(screen.getByText("Password").closest("tr")!).getByRole("button", { name: "Change" }));
+        expect(screen.getByLabelText("New password")).toHaveValue("");
+    });
+
+    it("closes on Escape without saving", async () => {
+        const user = userEvent.setup();
+        await openChangeModal(user);
+
+        await user.keyboard("{Escape}");
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(mockedUpdateSecret).not.toHaveBeenCalled();
+    });
+});
+
 describe("AccountPage — password requirements fetch failure", () => {
     it("keeps the fallback requirements when GET /secrets/password fails", async () => {
         mockedGetPasswordRequirements.mockReset();
@@ -2314,5 +2505,32 @@ describe("AccountPage — admin console link", () => {
         render(<AccountPage userUid="u1" />);
         expect(await within(profileCard()).findByText("Could not load your account.")).toBeInTheDocument();
         expect(screen.queryByRole("link", { name: "Admin console" })).not.toBeInTheDocument();
+    });
+});
+
+describe("AccountPage — return to app", () => {
+    it("does not show a Return to App button when no app_url is configured", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData());
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Save profile");
+        expect(screen.queryByRole("link", { name: "Return to App" })).not.toBeInTheDocument();
+    });
+
+    it("does not show a Return to App button when the configured app_url is empty", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData());
+        render(<AccountPage userUid="u1" appUrl="" />);
+        await screen.findByText("Save profile");
+        expect(screen.queryByRole("link", { name: "Return to App" })).not.toBeInTheDocument();
+    });
+
+    it("shows a Return to App button linking to the configured app_url, next to Log out", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData());
+        render(<AccountPage userUid="u1" appUrl="https://app.example.com/home" />);
+        const link = await screen.findByRole("link", { name: "Return to App" });
+        expect(link).toHaveAttribute("href", "https://app.example.com/home");
+        expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
     });
 });

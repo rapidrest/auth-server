@@ -7,8 +7,18 @@ import { MessagingUtils, type Template } from "@rapidrest/core";
 import type { BaseEntity } from "@rapidrest/service-core";
 import type { PublicSiteSettings } from "../routes/BaseSiteSettingsRoute.js";
 
+/** The parts of a template that are text `MessagingUtils` renders as they are: the same name in `Template` and in an edit. */
+const TEMPLATE_TEXT_FIELDS = ["subject", "text", "html", "sms", "whatsapp"] as const;
+
+/**
+ * The parts of a WhatsApp message template (see `Template.whatsapp_template`) an admin can edit, flattened to plain
+ * strings so they're edited and stored like everything else: the approved template's name and language, and its
+ * body parameters one per line.
+ */
+const WHATSAPP_TEMPLATE_FIELDS = ["whatsappTemplateName", "whatsappTemplateLanguage", "whatsappTemplateParameters"] as const;
+
 /** The parts of a template an admin can edit. `enabled` is separate: it's a switch, not content. */
-export const CONTENT_FIELDS = ["subject", "text", "html", "sms"] as const;
+export const CONTENT_FIELDS = [...TEMPLATE_TEXT_FIELDS, ...WHATSAPP_TEMPLATE_FIELDS] as const;
 export type ContentField = (typeof CONTENT_FIELDS)[number];
 
 /**
@@ -21,6 +31,14 @@ export interface MessageTemplateOverride {
     text?: string | null;
     html?: string | null;
     sms?: string | null;
+    /** The free-form WhatsApp message, which WhatsApp only delivers within 24 hours of the recipient's last message to you. */
+    whatsapp?: string | null;
+    /** The name of an approved WhatsApp message template to send instead, which is deliverable to anyone. */
+    whatsappTemplateName?: string | null;
+    /** The language that template was approved in, like `en_US`. */
+    whatsappTemplateLanguage?: string | null;
+    /** What fills that template's `{{1}}`, `{{2}}`… — one Handlebars string per line. */
+    whatsappTemplateParameters?: string | null;
 }
 
 /** The shape shared by `MessageTemplateSQL`/`MessageTemplateMongo` that the messaging code depends on. */
@@ -128,7 +146,33 @@ export async function resolveTemplate(base: DescribedTemplate): Promise<Describe
     return resolved;
 }
 
-/** `base` with every field an admin has set laid over it. `base` is expected to come from `resolveTemplate()`. */
+/** A template's WhatsApp message template as the plain strings an admin edits (see `WHATSAPP_TEMPLATE_FIELDS`). */
+function whatsAppTemplateFields(template: Template): Record<(typeof WHATSAPP_TEMPLATE_FIELDS)[number], string | undefined> {
+    const whatsapp = template.whatsapp_template;
+    return {
+        whatsappTemplateName: whatsapp?.name,
+        whatsappTemplateLanguage: whatsapp?.language,
+        whatsappTemplateParameters: whatsapp?.parameters?.length ? whatsapp.parameters.join("\n") : undefined,
+    };
+}
+
+/** Every part an admin can edit, as it currently reads in `template`. */
+export function contentOf(template: Template): Record<ContentField, string | undefined> {
+    return {
+        subject: template.subject,
+        text: template.text,
+        html: template.html,
+        sms: template.sms,
+        whatsapp: template.whatsapp,
+        ...whatsAppTemplateFields(template),
+    };
+}
+
+/**
+ * `base` with every field an admin has set laid over it. `base` is expected to come from `resolveTemplate()`. The
+ * WhatsApp template's three flattened parts (see `WHATSAPP_TEMPLATE_FIELDS`) are put back together as
+ * `whatsapp_template`; without a name there isn't one, so an empty name is how an admin goes back to the free-form message.
+ */
 export function mergeTemplate(base: DescribedTemplate, override?: MessageTemplateOverride | null): DescribedTemplate {
     const merged: DescribedTemplate = { ...base };
     if (!override) {
@@ -137,10 +181,28 @@ export function mergeTemplate(base: DescribedTemplate, override?: MessageTemplat
     if (override.enabled != null) {
         merged.enabled = override.enabled;
     }
-    for (const field of CONTENT_FIELDS) {
+    for (const field of TEMPLATE_TEXT_FIELDS) {
         const value = override[field];
         if (value != null) {
             merged[field] = value;
+        }
+    }
+    if (WHATSAPP_TEMPLATE_FIELDS.some((field) => override[field] != null)) {
+        const { whatsappTemplateName: name, whatsappTemplateLanguage: language, whatsappTemplateParameters: parameters } = {
+            ...whatsAppTemplateFields(base),
+            ...Object.fromEntries(WHATSAPP_TEMPLATE_FIELDS.filter((field) => override[field] != null).map((field) => [field, override[field]])),
+        };
+        if (name) {
+            merged.whatsapp_template = {
+                name,
+                language: language ?? "",
+                parameters: (parameters ?? "")
+                    .split(/\r?\n/)
+                    .map((line) => line.trim())
+                    .filter(Boolean),
+            };
+        } else {
+            delete merged.whatsapp_template;
         }
     }
     return merged;
@@ -156,15 +218,11 @@ export interface MessageTemplateSummary {
     enabled: boolean;
 }
 
-export interface MessageTemplateDetail extends MessageTemplateSummary {
-    subject?: string;
-    text?: string;
-    html?: string;
-    sms?: string;
+export interface MessageTemplateDetail extends MessageTemplateSummary, Partial<Record<ContentField, string>> {
     /** What each part is with no edits — the editor compares against it and offers to revert to it. */
-    defaults: { enabled: boolean; subject?: string; text?: string; html?: string; sms?: string };
+    defaults: { enabled: boolean } & Partial<Record<ContentField, string>>;
     /** Which parts are currently edited. */
-    overridden: { enabled: boolean; subject: boolean; text: boolean; html: boolean; sms: boolean };
+    overridden: { enabled: boolean } & Record<ContentField, boolean>;
     variables: MessageVariable[];
 }
 
@@ -191,17 +249,14 @@ export function describeTemplate(
     const merged = mergeTemplate(base, override);
     return {
         ...summarizeTemplate(name, base, override),
-        subject: merged.subject,
-        text: merged.text,
-        html: merged.html,
-        sms: merged.sms,
-        defaults: { enabled: base.enabled, subject: base.subject, text: base.text, html: base.html, sms: base.sms },
+        ...contentOf(merged),
+        defaults: { enabled: base.enabled, ...contentOf(base) },
         overridden: {
             enabled: override?.enabled != null,
-            subject: override?.subject != null,
-            text: override?.text != null,
-            html: override?.html != null,
-            sms: override?.sms != null,
+            ...(Object.fromEntries(CONTENT_FIELDS.map((field) => [field, override?.[field] != null])) as Record<
+                ContentField,
+                boolean
+            >),
         },
         variables: MESSAGE_VARIABLES,
     };
@@ -212,17 +267,38 @@ export function isCustomized(override?: MessageTemplateOverride | null): boolean
     return !!override && (override.enabled != null || CONTENT_FIELDS.some((field) => override[field] != null));
 }
 
-/** What a template renders to — the parts a real send would hand to the mail/SMS provider. `null` when that channel wouldn't send. */
+/**
+ * What a template renders to — the parts a real send would hand to the mail/SMS/WhatsApp provider. `null` when that
+ * channel wouldn't send. `whatsapp` is the message text or, for an approved WhatsApp template, its name and language
+ * with the parameters it would be filled with.
+ */
 export interface RenderedMessage {
     subject: string | null;
     text: string | null;
     html: string | null;
     sms: string | null;
+    whatsapp: string | null;
+}
+
+/** What a WhatsApp request body sends, as a person would read it — see `RenderedMessage.whatsapp`. */
+function describeWhatsAppRequest(request: any): string | null {
+    if (!request) {
+        return null;
+    }
+    if (request.type === "template") {
+        const { name, language, components } = request.template;
+        const parameters: { text: string }[] = components?.[0]?.parameters ?? [];
+        return [
+            `Template "${name}" (${language.code})`,
+            ...parameters.map((parameter, index) => `{{${index + 1}}}: ${parameter.text}`),
+        ].join("\n");
+    }
+    return request.text.body;
 }
 
 /**
  * Renders `template` exactly as a real send would, by running it through a real `MessagingUtils` with only its
- * SMTP/Twilio transports swapped for ones that hand back what they were given. That makes it both the preview
+ * SMTP/SMS/WhatsApp transports swapped for ones that hand back what they were given. That makes it both the preview
  * shown in the admin console and the check an edit has to pass before it's saved: Handlebars compiles lazily, so a
  * mistake in a template otherwise stays hidden until a real send fails — logged and swallowed by the route that
  * asked — and the user simply never receives their code. Throws (with Handlebars' own message) if it doesn't render.
@@ -234,6 +310,10 @@ export async function renderTemplate(
     template: DescribedTemplate,
     vars: Record<string, unknown>,
 ): Promise<RenderedMessage> {
+    if (template.whatsapp_template && !template.whatsapp_template.language) {
+        throw new Error("A WhatsApp template needs the language it was approved in, like en_US.");
+    }
+
     const messaging = new MessagingUtils() as any;
     messaging.templates = {
         from: { email: "preview@example.invalid", sms: "+15555550100" },
@@ -241,14 +321,20 @@ export async function renderTemplate(
     };
     messaging.smtpConfig = { host: "preview.invalid" };
     messaging._transporter = { sendMail: async (message: unknown) => message };
+    messaging.smsConfig = { provider: "twilio" };
     messaging.twilio = { messages: { create: async (message: unknown) => message } };
+    // WhatsApp is sent over HTTP rather than through a client object, so the request that would be made is what's handed back.
+    messaging.whatsapp = { accessToken: "preview", phoneNumberId: "0" };
+    messaging.postJson = async (_provider: string, _url: string, _token: string, body: unknown) => body;
 
     const email = (await messaging.sendEmail(name, vars, {})) as { subject?: string; text?: string; html?: string } | undefined;
     const sms = (await messaging.sendSMS(name, vars, {})) as { body?: string } | undefined;
+    const whatsapp = await messaging.sendWhatsApp(name, vars, {});
     return {
         subject: email?.subject ?? null,
         text: email?.text ?? null,
         html: email?.html ?? null,
         sms: sms?.body ?? null,
+        whatsapp: describeWhatsAppRequest(whatsapp),
     };
 }

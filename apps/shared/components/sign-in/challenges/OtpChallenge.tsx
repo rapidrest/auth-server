@@ -33,22 +33,26 @@ export default function OtpChallenge({
     onSubmitVerify,
     onBackToContact,
 }: OtpChallengeProps) {
+    // The user still types their real phone number for a WhatsApp code — only the wording changes.
+    const whatsapp = selectedOtpHint.channel === "whatsapp";
     return (
         <>
             {otpStep === "contact" && (
                 <form onSubmit={onSubmitContact}>
                     <p className="rr-hint" style={{ marginTop: 0 }}>
-                        We can send a code to {selectedOtpHint.contact}. Enter it below to receive a one-time code.
+                        {whatsapp
+                            ? `We can send a code to ${selectedOtpHint.contact} on WhatsApp. Enter your phone number below to receive a one-time code on WhatsApp.`
+                            : `We can send a code to ${selectedOtpHint.contact}. Enter it below to receive a one-time code.`}
                     </p>
-                    <FormField label="E-mail or phone" htmlFor="otpContact">
+                    <FormField label={whatsapp ? "Phone number" : "E-mail or phone"} htmlFor="otpContact">
                         <input
                             id="otpContact"
                             className="rr-input"
-                            type="text"
+                            type={whatsapp ? "tel" : "text"}
                             required
                             value={otpContact}
                             onChange={(e) => setOtpContact(e.target.value)}
-                            placeholder="you@example.com"
+                            placeholder={whatsapp ? "+15551234567" : "you@example.com"}
                         />
                     </FormField>
                     <Button type="submit" loading={loading} disabled={loading}>
@@ -60,7 +64,7 @@ export default function OtpChallenge({
             {otpStep === "code" && (
                 <form onSubmit={onSubmitVerify}>
                     <p className="rr-hint" style={{ marginTop: 0 }}>
-                        We sent a code to {otpContact}.
+                        {whatsapp ? `We sent a code to ${otpContact} on WhatsApp.` : `We sent a code to ${otpContact}.`}
                     </p>
                     <FormField label="One-time code" htmlFor="otpCode">
                         <CodeInput id="otpCode" value={otpCode} onChange={setOtpCode} />

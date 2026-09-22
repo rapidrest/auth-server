@@ -24,7 +24,7 @@ describe("WwwRoute.fetchProps() (mongo)", () => {
         const route = new WwwRoute();
         withFakeObjectFactory(
             route,
-            { findOne: vi.fn().mockResolvedValue({ uid: "default", siteTitle: "Acme" }) },
+            { findOne: vi.fn().mockResolvedValue({ uid: "default", seeded: true, siteTitle: "Acme" }) },
             false,
         );
 
@@ -36,7 +36,7 @@ describe("WwwRoute.fetchProps() (mongo)", () => {
 
     it("returns the configured cors origins as normalized returnToOrigins for the sign-in page's return_to check", async () => {
         const route = new WwwRoute();
-        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default" }) });
+        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default", seeded: true }) });
         (route as any).corsOrigins = ["https://mail.mydomain.com/inbox", "*", "not a url"];
 
         const props = await (route as any).fetchProps({});
@@ -46,7 +46,7 @@ describe("WwwRoute.fetchProps() (mongo)", () => {
 
     it("returns no oauthProviders while every provider's clientID is still its shipped placeholder", async () => {
         const route = new WwwRoute();
-        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default" }) });
+        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default", seeded: true }) });
         (route as any).googleClientID = DEFAULT_GOOGLE_CLIENT_ID;
         (route as any).microsoftClientID = DEFAULT_MICROSOFT_CLIENT_ID;
         (route as any).appleClientID = DEFAULT_APPLE_CLIENT_ID;
@@ -59,7 +59,7 @@ describe("WwwRoute.fetchProps() (mongo)", () => {
 
     it("returns only the oauthProviders whose clientID has been replaced", async () => {
         const route = new WwwRoute();
-        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default" }) });
+        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default", seeded: true }) });
         (route as any).googleClientID = "real.apps.googleusercontent.com";
         (route as any).microsoftClientID = DEFAULT_MICROSOFT_CLIENT_ID;
         (route as any).appleClientID = "com.acme.signin";
@@ -68,6 +68,84 @@ describe("WwwRoute.fetchProps() (mongo)", () => {
         const props = await (route as any).fetchProps({});
 
         expect(props.oauthProviders).toEqual(["google", "apple"]);
+    });
+
+    it("returns the configured app_url as appUrl for the account page's Return to App button", async () => {
+        const route = new WwwRoute();
+        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default", seeded: true }) });
+        (route as any).appUrl = " https://app.mydomain.com/home ";
+
+        const props = await (route as any).fetchProps({});
+
+        expect(props.appUrl).toBe("https://app.mydomain.com/home");
+    });
+
+    it("returns an empty appUrl when app_url is unset or isn't an absolute http(s) URL", async () => {
+        const route = new WwwRoute();
+        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue({ uid: "default", seeded: true }) });
+
+        expect(((await (route as any).fetchProps({}))).appUrl).toBe("");
+
+        (route as any).appUrl = "javascript:alert(1)";
+        expect(((await (route as any).fetchProps({}))).appUrl).toBe("");
+    });
+
+    it("seeds the branding row from the site_settings config when it's the first to read it, and shows it", async () => {
+        const route = new WwwRoute();
+        const create = vi.fn(async (obj: any) => obj);
+        withFakeObjectFactory(route, { findOne: vi.fn().mockResolvedValue(undefined), create });
+        (route as any).siteSettingsConfig = { siteTitle: "Acme", logoUrl: "/brand/logo.svg" };
+
+        const props = await (route as any).fetchProps({});
+
+        expect(create).toHaveBeenCalledWith(
+            { uid: "default", seeded: true, siteTitle: "Acme", logoUrl: "/brand/logo.svg" },
+            { ignoreACL: true },
+        );
+        expect(props.siteSettings).toMatchObject({ siteTitle: "Acme", logoUrl: "/brand/logo.svg" });
+    });
+
+    it("fills only the still-empty fields of a row saved before seeding existed, keeping the admin's values", async () => {
+        const route = new WwwRoute();
+        const update = vi.fn(async (obj: any) => obj);
+        withFakeObjectFactory(route, {
+            findOne: vi.fn().mockResolvedValue({ uid: "default", siteTitle: "Admin's Title" }),
+            update,
+        });
+        (route as any).siteSettingsConfig = { siteTitle: "Configured", companyName: "Acme Inc" };
+
+        const props = await (route as any).fetchProps({});
+
+        expect(props.siteSettings).toMatchObject({ siteTitle: "Admin's Title", companyName: "Acme Inc" });
+        expect(update).toHaveBeenCalledTimes(1);
+    });
+
+    it("never consults the site_settings config once the row is seeded, so a field the admin cleared stays cleared", async () => {
+        const route = new WwwRoute();
+        const repo = { findOne: vi.fn().mockResolvedValue({ uid: "default", seeded: true }), create: vi.fn(), update: vi.fn() };
+        withFakeObjectFactory(route, repo);
+        (route as any).siteSettingsConfig = { siteTitle: "Configured" };
+
+        const props = await (route as any).fetchProps({});
+
+        expect(props.siteSettings.siteTitle).toBeUndefined();
+        expect(repo.create).not.toHaveBeenCalled();
+        expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it("shows the site_settings config's valid branding, not the stock branding, when the row can't be read", async () => {
+        const route = new WwwRoute();
+        withFakeObjectFactory(route, { findOne: vi.fn().mockRejectedValue(new Error("db down")) });
+        (route as any).siteSettingsConfig = { siteTitle: "Acme", logoUrl: "javascript:alert(1)" };
+
+        const props = await (route as any).fetchProps({});
+
+        expect(props.siteSettings).toEqual({
+            siteTitle: "Acme",
+            logoUploaded: false,
+            iconUploaded: false,
+            stylesheetUploaded: false,
+        });
     });
 
     it("falls back to safe defaults for siteSettings when that read fails, independent of systemSettings", async () => {
@@ -86,7 +164,7 @@ describe("WwwRoute.fetchProps() (mongo)", () => {
             if (type === SystemSettingsUtils) {
                 throw new Error("db down");
             }
-            return { findOne: vi.fn().mockResolvedValue({ uid: "default", siteTitle: "Acme" }) };
+            return { findOne: vi.fn().mockResolvedValue({ uid: "default", seeded: true, siteTitle: "Acme" }) };
         });
         (route as any).siteSettingsObjectFactory = { newInstance };
 

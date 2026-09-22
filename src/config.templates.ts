@@ -6,7 +6,7 @@ import type { OriginSettings } from "@rapidrest/core";
 import type { DescribedTemplate } from "./messaging/MessageTemplates.js";
 
 /**
- * Default templates for every e-mail and SMS message this server sends, used as the `templates` config block by
+ * Default templates for every e-mail, SMS and WhatsApp message this server sends, used as the `templates` config block by
  * `config.sql.ts`/`config.mongo.ts`. `@rapidrest/core`'s `MessagingUtils` renders each one with Handlebars. Without
  * a template of the right name the send fails inside `MessagingUtils.loadTemplate()` and the routes log and swallow
  * it — so the code silently never arrives — which is why every name the server sends is listed here, even though
@@ -14,7 +14,8 @@ import type { DescribedTemplate } from "./messaging/MessageTemplates.js";
  *
  * `login-otp` is the sign-in code for OTP and multi-factor sign-in, and for confirming it's you before a sensitive
  * change (elevation). `verify-contact-otp` proves a contact (e-mail address or phone number) added to an account is
- * the user's. `register-otp` proves the contact given while creating an account. Each goes out by e-mail and SMS.
+ * the user's. `register-otp` proves the contact given while creating an account. Each goes out by e-mail and SMS, and by
+ * WhatsApp where that's set up (see below).
  *
  * **Variables.** `{{totp}}` is the code. `{{brand.name}}`, `{{brand.logoUrl}}` and the rest of `brand` come from the
  * site branding (set in the admin console — see `BaseDatabaseMessagingUtils`), which is how these defaults look like
@@ -25,11 +26,20 @@ import type { DescribedTemplate } from "./messaging/MessageTemplates.js";
  * **Changing them.** Normally from the admin console, which stores the edit in the database and needs no redeploy;
  * each part an admin hasn't touched keeps following these defaults. To change them for a whole deployment instead,
  * set any part of any entry in your own config — values merge over these key by key, so changing one `subject`
- * leaves the rest alone. Per template: `subject`, `text` and `html` for e-mail, `sms` for SMS, `htmlPath`/`textPath`
- * to read a body from a file, and `enabled: false` to stop sending it at all. An e-mail with an `html` part is shown
+ * leaves the rest alone. Per template: `subject`, `text` and `html` for e-mail, `sms` for SMS, `whatsapp` for a
+ * free-form WhatsApp message, `whatsapp_template` for an approved WhatsApp message template (see below),
+ * `htmlPath`/`textPath` to read a body from a file, and `enabled: false` to stop sending it at all. An e-mail with an `html` part is shown
  * as that, not as `text`, so to send plain text only, set `html: ""`.
  *
- * **How they're sent** — `smtp_config` for e-mail, `twilio` for SMS, and the `from` address/number for each — is
+ * **WhatsApp.** WhatsApp only delivers a free-form message (`whatsapp`) to someone who has messaged you in the last 24
+ * hours, and a one-time code is almost never that, so to reach anyone else set `whatsapp_template` to a message
+ * template approved in Meta's WhatsApp Manager: `{ name, language, parameters }`, where each of `parameters` is a
+ * Handlebars string that fills the template's `{{1}}`, `{{2}}`… in order — for a code, `["{{totp}}"]`. It's shipped
+ * unset because the name is whatever *you* approved; set it here, or in the admin console's template editor. Without
+ * one the free-form text below is sent, which works for testing with a number that has messaged you.
+ *
+ * **How they're sent** — `smtp_config` for e-mail, `sms_config` (Twilio or Telnyx, one at a time) for SMS,
+ * `whatsapp` for WhatsApp, and the `from` address/number for e-mail and SMS — is
  * config too, and nothing is sent until it's set (`from` is left empty here on purpose rather than sending as a
  * domain nobody set up). Config only *seeds* those: the first time the server reads them they're copied into the
  * database (secrets encrypted, see `MessagingSettingsSQL`), and from then on the admin console's Messages page edits
@@ -90,6 +100,7 @@ export const DEFAULT_MESSAGE_TEMPLATES = {
         text: emailText("Use this code to finish signing in or to confirm it's you"),
         html: emailHtml("Use this code to finish signing in or to confirm it&rsquo;s you:"),
         sms: "{{{brand.name}}}: your code to sign in or confirm it's you is {{totp}}. Never share it with anyone.",
+        whatsapp: "{{{brand.name}}}: your code to sign in or confirm it's you is {{totp}}. Never share it with anyone.",
     } satisfies DescribedTemplate,
 
     "verify-contact-otp": {
@@ -100,6 +111,8 @@ export const DEFAULT_MESSAGE_TEMPLATES = {
         text: emailText("Use this code to verify this e-mail address for your account"),
         html: emailHtml("Use this code to verify this e-mail address for your account:"),
         sms: "{{{brand.name}}}: your code to verify this phone number for your account is {{totp}}. Never share it with anyone.",
+        whatsapp:
+            "{{{brand.name}}}: your code to verify this phone number for your account is {{totp}}. Never share it with anyone.",
     } satisfies DescribedTemplate,
 
     "register-otp": {
@@ -110,5 +123,7 @@ export const DEFAULT_MESSAGE_TEMPLATES = {
         text: emailText("Use this code to confirm your e-mail address and finish creating your account"),
         html: emailHtml("Use this code to confirm your e-mail address and finish creating your account:"),
         sms: "{{{brand.name}}}: your code to confirm your phone number and finish creating your account is {{totp}}. Never share it with anyone.",
+        whatsapp:
+            "{{{brand.name}}}: your code to confirm your phone number and finish creating your account is {{totp}}. Never share it with anyone.",
     } satisfies DescribedTemplate,
 };

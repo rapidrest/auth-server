@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React from "react";
-import { FiHardDrive, FiKey, FiLock, FiMail, FiPhone, FiShield } from "react-icons/fi";
+import { FiHardDrive, FiKey, FiLock, FiMail, FiMessageCircle, FiPhone, FiShield } from "react-icons/fi";
 import Button from "../../buttons/Button.js";
-import { CONTACT_TYPE_LABELS, FIXED_METHOD_LABELS, FixedMethod, MethodListItem, OtpHint } from "../types.js";
+import { FIXED_METHOD_LABELS, FixedMethod, MethodListItem, OtpHint, otpHintKey, otpHintLabel } from "../types.js";
 
 export interface MethodListStepProps {
     identifier: string;
@@ -26,6 +26,9 @@ const CONTACT_TYPE_ICONS: Record<OtpHint["type"], React.ReactElement> = {
     email: <FiMail size={18} aria-hidden="true" />,
     phone: <FiPhone size={18} aria-hidden="true" />,
 };
+
+// A WhatsApp hint is still a `phone` hint, so it's picked by `channel` rather than looked up by type.
+const WHATSAPP_ICON = <FiMessageCircle size={18} aria-hidden="true" />;
 
 export default function MethodListStep({ identifier, methodItems, onSelectFixed, onSelectOtp, onBack }: MethodListStepProps) {
     return (
@@ -53,14 +56,14 @@ export default function MethodListStep({ identifier, methodItems, onSelectFixed,
                         </button>
                     ) : (
                         <button
-                            key={`otp-${item.hint.type}-${item.hint.contact}`}
+                            key={otpHintKey(item.hint)}
                             type="button"
                             className="rr-method-list-item"
                             onClick={() => onSelectOtp(item.hint)}
                         >
                             <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                                {CONTACT_TYPE_ICONS[item.hint.type]}
-                                {CONTACT_TYPE_LABELS[item.hint.type]}: {item.hint.contact}
+                                {item.hint.channel === "whatsapp" ? WHATSAPP_ICON : CONTACT_TYPE_ICONS[item.hint.type]}
+                                {otpHintLabel(item.hint)}: {item.hint.contact}
                             </span>
                             <span aria-hidden="true">&rsaquo;</span>
                         </button>

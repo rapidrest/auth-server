@@ -11,9 +11,13 @@ const { Nullable } = ObjectDecorators;
 const { Column, Entity } = PersistenceDecorators;
 
 /**
- * Deployment-wide branding/customization for `apps/www` and `apps/admin`, editable exclusively
- * through the admin console (see `BaseSiteSettingsRoute`). A singleton — always read/written under
+ * Deployment-wide branding/customization for `apps/www` and `apps/admin`, editable through the admin
+ * console (see `BaseSiteSettingsRoute`). A singleton — always read/written under
  * `BaseSiteSettingsRoute.SITE_SETTINGS_UID` — rather than a generic CRUD resource.
+ *
+ * The deployment's `site_settings` config seeds the text and reference-URL fields the first time the row is read
+ * (see `getOrCreateSiteSettings()`), so an app that ships this server can brand it at deployment; from then on the
+ * row is the source of truth, changed only in the admin console. Uploaded assets are never seeded from config.
  *
  * `logoUrl`/`iconUrl`/`stylesheetUrl` are external reference URLs; `logoData`/`iconData`/`stylesheetCss`
  * hold a directly uploaded asset's content (base64-encoded image bytes, raw CSS text respectively)
@@ -93,6 +97,11 @@ export class SiteSettingsSQL extends BaseEntity {
     @Nullable
     public stylesheetCss?: string;
 
+    /** Set once the row has been filled from the deployment's `site_settings` config; see `getOrCreateSiteSettings()`. Never exposed publicly. */
+    @Column({ nullable: true })
+    @Nullable
+    public seeded?: boolean;
+
     constructor(other?: Partial<SiteSettingsSQL>) {
         super(other);
 
@@ -109,6 +118,7 @@ export class SiteSettingsSQL extends BaseEntity {
             this.iconContentType = other.iconContentType !== undefined ? other.iconContentType : this.iconContentType;
             this.stylesheetUrl = other.stylesheetUrl !== undefined ? other.stylesheetUrl : this.stylesheetUrl;
             this.stylesheetCss = other.stylesheetCss !== undefined ? other.stylesheetCss : this.stylesheetCss;
+            this.seeded = other.seeded !== undefined ? other.seeded : this.seeded;
         }
     }
 }

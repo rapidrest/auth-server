@@ -15,9 +15,11 @@ export interface AccountHeaderProps {
     onAccountDeleted: () => void;
     /** Shows a link to the admin console. Omit/false for non-admin accounts. */
     isAdmin?: boolean;
+    /** Shows a "Return to App" button linking to this (already validated, absolute http(s)) URL. Omit/empty when no app is configured. */
+    appUrl?: string;
 }
 
-export default function AccountHeader({ profile, onLogout, onAccountDeleted, isAdmin }: AccountHeaderProps) {
+export default function AccountHeader({ profile, onLogout, onAccountDeleted, isAdmin, appUrl }: AccountHeaderProps) {
     const email = profile?.contacts?.find((c) => c.type === "email")?.contact;
     const displayName = [profile?.givenName, profile?.familyName].filter(Boolean).join(" ") || email || "there";
     const initial = (profile?.givenName || email || "?").charAt(0).toUpperCase();
@@ -74,6 +76,13 @@ export default function AccountHeader({ profile, onLogout, onAccountDeleted, isA
                     <a href="/admin">
                         <Button variant="secondary" type="button">
                             Admin console
+                        </Button>
+                    </a>
+                )}
+                {appUrl && (
+                    <a href={appUrl}>
+                        <Button variant="secondary" type="button">
+                            Return to App
                         </Button>
                     </a>
                 )}

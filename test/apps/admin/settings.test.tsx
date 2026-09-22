@@ -51,7 +51,7 @@ beforeEach(() => {
 });
 
 describe("SiteSettingsPage", () => {
-    it("loads and renders all five settings cards", async () => {
+    it("loads and renders all six settings cards", async () => {
         mockedGetSiteSettings.mockResolvedValue({ ...baseSettings, siteTitle: "Acme Auth" });
         mockedGetSystemSettings.mockResolvedValue({ allowRegistration: false, requireMFA: false });
         render(<SiteSettingsPage userUid="admin-1" />);
@@ -61,6 +61,7 @@ describe("SiteSettingsPage", () => {
         expect(screen.getByText("Icon")).toBeInTheDocument();
         expect(screen.getByText("Header & footer")).toBeInTheDocument();
         expect(screen.getByText("Custom stylesheet")).toBeInTheDocument();
+        expect(screen.getByText("Reset branding")).toBeInTheDocument();
         expect(screen.getByText("Registration & Security")).toBeInTheDocument();
         expect(screen.getByRole("switch", { name: "Allow new user registration" })).not.toBeChecked();
     });

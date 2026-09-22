@@ -4,7 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React, { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
-import { FiHardDrive, FiMail, FiShield } from "react-icons/fi";
+import { FiHardDrive, FiMail, FiMessageCircle, FiShield } from "react-icons/fi";
 import {
     ApiRequestError,
     beginElevationChallenge,
@@ -30,16 +30,25 @@ function methodLabel(method: ElevationMethod): string {
         case "totp":
             return "Authenticator app";
         case "otp":
-            return method.data?.contact ? `Code to ${method.data.contact}` : "One-time code";
+            if (!method.data?.contact) {
+                return "One-time code";
+            }
+            // The server lists WhatsApp as its own otp method (`data.type === "whatsapp"`), right after the
+            // same phone's SMS one, so the label has to say which one a code would come from.
+            return `${isWhatsApp(method) ? "WhatsApp code" : "Code"} to ${method.data.contact}`;
     }
 }
 
-function methodIcon(type: ElevationMethod["type"]) {
-    switch (type) {
+function isWhatsApp(method: ElevationMethod): boolean {
+    return method.data?.type === "whatsapp";
+}
+
+function methodIcon(method: ElevationMethod) {
+    switch (method.type) {
         case "fido2":
             return <FiHardDrive size={18} aria-hidden="true" />;
         case "otp":
-            return <FiMail size={18} aria-hidden="true" />;
+            return isWhatsApp(method) ? <FiMessageCircle size={18} aria-hidden="true" /> : <FiMail size={18} aria-hidden="true" />;
         case "totp":
             return <FiShield size={18} aria-hidden="true" />;
     }
@@ -192,7 +201,7 @@ export default function ElevationHost() {
                             disabled={loading}
                             onClick={() => handleSelectMethod(method)}
                         >
-                            {methodIcon(method.type)}
+                            {methodIcon(method)}
                             {methodLabel(method)}
                         </Button>
                     ))}

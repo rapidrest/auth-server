@@ -4,6 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React, { PropsWithChildren } from "react";
 import ElevationHost from "../shared/components/elevation/ElevationHost.js";
+import { THEME_INIT_SCRIPT } from "../shared/lib/theme.js";
 import { CUSTOM_STYLESHEET_LINK_ID } from "../shared/lib/useSiteSettings.js";
 import { effectiveIconUrl, effectiveLogoUrl, effectiveStylesheetUrl, PublicSiteSettings } from "../shared/lib/siteSettings.js";
 
@@ -31,6 +32,8 @@ export default function Layout({ children, siteSettings }: PropsWithChildren<Lay
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
                 <title>{title}</title>
                 <link rel="icon" href={iconHref} />
+                {/* Applies a remembered dark/light choice before the first paint — see THEME_INIT_SCRIPT. */}
+                <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
                 <link rel="stylesheet" href="/styles/globals.css" />
                 {stylesheetHref && <link rel="stylesheet" href={stylesheetHref} id={CUSTOM_STYLESHEET_LINK_ID} />}
             </head>

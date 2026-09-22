@@ -6,7 +6,8 @@
 // fail loudly: `MessagingUtils.loadTemplate()` throws, the route that asked for the send logs and swallows it, and
 // the user just never receives their code. So (1) every template name `@rapidrest/auth` can send is scanned for
 // out of its shipped code, so a message added upstream fails here until it gets a default, and (2) every default is
-// pushed through the real `MessagingUtils` (only the SMTP/Twilio transports are faked) to prove it renders.
+// pushed through the real `MessagingUtils` (only the SMTP and Twilio transports are faked, and the HTTP request
+// WhatsApp is sent with is captured) to prove it renders.
 import fs from "fs";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
@@ -25,13 +26,13 @@ function listJsFiles(dir: string): string[] {
 
 /**
  * Every template name `@rapidrest/auth` can ask for: a literal in `sendEmail("x", …)`/`sendSMS("x", …)`/
- * `sendSlack("x", …)`, or the `this.template = "x"` default the OTP/elevation/MFA routes pass to those same calls.
+ * `sendSlack("x", …)`/`sendWhatsApp("x", …)`, or the `this.template = "x"` default the OTP/elevation/MFA routes pass to those same calls.
  */
 function templateNamesSentByAuthLibrary(): Set<string> {
     const names = new Set<string>();
     for (const file of listJsFiles(AUTH_LIB_DIR)) {
         const source = fs.readFileSync(file, "utf-8");
-        for (const match of source.matchAll(/\.send(?:Email|SMS|Slack)\(\s*"([^"]+)"/g)) names.add(match[1]);
+        for (const match of source.matchAll(/\.send(?:Email|SMS|Slack|WhatsApp)\(\s*"([^"]+)"/g)) names.add(match[1]);
         for (const match of source.matchAll(/\.template\s*=\s*"([^"]+)"/g)) names.add(match[1]);
     }
     return names;
@@ -39,16 +40,23 @@ function templateNamesSentByAuthLibrary(): Set<string> {
 
 const MESSAGE_NAMES = Object.keys(DEFAULT_MESSAGE_TEMPLATES).filter((name) => name !== "from");
 
-/** A `MessagingUtils` with only its SMTP/Twilio transports faked — everything from template lookup to rendering is real. */
+/**
+ * A `MessagingUtils` with only its transports faked — the SMTP transport, the Twilio client and the HTTP request
+ * WhatsApp is sent with (`postJson`) — so everything from template lookup to rendering is real.
+ */
 function makeMessaging(templates: Record<string, unknown>) {
     const sendMail = vi.fn().mockResolvedValue({ messageId: "m1" });
     const create = vi.fn().mockResolvedValue({ sid: "s1" });
+    const postJson = vi.fn().mockResolvedValue({ messages: [{ id: "wamid.1" }] });
     const messaging = new MessagingUtils() as any;
     messaging.templates = structuredClone(templates);
     messaging.smtpConfig = { host: "smtp.test" };
     messaging._transporter = { sendMail };
+    messaging.smsConfig = { provider: "twilio", config: { accountSid: "AC", token: "t" } };
     messaging.twilio = { messages: { create } };
-    return { messaging: messaging as MessagingUtils, sendMail, create };
+    messaging.whatsapp = { accessToken: "wa-token", phoneNumberId: "109876543210" };
+    messaging.postJson = postJson;
+    return { messaging: messaging as MessagingUtils, sendMail, create, postJson };
 }
 
 const WITH_SENDERS = {
@@ -67,7 +75,7 @@ describe("default message templates", () => {
         expect(missing, `Add a default to DEFAULT_MESSAGE_TEMPLATES for: ${missing.join(", ")}`).toEqual([]);
     });
 
-    it.each(MESSAGE_NAMES)("'%s' is enabled, described, and has an e-mail (text and HTML) and an SMS body", (name) => {
+    it.each(MESSAGE_NAMES)("'%s' is enabled, described, and has an e-mail (text and HTML), an SMS and a WhatsApp body", (name) => {
         const template = (DEFAULT_MESSAGE_TEMPLATES as Record<string, any>)[name];
 
         expect(template.enabled).toBe(true);
@@ -75,7 +83,7 @@ describe("default message templates", () => {
         expect(template.description).not.toBe("");
         expect(template.subject).toEqual(expect.any(String));
         expect(template.subject).not.toBe("");
-        for (const part of ["text", "html", "sms"]) {
+        for (const part of ["text", "html", "sms", "whatsapp"]) {
             expect(template[part], part).toContain("{{totp}}");
         }
     });
@@ -87,7 +95,7 @@ describe("default message templates", () => {
         const template = (DEFAULT_MESSAGE_TEMPLATES as Record<string, any>)[name];
         const twoBraceBrand = /(?<!\{)\{\{\s*brand\./;
 
-        for (const part of ["subject", "text", "sms"]) {
+        for (const part of ["subject", "text", "sms", "whatsapp"]) {
             expect(template[part], part).toContain("{{{brand.name}}}");
             expect(twoBraceBrand.test(template[part]), `${part} must not use {{brand.…}}`).toBe(false);
         }
@@ -141,6 +149,62 @@ describe("default message templates", () => {
         expect(message.body).not.toContain("{{");
     });
 
+    it.each(MESSAGE_NAMES)("'%s' renders its code into a free-form WhatsApp message through the real MessagingUtils", async (name) => {
+        const { messaging, postJson } = makeMessaging(WITH_SENDERS);
+
+        await messaging.sendWhatsApp(name, { totp: "482913", brand: { name: "Tom & Jerry" } }, { to: "15555550123" });
+
+        expect(postJson).toHaveBeenCalledTimes(1);
+        const [provider, url, token, body] = postJson.mock.calls[0];
+        expect(provider).toBe("WhatsApp");
+        expect(url).toBe("https://graph.facebook.com/v23.0/109876543210/messages");
+        expect(token).toBe("wa-token");
+        expect(body).toMatchObject({ messaging_product: "whatsapp", to: "15555550123", type: "text" });
+        // Plain text, so the brand is not HTML-escaped.
+        expect(body.text.body).toContain("482913");
+        expect(body.text.body).toContain("Tom & Jerry");
+        expect(body.text.body).not.toContain("&amp;");
+        expect(body.text.body).not.toContain("{{");
+    });
+
+    it("ships no approved WhatsApp message template, since its name is whatever each deployment approves with Meta", () => {
+        for (const name of MESSAGE_NAMES) {
+            expect((DEFAULT_MESSAGE_TEMPLATES as Record<string, any>)[name].whatsapp_template, name).toBeUndefined();
+        }
+    });
+
+    it("sends an approved WhatsApp message template, with its parameters rendered, once a downstream config sets one", async () => {
+        const { messaging, postJson } = makeMessaging({
+            ...WITH_SENDERS,
+            "login-otp": {
+                ...DEFAULT_MESSAGE_TEMPLATES["login-otp"],
+                whatsapp_template: { name: "login_code", language: "en_US", parameters: ["{{totp}}", "{{{brand.name}}}"] },
+            },
+        });
+
+        await messaging.sendWhatsApp("login-otp", { totp: "482913", brand: { name: "Acme" } }, { to: "15555550123" });
+
+        expect(postJson.mock.calls[0][3]).toEqual({
+            recipient_type: "individual",
+            messaging_product: "whatsapp",
+            to: "15555550123",
+            type: "template",
+            template: {
+                name: "login_code",
+                language: { code: "en_US" },
+                components: [
+                    {
+                        type: "body",
+                        parameters: [
+                            { type: "text", text: "482913" },
+                            { type: "text", text: "Acme" },
+                        ],
+                    },
+                ],
+            },
+        });
+    });
+
     it("keeps an SMS short enough for a single segment, for a brand name of up to 20 characters", () => {
         for (const name of MESSAGE_NAMES) {
             const sms: string = (DEFAULT_MESSAGE_TEMPLATES as Record<string, any>)[name].sms;
@@ -159,17 +223,27 @@ describe("default message templates", () => {
         expect(create).not.toHaveBeenCalled();
     });
 
+    it("sends WhatsApp without a from address or number, since it goes from the phone number ID instead", async () => {
+        const { messaging, postJson } = makeMessaging(DEFAULT_MESSAGE_TEMPLATES);
+
+        await messaging.sendWhatsApp("login-otp", { totp: "482913" }, { to: "15555550123" });
+
+        expect(postJson).toHaveBeenCalledTimes(1);
+    });
+
     it("sends nothing for a template a downstream config disables", async () => {
-        const { messaging, sendMail, create } = makeMessaging({
+        const { messaging, sendMail, create, postJson } = makeMessaging({
             ...WITH_SENDERS,
             "login-otp": { ...DEFAULT_MESSAGE_TEMPLATES["login-otp"], enabled: false },
         });
 
         await messaging.sendEmail("login-otp", { totp: "482913" }, { to: "user@example.test" });
         await messaging.sendSMS("login-otp", { totp: "482913" }, { to: "+15555550123" });
+        await messaging.sendWhatsApp("login-otp", { totp: "482913" }, { to: "15555550123" });
 
         expect(sendMail).not.toHaveBeenCalled();
         expect(create).not.toHaveBeenCalled();
+        expect(postJson).not.toHaveBeenCalled();
     });
 
     it("sends a downstream text override on its own when the default html is emptied", async () => {

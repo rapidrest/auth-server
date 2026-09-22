@@ -11,6 +11,7 @@ import BrandingCard from "../shared/components/admin/settings/BrandingCard.js";
 import IconCard from "../shared/components/admin/settings/IconCard.js";
 import ContentCard from "../shared/components/admin/settings/ContentCard.js";
 import StylesheetCard from "../shared/components/admin/settings/StylesheetCard.js";
+import ResetBrandingCard from "../shared/components/admin/settings/ResetBrandingCard.js";
 import RegistrationCard from "../shared/components/admin/settings/RegistrationCard.js";
 import Alert from "../shared/components/feedback/Alert.js";
 
@@ -75,6 +76,7 @@ function SiteSettingsContent({ initialSystemSettings }: { initialSystemSettings?
                     <IconCard settings={settings} onUpdated={setSettings} />
                     <ContentCard settings={settings} onUpdated={setSettings} />
                     <StylesheetCard settings={settings} onUpdated={setSettings} />
+                    <ResetBrandingCard onUpdated={setSettings} />
                 </>
             )}
         </>

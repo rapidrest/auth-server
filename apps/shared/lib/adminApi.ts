@@ -350,6 +350,16 @@ export function updateSiteSettings(input: UpdateSiteSettingsInput): Promise<Publ
 }
 
 /**
+ * Overwrites the branding with what the deployment's `site_settings` config says right now (clearing any field it
+ * doesn't set) and removes any directly uploaded logo, icon or stylesheet, so a configured reference URL — or
+ * nothing — actually takes effect. Config only seeds these fields once, when the row is first read, so this is how
+ * a later change to `site_settings` reaches a deployment that's already seeded.
+ */
+export function resetSiteSettings(): Promise<PublicSiteSettings> {
+    return apiFetch("/settings/branding/reset", { method: "POST" });
+}
+
+/**
  * Uploads a logo image directly, taking precedence over any configured `logoUrl` once it succeeds (see
  * `BaseSiteSettingsRoute`). Sends `file`'s raw bytes under its own MIME type rather than JSON — the one
  * `apiFetch()` caller in this app that needs to override the default `Content-Type: application/json`.

@@ -5,7 +5,7 @@
 import crypto from "crypto";
 
 /**
- * Encrypts a secret that has to be stored and read back later (e.g. the Twilio auth token), so a copy of the
+ * Encrypts a secret that has to be stored and read back later (e.g. an SMS provider's auth token), so a copy of the
  * database alone doesn't reveal it. AES-256-GCM with a fresh random IV per call, stored as
  * `"enc:v1:" + base64(iv[12] + authTag[16] + ciphertext)` — the same envelope `@rapidrest/auth` uses for TOTP
  * secrets and signing keys, so it reads the same to anyone who knows that one. Those helpers are specific to their

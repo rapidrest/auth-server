@@ -14,8 +14,9 @@ import {
     RepoUtils,
     RouteDecorators,
 } from "@rapidrest/service-core";
+import { SITE_SETTINGS_SEED_FIELDS, siteSettingsSeedFromConfig } from "./SiteSettingsSeed.js";
 
-const { Init } = ObjectDecorators;
+const { Config, Init, Logger } = ObjectDecorators;
 const { Description, Returns, Summary } = DocDecorators;
 const { Auth, Delete, Get, Post, Put, RateLimit, Request, RequiresTrustedRole, Response } = RouteDecorators;
 
@@ -41,6 +42,8 @@ export interface SiteSettingsEntity extends BaseEntity {
     iconContentType?: string;
     stylesheetUrl?: string;
     stylesheetCss?: string;
+    /** Set once the row has been filled from the deployment's `site_settings` config, after which the row is the source of truth. Never public. */
+    seeded?: boolean | null;
 }
 
 /** The branding fields returned to (and consumed by) `apps/www`/`apps/admin` — never includes raw uploaded bytes. */
@@ -90,40 +93,90 @@ function siteSettingsToPublicDTO(entity: SiteSettingsEntity): PublicSiteSettings
     };
 }
 
+/** Whether a saved field still has nothing in it, and so is free for config to fill. */
+function isEmptyField(value: unknown): boolean {
+    return value === null || value === undefined || value === "";
+}
+
+/**
+ * The one place the singleton settings row is fetched, and created if it's missing — shared by
+ * `BaseSiteSettingsRoute`, `readPublicSiteSettings()` (so `wwwRoute`, `AdminConsoleRoute` and the messaging
+ * branding) and anything else that reads it, so the deployment's config seeds it whichever of them runs first.
+ *
+ * **The deployment's `site_settings` config seeds the row once, then the row is the source of truth** — the same
+ * model as the messaging settings (`MessagingSettingsStore`). The first time the row is read it's created with, or
+ * (for a row saved before seeding existed, with `seeded` unset) given, the configured value of every field that's
+ * still empty, and marked `seeded`. Anything already saved is left alone, and once seeded config is never consulted
+ * again: an admin who clears a field really clears it, and changing config later doesn't overwrite their edits.
+ * A blank or invalid configured value seeds nothing (see `siteSettingsSeedFromConfig()`).
+ *
+ * Tolerates two instances racing to seed: the loser accepts the winner's row rather than failing the request.
+ * A failure to write for any other reason is thrown.
+ *
+ * @param repoUtils The repository for `settingsClass`.
+ * @param settingsClass The `SiteSettingsSQL`/`SiteSettingsMongo` model, to build the row that's written.
+ * @param configured The raw `site_settings` config, as injected with `@Config("site_settings", null)`.
+ */
+export async function getOrCreateSiteSettings<T extends SiteSettingsEntity>(
+    repoUtils: RepoUtils<T>,
+    settingsClass: any,
+    configured: unknown,
+): Promise<T> {
+    const existing = await repoUtils.findOne(SITE_SETTINGS_UID, { ignoreACL: true });
+    if (existing?.seeded) {
+        return existing;
+    }
+
+    const { fields } = siteSettingsSeedFromConfig(configured);
+    const patch: Record<string, unknown> = { seeded: true };
+    for (const key of SITE_SETTINGS_SEED_FIELDS) {
+        // Only fill what's still empty: a value saved before seeding existed is the admin's, not config's.
+        if (fields[key] !== undefined && (!existing || isEmptyField(existing[key]))) {
+            patch[key] = fields[key];
+        }
+    }
+
+    try {
+        return existing
+            ? await repoUtils.update(new settingsClass({ ...existing, ...patch }), existing, { ignoreACL: true })
+            : await repoUtils.create({ uid: SITE_SETTINGS_UID, ...patch } as Partial<T>, { ignoreACL: true });
+    } catch (err) {
+        // Another instance seeded it at the same moment; what it wrote is what would have been.
+        if (existing) {
+            const raced = await repoUtils.findOne(SITE_SETTINGS_UID, { ignoreACL: true });
+            if (raced?.seeded) {
+                return raced;
+            }
+        } else if (err instanceof ApiError && err.code === ApiErrors.IDENTIFIER_EXISTS) {
+            const raced = await repoUtils.findOne(SITE_SETTINGS_UID, { ignoreACL: true });
+            if (raced) {
+                return raced;
+            }
+        }
+        throw err;
+    }
+}
+
 /**
  * Reads the current deployment-wide branding settings in-process, without an HTTP round-trip —
  * for a consumer that isn't itself a `BaseSiteSettingsRoute` (e.g. `wwwRoute`/`AdminConsoleRoute`,
  * which need `PublicSiteSettings` server-side to feed into `apps/*'s` page props/`_layout.tsx` for
  * SSR branding — see those classes' own `fetchProps()` overrides). Constructs its own short-lived
- * `RepoUtils` and replicates `BaseSiteSettingsRoute.getOrCreate()`'s get-or-create-the-singleton-row
- * logic (including tolerating a concurrent first-request create race) — a small, deliberate
- * duplication rather than refactoring that already-tested class's internals to accommodate a second,
- * unrelated caller.
+ * `RepoUtils` and reads the row through `getOrCreateSiteSettings()`, the same path
+ * `BaseSiteSettingsRoute` uses, so the deployment's config seeds it here too if this runs first.
+ *
+ * @param configured The raw `site_settings` config (`@Config("site_settings", null)`); see `getOrCreateSiteSettings()`.
  */
 export async function readPublicSiteSettings(
     objectFactory: ObjectFactory,
     settingsClass: any,
+    configured: unknown,
 ): Promise<PublicSiteSettings> {
     const repoUtils: RepoUtils<SiteSettingsEntity> = await objectFactory.newInstance(RepoUtils, {
         name: settingsClass.name,
         args: [settingsClass],
     });
-    const existing = await repoUtils.findOne(SITE_SETTINGS_UID, { ignoreACL: true });
-    if (existing) {
-        return siteSettingsToPublicDTO(existing);
-    }
-    try {
-        const created = await repoUtils.create({ uid: SITE_SETTINGS_UID }, { ignoreACL: true });
-        return siteSettingsToPublicDTO(created);
-    } catch (err) {
-        if (err instanceof ApiError && err.code === ApiErrors.IDENTIFIER_EXISTS) {
-            const recovered = await repoUtils.findOne(SITE_SETTINGS_UID, { ignoreACL: true });
-            if (recovered) {
-                return siteSettingsToPublicDTO(recovered);
-            }
-        }
-        throw err;
-    }
+    return siteSettingsToPublicDTO(await getOrCreateSiteSettings(repoUtils, settingsClass, configured));
 }
 
 /** A `PublicSiteSettings` with every field at its "nothing configured" default — used when a settings read fails. */
@@ -136,17 +189,20 @@ const DEFAULT_PUBLIC_SITE_SETTINGS: PublicSiteSettings = {
 /**
  * Convenience wrapper around `readPublicSiteSettings()` for `wwwRoute`/`AdminConsoleRoute`'s own
  * `fetchProps()` overrides (see those classes): never lets a settings-read failure break the whole
- * page render — falls back to `DEFAULT_PUBLIC_SITE_SETTINGS` instead, the same "safe default" every
+ * page render — falls back to `DEFAULT_PUBLIC_SITE_SETTINGS` instead (with whatever the deployment's
+ * `site_settings` config supplies laid over it, so a deployment branded through config isn't shown
+ * with the stock branding just because the database couldn't be read), the same "safe default" every
  * other branding consumer in this app already falls back to.
  */
 export async function fetchSiteSettingsPropsForSSR(
     objectFactory: ObjectFactory,
     settingsClass: any,
+    configured: unknown,
 ): Promise<{ siteSettings: PublicSiteSettings }> {
     try {
-        return { siteSettings: await readPublicSiteSettings(objectFactory, settingsClass) };
+        return { siteSettings: await readPublicSiteSettings(objectFactory, settingsClass, configured) };
     } catch {
-        return { siteSettings: DEFAULT_PUBLIC_SITE_SETTINGS };
+        return { siteSettings: { ...DEFAULT_PUBLIC_SITE_SETTINGS, ...siteSettingsSeedFromConfig(configured).fields } };
     }
 }
 
@@ -159,6 +215,11 @@ export async function fetchSiteSettingsPropsForSSR(
  * Read (`GET`) is public and unauthenticated (both console apps, including anonymous `www`
  * visitors, need it to render their own chrome); every write requires the `admin` trusted role via
  * `@RequiresTrustedRole()`, the same convention `BaseImpersonationRoute`/`BaseOAuthClientRoute` use.
+ *
+ * The admin console is where these are edited, but an app that deploys this server can pre-brand it through the
+ * `site_settings` config key (`siteTitle`, `companyName`, `headerHtml`, `footerHtml`, `logoUrl`, `iconUrl`,
+ * `stylesheetUrl`; e.g. the `site_settings__siteTitle` environment variable): config seeds the row the first time
+ * it's read, and from then on the row is the source of truth (see `getOrCreateSiteSettings()`).
  *
  * Deliberately does **not** extend `ModelRoute`/`CRUDRoute`: those attach an automatic per-request ACL
  * check driven by the model's class-level `@Protect()` ACL, layered *in addition to* (not instead of)
@@ -180,6 +241,13 @@ export abstract class BaseSiteSettingsRoute<T extends SiteSettingsEntity> {
 
     protected repoUtils?: RepoUtils<T>;
 
+    /** The deployment's `site_settings` config, which seeds the row the first time it's read. See `getOrCreateSiteSettings()`. */
+    @Config("site_settings", null)
+    protected configuredSiteSettings: unknown = null;
+
+    @Logger
+    protected logger?: any;
+
     @Init
     protected async initialize(): Promise<void> {
         if (!this._objectFactory) {
@@ -191,32 +259,32 @@ export abstract class BaseSiteSettingsRoute<T extends SiteSettingsEntity> {
                 args: [this.settingsClass],
             });
         }
+
+        // Say once, at startup, which configured values will be ignored — the row may well be seeded already, or
+        // seeded by `wwwRoute` first, so this is the one place every bad entry is reliably reported.
+        for (const problem of siteSettingsSeedFromConfig(this.configuredSiteSettings).rejected) {
+            this.logger?.warn(`Ignoring the site settings config: ${problem}`);
+        }
+        // Best effort: it's seeded on first use anyway, so a database that isn't reachable yet mustn't stop the server.
+        try {
+            await this.getOrCreate();
+        } catch (err) {
+            this.logger?.warn(
+                `Unable to seed the site settings from config, so they're seeded on first use instead: ${err instanceof Error ? err.message : String(err)}`,
+            );
+        }
     }
 
     /**
-     * Fetches the single settings row, creating it with all-default fields on first access. Tolerates
-     * two concurrent first-requests racing to create it: the loser's `IDENTIFIER_EXISTS` is swallowed
-     * and the now-existing row is re-fetched instead of failing the request.
+     * Fetches the single settings row, creating it (seeded from the deployment's `site_settings` config) on
+     * first access, or seeding it if it predates seeding. See `getOrCreateSiteSettings()`, which this shares with every
+     * other reader of the row so that whichever runs first does the seeding.
      */
     protected async getOrCreate(): Promise<T> {
         if (!this.repoUtils) {
             throw new ApiError(ApiErrors.INTERNAL_ERROR, 500, ApiErrorMessages.INTERNAL_ERROR);
         }
-        const existing = await this.repoUtils.findOne(SITE_SETTINGS_UID, { ignoreACL: true });
-        if (existing) {
-            return existing;
-        }
-        try {
-            return await this.repoUtils.create({ uid: SITE_SETTINGS_UID } as Partial<T>, { ignoreACL: true });
-        } catch (err) {
-            if (err instanceof ApiError && err.code === ApiErrors.IDENTIFIER_EXISTS) {
-                const recovered = await this.repoUtils.findOne(SITE_SETTINGS_UID, { ignoreACL: true });
-                if (recovered) {
-                    return recovered;
-                }
-            }
-            throw err;
-        }
+        return getOrCreateSiteSettings(this.repoUtils, this.settingsClass, this.configuredSiteSettings);
     }
 
     protected toPublicDTO(entity: T): PublicSiteSettings {
@@ -279,6 +347,36 @@ export abstract class BaseSiteSettingsRoute<T extends SiteSettingsEntity> {
         if (body?.logoUrl !== undefined) changes.logoUrl = body.logoUrl;
         if (body?.iconUrl !== undefined) changes.iconUrl = body.iconUrl;
         if (body?.stylesheetUrl !== undefined) changes.stylesheetUrl = body.stylesheetUrl;
+        return this.applyUpdate(changes);
+    }
+
+    @Summary("Reset the site settings to the deployment's config")
+    @Description(
+        "Trusted-role-only. Overwrites every branding text field and logo/icon/stylesheet reference URL with what " +
+            "the deployment's `site_settings` config says right now, clearing any field it doesn't set, and removes " +
+            "any directly uploaded logo, icon or stylesheet so a configured reference URL (or nothing) actually " +
+            "takes effect. Config only seeds these fields once, when the row is first read, so this is how a " +
+            "change to `site_settings` reaches a deployment that's already seeded (after a restart, since config is " +
+            "read at start-up).",
+    )
+    @Returns([Object])
+    @Auth(["jwt"])
+    @Post("/reset")
+    @RequiresTrustedRole()
+    @RateLimit()
+    public async resetSettings(): Promise<PublicSiteSettings> {
+        const { fields } = siteSettingsSeedFromConfig(this.configuredSiteSettings);
+        const changes: Record<string, string | null> = {
+            // Reverting a reference URL only matters if an uploaded asset isn't still taking precedence over it.
+            logoData: null,
+            logoContentType: null,
+            iconData: null,
+            iconContentType: null,
+            stylesheetCss: null,
+        };
+        for (const field of SITE_SETTINGS_SEED_FIELDS) {
+            changes[field] = fields[field] ?? null;
+        }
         return this.applyUpdate(changes);
     }
 

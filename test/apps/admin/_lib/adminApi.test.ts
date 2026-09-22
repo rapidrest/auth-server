@@ -20,6 +20,7 @@ import {
     listUserAliases,
     listUsers,
     listUserSecrets,
+    resetSiteSettings,
     searchUsers,
     updateSiteSettings,
     updateUser,
@@ -330,6 +331,12 @@ describe("site settings", () => {
                 body: JSON.stringify({ siteTitle: "Acme", companyName: null }),
             }),
         );
+    });
+
+    it("resetSiteSettings POSTs to /settings/branding/reset", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, settings));
+        await resetSiteSettings();
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/branding/reset", expect.objectContaining({ method: "POST" }));
     });
 
     it("uploadSiteLogo POSTs the file's raw bytes under its own content type", async () => {

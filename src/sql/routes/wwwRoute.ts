@@ -7,6 +7,7 @@ import { ObjectDecorators } from "@rapidrest/core";
 import { fetchSiteSettingsPropsForSSR, PublicSiteSettings } from "../../routes/BaseSiteSettingsRoute.js";
 import { SiteSettingsSQL } from "../../models/sql/SiteSettingsSQL.js";
 import { fetchSystemSettingsPropsForSSR, PublicSystemSettings } from "../../routes/SystemSettingsSSR.js";
+import { toAppUrl } from "../../routes/AppUrl.js";
 import { toEnabledOAuthProviders } from "../../routes/OAuthProviders.js";
 import { toTrustedOrigins } from "../../routes/TrustedOrigins.js";
 
@@ -20,6 +21,10 @@ export class AppRoute extends ReactRoute {
 
     @Inject(ObjectFactory)
     protected siteSettingsObjectFactory!: ObjectFactory;
+
+    /** The deployment's `site_settings` config, which seeds the branding row if this page is the first to read it. */
+    @Config("site_settings", null)
+    protected siteSettingsConfig: unknown = null;
 
     /** The configured CORS origins — the downstream apps a sign-in may hand the user back to. See `toTrustedOrigins()`. */
     @Config("cors:origins", [])
@@ -39,6 +44,14 @@ export class AppRoute extends ReactRoute {
     protected facebookClientID: unknown = "";
 
     /**
+     * The URL of the downstream application `/account`'s "Return to App" button sends the user back to (the
+     * `app_url` setting — from an environment variable it is lowercase, `app_url`, like the rest of this config). Optional: left empty, the button isn't shown.
+     * Must be an absolute http(s) URL — anything else is ignored. See `toAppUrl()`.
+     */
+    @Config("app_url", "")
+    protected appUrl: unknown = "";
+
+    /**
      * Feeds this deployment's branding (`PublicSiteSettings`) into every page's props — and, since
      * `@rapidrest/react` now spreads the same props onto `_layout.tsx` too, into the page's `<head>`
      * (title/favicon/stylesheet) as well — so both render correctly on the very first byte of the
@@ -49,6 +62,8 @@ export class AppRoute extends ReactRoute {
      * downstream app's `?return_to=` against before redirecting to another origin.
      * Also feeds `oauthProviders`, the built-in OAuth providers whose `clientID` has been replaced, so
      * `apps/www/auth/signin.tsx` only offers the "Continue with ..." buttons that can actually sign someone in.
+     * Also feeds `appUrl` (the configured `app_url`, or `""` when unset/invalid), which `apps/www/account.tsx`
+     * shows as a "Return to App" button.
      */
     protected override async fetchProps(
         _req: HttpRequest,
@@ -57,9 +72,10 @@ export class AppRoute extends ReactRoute {
         systemSettings: PublicSystemSettings;
         returnToOrigins: string[];
         oauthProviders: string[];
+        appUrl: string;
     }> {
         const [siteSettings, systemSettings] = await Promise.all([
-            fetchSiteSettingsPropsForSSR(this.siteSettingsObjectFactory, SiteSettingsSQL),
+            fetchSiteSettingsPropsForSSR(this.siteSettingsObjectFactory, SiteSettingsSQL, this.siteSettingsConfig),
             fetchSystemSettingsPropsForSSR(this.siteSettingsObjectFactory, "sql"),
         ]);
         return {
@@ -72,6 +88,7 @@ export class AppRoute extends ReactRoute {
                 apple: this.appleClientID,
                 facebook: this.facebookClientID,
             }),
+            appUrl: toAppUrl(this.appUrl),
         };
     }
 }

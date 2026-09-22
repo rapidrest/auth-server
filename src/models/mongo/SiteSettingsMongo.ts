@@ -80,6 +80,10 @@ export class SiteSettingsMongo extends BaseMongoEntity {
     @Nullable
     public stylesheetCss?: string;
 
+    @Column()
+    @Nullable
+    public seeded?: boolean;
+
     constructor(other?: Partial<SiteSettingsMongo>) {
         super(other);
 
@@ -96,6 +100,7 @@ export class SiteSettingsMongo extends BaseMongoEntity {
             this.iconContentType = other.iconContentType !== undefined ? other.iconContentType : this.iconContentType;
             this.stylesheetUrl = other.stylesheetUrl !== undefined ? other.stylesheetUrl : this.stylesheetUrl;
             this.stylesheetCss = other.stylesheetCss !== undefined ? other.stylesheetCss : this.stylesheetCss;
+            this.seeded = other.seeded !== undefined ? other.seeded : this.seeded;
         }
     }
 }

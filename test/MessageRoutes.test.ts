@@ -2,16 +2,18 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
-// Isolated unit tests for the guard clauses in BaseMessageTemplateRoute, BaseTwilioSettingsRoute and
-// BaseSmtpSettingsRoute — no HTTP server, no database. The endpoints themselves are covered end to end in MessageTemplateRoute.*.test.ts.
+// Isolated unit tests for the guard clauses in BaseMessageTemplateRoute, BaseSmsSettingsRoute,
+// BaseWhatsAppSettingsRoute and BaseSmtpSettingsRoute — no HTTP server, no database. The endpoints themselves are covered end to end in MessageTemplateRoute.*.test.ts.
 import { describe, expect, it, vi } from "vitest";
 import { BaseDatabaseMessagingUtils } from "../src/messaging/BaseDatabaseMessagingUtils.js";
 import { BaseMessageTemplateRoute } from "../src/routes/BaseMessageTemplateRoute.js";
+import { BaseSmsSettingsRoute } from "../src/routes/BaseSmsSettingsRoute.js";
 import { BaseSmtpSettingsRoute } from "../src/routes/BaseSmtpSettingsRoute.js";
-import { BaseTwilioSettingsRoute } from "../src/routes/BaseTwilioSettingsRoute.js";
+import { BaseWhatsAppSettingsRoute } from "../src/routes/BaseWhatsAppSettingsRoute.js";
 
 class TemplateRoute extends BaseMessageTemplateRoute {}
-class TwilioRoute extends BaseTwilioSettingsRoute {}
+class SmsRoute extends BaseSmsSettingsRoute {}
+class WhatsAppRoute extends BaseWhatsAppSettingsRoute {}
 class SmtpRoute extends BaseSmtpSettingsRoute {}
 
 /** A stand-in for the real thing that passes `instanceof`, with every method the routes call as a spy. */
@@ -23,11 +25,14 @@ function fakeUtils(): any {
         "updateTemplate",
         "resetTemplate",
         "previewTemplate",
-        "getTwilioSettings",
-        "updateTwilioSettings",
+        "getSmsSettings",
+        "updateSmsSettings",
+        "resetSmsSettings",
+        "getWhatsAppSettings",
+        "updateWhatsAppSettings",
+        "resetWhatsAppSettings",
         "getSmtpSettings",
         "updateSmtpSettings",
-        "resetTwilioSettings",
         "resetSmtpSettings",
     ]) {
         utils[method] = vi.fn().mockResolvedValue({ from: method });
@@ -37,7 +42,8 @@ function fakeUtils(): any {
 
 describe.each([
     ["BaseMessageTemplateRoute", TemplateRoute],
-    ["BaseTwilioSettingsRoute", TwilioRoute],
+    ["BaseSmsSettingsRoute", SmsRoute],
+    ["BaseWhatsAppSettingsRoute", WhatsAppRoute],
     ["BaseSmtpSettingsRoute", SmtpRoute],
 ])("%s", (_name, RouteClass) => {
     it("starts when it was given the database-backed MessagingUtils", () => {
@@ -97,27 +103,69 @@ describe("BaseMessageTemplateRoute", () => {
     });
 });
 
-describe("BaseTwilioSettingsRoute", () => {
+describe("BaseSmsSettingsRoute", () => {
     it("hands each request to the messaging utilities", async () => {
-        const route = new TwilioRoute() as any;
+        const route = new SmsRoute() as any;
         route.messaging = fakeUtils();
 
         await route.get();
-        await route.update({ accountSid: "AC1" });
+        await route.update({ provider: "telnyx", telnyx: { apiKey: "KEY" } });
         await route.reset();
 
-        expect(route.messaging.getTwilioSettings).toHaveBeenCalledWith();
-        expect(route.messaging.updateTwilioSettings).toHaveBeenCalledWith({ accountSid: "AC1" });
-        expect(route.messaging.resetTwilioSettings).toHaveBeenCalledWith();
+        expect(route.messaging.getSmsSettings).toHaveBeenCalledWith();
+        expect(route.messaging.updateSmsSettings).toHaveBeenCalledWith({ provider: "telnyx", telnyx: { apiKey: "KEY" } });
+        expect(route.messaging.resetSmsSettings).toHaveBeenCalledWith();
     });
 
     it("treats a request with no body as no changes", async () => {
-        const route = new TwilioRoute() as any;
+        const route = new SmsRoute() as any;
         route.messaging = fakeUtils();
 
         await route.update(undefined);
 
-        expect(route.messaging.updateTwilioSettings).toHaveBeenCalledWith({});
+        expect(route.messaging.updateSmsSettings).toHaveBeenCalledWith({});
+    });
+
+    it("returns what the messaging utilities answer, untouched", async () => {
+        const route = new SmsRoute() as any;
+        route.messaging = fakeUtils();
+
+        expect(await route.get()).toEqual({ from: "getSmsSettings" });
+        expect(await route.update({})).toEqual({ from: "updateSmsSettings" });
+        expect(await route.reset()).toEqual({ from: "resetSmsSettings" });
+    });
+});
+
+describe("BaseWhatsAppSettingsRoute", () => {
+    it("hands each request to the messaging utilities", async () => {
+        const route = new WhatsAppRoute() as any;
+        route.messaging = fakeUtils();
+
+        await route.get();
+        await route.update({ phoneNumberId: "109876543210", accessToken: "tok" });
+        await route.reset();
+
+        expect(route.messaging.getWhatsAppSettings).toHaveBeenCalledWith();
+        expect(route.messaging.updateWhatsAppSettings).toHaveBeenCalledWith({ phoneNumberId: "109876543210", accessToken: "tok" });
+        expect(route.messaging.resetWhatsAppSettings).toHaveBeenCalledWith();
+    });
+
+    it("treats a request with no body as no changes", async () => {
+        const route = new WhatsAppRoute() as any;
+        route.messaging = fakeUtils();
+
+        await route.update(undefined);
+
+        expect(route.messaging.updateWhatsAppSettings).toHaveBeenCalledWith({});
+    });
+
+    it("returns what the messaging utilities answer, untouched", async () => {
+        const route = new WhatsAppRoute() as any;
+        route.messaging = fakeUtils();
+
+        expect(await route.get()).toEqual({ from: "getWhatsAppSettings" });
+        expect(await route.update({})).toEqual({ from: "updateWhatsAppSettings" });
+        expect(await route.reset()).toEqual({ from: "resetWhatsAppSettings" });
     });
 });
 

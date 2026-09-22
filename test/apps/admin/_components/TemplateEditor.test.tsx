@@ -40,21 +40,57 @@ const DETAIL: MessageTemplateDetail = {
     text: "Default text {{totp}}",
     html: "<p>{{totp}}</p>",
     sms: "Default sms {{totp}}",
+    whatsapp: "Default whatsapp {{totp}}",
     defaults: {
         enabled: true,
         subject: "Default subject",
         text: "Default text {{totp}}",
         html: "<p>{{totp}}</p>",
         sms: "Default sms {{totp}}",
+        whatsapp: "Default whatsapp {{totp}}",
     },
-    overridden: { enabled: false, subject: false, text: false, html: false, sms: false },
+    overridden: {
+        enabled: false,
+        subject: false,
+        text: false,
+        html: false,
+        sms: false,
+        whatsapp: false,
+        whatsappTemplateName: false,
+        whatsappTemplateLanguage: false,
+        whatsappTemplateParameters: false,
+    },
     variables: [
         { name: "totp", description: "The one-time code." },
         { name: "brand.name", description: "The site name." },
     ],
 };
 
-const NOTHING_CHANGED = { enabled: null, subject: null, text: null, html: null, sms: null };
+const NOTHING_CHANGED = {
+    enabled: null,
+    subject: null,
+    text: null,
+    html: null,
+    sms: null,
+    whatsapp: null,
+    whatsappTemplateName: null,
+    whatsappTemplateLanguage: null,
+    whatsappTemplateParameters: null,
+};
+
+/** A message whose default is an approved WhatsApp template rather than only free-form text. */
+const TEMPLATED: MessageTemplateDetail = {
+    ...DETAIL,
+    whatsappTemplateName: "login_code",
+    whatsappTemplateLanguage: "en_US",
+    whatsappTemplateParameters: "{{totp}}\n{{{brand.name}}}",
+    defaults: {
+        ...DETAIL.defaults,
+        whatsappTemplateName: "login_code",
+        whatsappTemplateLanguage: "en_US",
+        whatsappTemplateParameters: "{{totp}}\n{{{brand.name}}}",
+    },
+};
 
 /** Sets a field's value directly: `userEvent.type` reads `{` as key syntax, which template text is full of. */
 function setValue(label: string, value: string) {
@@ -108,11 +144,21 @@ describe("TemplateEditor", () => {
             text: undefined,
             html: undefined,
             sms: undefined,
+            whatsapp: undefined,
             defaults: { enabled: true },
         };
         render(<TemplateEditor template={bare} onChanged={vi.fn()} />);
 
-        for (const label of ["Subject", "Plain-text body", "HTML body", "Message"]) {
+        for (const label of [
+            "Subject",
+            "Plain-text body",
+            "HTML body",
+            "Message",
+            "WhatsApp message",
+            "Template name",
+            "Language code",
+            "Parameters",
+        ]) {
             expect(screen.getByLabelText(label)).toHaveValue("");
         }
         expect(screen.queryByRole("button", { name: /Revert/ })).not.toBeInTheDocument();
@@ -124,6 +170,163 @@ describe("TemplateEditor", () => {
         render(<TemplateEditor template={{ ...DETAIL, html: undefined, defaults: { ...DETAIL.defaults, html: undefined } }} onChanged={vi.fn()} />);
 
         expect(screen.getByLabelText("HTML body")).toHaveValue("");
+    });
+
+    describe("WhatsApp", () => {
+        it("shows the free-form message, and the approved template as three fields, as they're currently sent", () => {
+            render(<TemplateEditor template={TEMPLATED} onChanged={vi.fn()} />);
+
+            expect(screen.getByLabelText("WhatsApp message")).toHaveValue("Default whatsapp {{totp}}");
+            expect(screen.getByLabelText("Template name")).toHaveValue("login_code");
+            expect(screen.getByLabelText("Language code")).toHaveValue("en_US");
+            expect(screen.getByLabelText("Parameters")).toHaveValue("{{totp}}\n{{{brand.name}}}");
+        });
+
+        it("groups the approved template's fields under their own heading, with placeholders", () => {
+            render(<TemplateEditor template={DETAIL} onChanged={vi.fn()} />);
+
+            const group = screen.getByRole("group", { name: "Approved WhatsApp template" });
+            expect(within(group).getByLabelText("Template name")).toHaveAttribute("placeholder", "login_code");
+            expect(within(group).getByLabelText("Language code")).toHaveAttribute("placeholder", "en_US");
+            expect(within(group).getByLabelText("Parameters")).toHaveAttribute("placeholder", "{{totp}}");
+            expect(within(group).queryByLabelText("WhatsApp message")).not.toBeInTheDocument();
+        });
+
+        it("explains the 24-hour rule, what an approved template is, and how to fill its parameters", () => {
+            render(<TemplateEditor template={DETAIL} onChanged={vi.fn()} />);
+
+            expect(screen.getByText(/only delivers it to someone who has messaged you in the last 24 hours/)).toBeInTheDocument();
+            expect(screen.getByText(/approved in Meta.s WhatsApp Manager can be sent to anyone/)).toBeInTheDocument();
+            expect(screen.getByText(/Leave the name empty\s+to send that message/)).toBeInTheDocument();
+            expect(screen.getByText(/The language it was approved in, like en_US/)).toBeInTheDocument();
+            expect(screen.getByText(/One per line, filling the template's/)).toBeInTheDocument();
+        });
+
+        it("sends only the free-form message when only that was edited", async () => {
+            const user = userEvent.setup();
+            mockedUpdate.mockResolvedValue(DETAIL);
+            render(<TemplateEditor template={DETAIL} onChanged={vi.fn()} />);
+
+            setValue("WhatsApp message", "New {{totp}}");
+            await user.click(screen.getByRole("button", { name: "Save" }));
+
+            expect(mockedUpdate).toHaveBeenCalledWith("login-otp", { ...NOTHING_CHANGED, whatsapp: "New {{totp}}" });
+        });
+
+        it("sends the template's name, language and parameters when they're filled in, and nothing for an untouched empty one", async () => {
+            const user = userEvent.setup();
+            mockedUpdate.mockResolvedValue(DETAIL);
+            render(<TemplateEditor template={DETAIL} onChanged={vi.fn()} />);
+            await user.click(screen.getByRole("button", { name: "Save" }));
+            expect(mockedUpdate).toHaveBeenLastCalledWith("login-otp", NOTHING_CHANGED);
+
+            setValue("Template name", "login_code");
+            setValue("Language code", "en_US");
+            setValue("Parameters", "{{totp}}\n{{{brand.name}}}");
+            await user.click(screen.getByRole("button", { name: "Save" }));
+
+            expect(mockedUpdate).toHaveBeenLastCalledWith("login-otp", {
+                ...NOTHING_CHANGED,
+                whatsappTemplateName: "login_code",
+                whatsappTemplateLanguage: "en_US",
+                whatsappTemplateParameters: "{{totp}}\n{{{brand.name}}}",
+            });
+        });
+
+        it("sends nothing as changed for a template that follows its default", async () => {
+            const user = userEvent.setup();
+            mockedUpdate.mockResolvedValue(TEMPLATED);
+            render(<TemplateEditor template={TEMPLATED} onChanged={vi.fn()} />);
+
+            await user.click(screen.getByRole("button", { name: "Save" }));
+
+            expect(mockedUpdate).toHaveBeenCalledWith("login-otp", NOTHING_CHANGED);
+        });
+
+        it("sends an emptied template name as an empty string, which is how to go back to the free-form message", async () => {
+            const user = userEvent.setup();
+            mockedUpdate.mockResolvedValue(DETAIL);
+            render(<TemplateEditor template={TEMPLATED} onChanged={vi.fn()} />);
+
+            setValue("Template name", "");
+            await user.click(screen.getByRole("button", { name: "Save" }));
+
+            expect(mockedUpdate).toHaveBeenCalledWith("login-otp", { ...NOTHING_CHANGED, whatsappTemplateName: "" });
+        });
+
+        it("offers to revert each edited part on its own, to the default or to an empty box", async () => {
+            const user = userEvent.setup();
+            render(<TemplateEditor template={TEMPLATED} onChanged={vi.fn()} />);
+            expect(screen.queryByRole("button", { name: /Revert/ })).not.toBeInTheDocument();
+
+            setValue("WhatsApp message", "Changed");
+            setValue("Template name", "other");
+            setValue("Language code", "fr");
+            setValue("Parameters", "{{x}}");
+            for (const name of [
+                "Revert whatsapp message to the default",
+                "Revert template name to the default",
+                "Revert language code to the default",
+                "Revert parameters to the default",
+            ]) {
+                expect(screen.getByRole("button", { name })).toBeInTheDocument();
+            }
+
+            await user.click(screen.getByRole("button", { name: "Revert template name to the default" }));
+            await user.click(screen.getByRole("button", { name: "Revert language code to the default" }));
+            await user.click(screen.getByRole("button", { name: "Revert parameters to the default" }));
+            await user.click(screen.getByRole("button", { name: "Revert whatsapp message to the default" }));
+
+            expect(screen.getByLabelText("Template name")).toHaveValue("login_code");
+            expect(screen.getByLabelText("Language code")).toHaveValue("en_US");
+            expect(screen.getByLabelText("Parameters")).toHaveValue("{{totp}}\n{{{brand.name}}}");
+            expect(screen.getByLabelText("WhatsApp message")).toHaveValue("Default whatsapp {{totp}}");
+            expect(screen.queryByRole("button", { name: /Revert/ })).not.toBeInTheDocument();
+        });
+
+        it("reverts to an empty box for a part the default doesn't have", async () => {
+            const user = userEvent.setup();
+            render(<TemplateEditor template={DETAIL} onChanged={vi.fn()} />);
+            setValue("Template name", "added");
+
+            await user.click(screen.getByRole("button", { name: "Revert template name to the default" }));
+
+            expect(screen.getByLabelText("Template name")).toHaveValue("");
+        });
+
+        it("previews the draft with the WhatsApp parts, and shows the rendered template", async () => {
+            const user = userEvent.setup();
+            mockedPreview.mockResolvedValue({
+                subject: null,
+                text: null,
+                html: null,
+                sms: null,
+                whatsapp: 'Template "login_code" (en_US)\n{{1}}: 123456',
+            });
+            render(<TemplateEditor template={DETAIL} onChanged={vi.fn()} />);
+            setValue("Template name", "login_code");
+            setValue("Language code", "en_US");
+            setValue("Parameters", "{{totp}}");
+
+            await user.click(screen.getByRole("button", { name: "Preview" }));
+
+            expect(mockedPreview).toHaveBeenCalledWith("login-otp", {
+                ...NOTHING_CHANGED,
+                whatsappTemplateName: "login_code",
+                whatsappTemplateLanguage: "en_US",
+                whatsappTemplateParameters: "{{totp}}",
+            });
+            expect(await screen.findByText(/Template "login_code" \(en_US\)/)).toBeInTheDocument();
+        });
+
+        it("follows the WhatsApp parts as the server has them, once it's saved or reset", () => {
+            const { rerender } = render(<TemplateEditor template={DETAIL} onChanged={vi.fn()} />);
+            setValue("Template name", "half-typed");
+
+            rerender(<TemplateEditor template={TEMPLATED} onChanged={vi.fn()} />);
+
+            expect(screen.getByLabelText("Template name")).toHaveValue("login_code");
+        });
     });
 
     describe("saving", () => {
@@ -296,7 +499,7 @@ describe("TemplateEditor", () => {
     });
 
     describe("previewing", () => {
-        const RENDERED = { subject: "Preview subject", text: "Preview text", html: "<p>Preview</p>", sms: "Preview sms" };
+        const RENDERED = { subject: "Preview subject", text: "Preview text", html: "<p>Preview</p>", sms: "Preview sms", whatsapp: "Preview whatsapp" };
 
         it("renders the draft, without saving it", async () => {
             const user = userEvent.setup();
@@ -386,7 +589,7 @@ describe("TemplateEditor", () => {
         it("clears a preview of the edited version", async () => {
             const user = userEvent.setup();
             vi.spyOn(window, "confirm").mockReturnValue(true);
-            mockedPreview.mockResolvedValue({ subject: "Edited preview", text: null, html: null, sms: null });
+            mockedPreview.mockResolvedValue({ subject: "Edited preview", text: null, html: null, sms: null, whatsapp: null });
             mockedReset.mockResolvedValue(DETAIL);
             render(<TemplateEditor template={CUSTOMIZED} onChanged={vi.fn()} />);
             await user.click(screen.getByRole("button", { name: "Preview" }));

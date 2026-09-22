@@ -243,9 +243,12 @@ conf.defaults({
     // a running deployment until you restart and press "Reset to configuration" on that card:
     //   E-mail:  smtp_config__host, smtp_config__port, smtp_config__secure, smtp_config__auth__user,
     //            smtp_config__auth__pass, templates__from__email
-    //   SMS:     twilio__accountSid, twilio__token, templates__from__sms
+    //   SMS:     sms_config__provider (twilio or telnyx — one at a time), then that provider's own settings:
+    //            sms_config__config__accountSid + sms_config__config__token (Twilio), or
+    //            sms_config__config__apiKey + sms_config__config__messagingProfileId (Telnyx); and templates__from__sms
+    //   WhatsApp: whatsapp__accessToken, whatsapp__phoneNumberId, whatsapp__apiVersion
     // Secrets are encrypted at rest under `auth:oauth_server:keys:encryption_key`. Options the console doesn't model
-    // (nodemailer's `smtp_config__tls__*`, Twilio's `twilio__options__*`) stay here and are always merged in.
+    // (nodemailer's `smtp_config__tls__*`, Twilio's `sms_config__config__options__*`) stay here and are always merged in.
     templates: structuredClone(DEFAULT_MESSAGE_TEMPLATES),
 });
 

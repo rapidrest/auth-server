@@ -7,6 +7,7 @@ import { ApiRequestError, deleteSecret, SecretSummary, SecretType } from "../../
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
 import AddSecretModal, { AddMethodType } from "./AddSecretModal.js";
+import ChangePasswordModal from "./ChangePasswordModal.js";
 
 const SECRET_TYPE_LABELS: Record<SecretType, string> = {
     password: "Password",
@@ -45,6 +46,15 @@ export default function SecretsCard({ userUid, secrets, secretsError, setSecrets
     function closeAddMethodModal() {
         setAddMethodModalOpen(false);
         setAddMethodType(null);
+    }
+
+    /** The `password` secret whose "Change" modal is open, or `null` while it's closed. */
+    const [changePasswordSecret, setChangePasswordSecret] = useState<SecretSummary | null>(null);
+
+    function handlePasswordChanged(saved: SecretSummary) {
+        // Reachable only via a password row's own "Change" button, which only exists once `secrets` has
+        // already loaded — `prev` is never null here.
+        setSecrets((prev) => prev!.map((s) => (s.uid === saved.uid ? saved : s)));
     }
 
     async function handleDeleteSecret(uid: string, label: string) {
@@ -99,6 +109,16 @@ export default function SecretsCard({ userUid, secrets, secretsError, setSecrets
                                     </td>
                                     <td>{formatDate(s.dateCreated)}</td>
                                     <td>
+                                        {s.type === "password" && (
+                                            <Button
+                                                variant="text"
+                                                type="button"
+                                                style={{ marginRight: "0.75rem" }}
+                                                onClick={() => setChangePasswordSecret(s)}
+                                            >
+                                                Change
+                                            </Button>
+                                        )}
                                         <Button
                                             variant="text"
                                             type="button"
@@ -122,6 +142,11 @@ export default function SecretsCard({ userUid, secrets, secretsError, setSecrets
                 userUid={userUid}
                 secrets={secrets}
                 setSecrets={setSecrets}
+            />
+            <ChangePasswordModal
+                secret={changePasswordSecret}
+                onClose={() => setChangePasswordSecret(null)}
+                onSaved={handlePasswordChanged}
             />
         </div>
     );

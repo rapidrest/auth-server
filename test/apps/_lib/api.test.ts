@@ -756,6 +756,18 @@ describe("otp sign-in", () => {
         );
     });
 
+    it("getOtpChallenge sends the channel next to the id when one is given", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, {}));
+        await getOtpChallenge("+15551234567", "whatsapp");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/auth/otp",
+            expect.objectContaining({
+                method: "POST",
+                body: JSON.stringify({ id: "+15551234567", channel: "whatsapp" }),
+            }),
+        );
+    });
+
     it("signInWithOtp posts the id and token", async () => {
         const authResult = { token: "tok", user: { uid: "u1", roles: [], scopes: [] } };
         const fetchMock = mockFetch(() => jsonResponse(200, authResult));
@@ -857,6 +869,50 @@ describe("secrets", () => {
             "/api/secrets/s1",
             expect.objectContaining({ body: JSON.stringify({ uid: "s1", version: 0, hint: "New label" }) }),
         );
+    });
+
+    it("updateSecret prompts for elevation and retries the same PUT once it succeeds (a password change)", async () => {
+        const updated = { uid: "s1", version: 1, type: "password", userUid: "u1", dateCreated: "2026-01-01T00:00:00.000Z" };
+        let calls = 0;
+        const fetchMock = mockFetch(() => {
+            calls += 1;
+            return calls === 1 ? jsonResponse(403, { message: "Elevation required.", code: "api-104" }) : jsonResponse(200, updated);
+        });
+        const unsubscribe = subscribeElevation(() => {
+            if (isElevationRequested()) {
+                resolveElevation(true);
+            }
+        });
+
+        const result = await updateSecret({ uid: "s1", version: 0, data: "newpass" }, "u1");
+
+        unsubscribe();
+        expect(result).toEqual(updated);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        const [[firstUrl, firstInit], [secondUrl, secondInit]] = fetchMock.mock.calls;
+        expect(firstUrl).toBe("/api/secrets/s1");
+        expect(secondUrl).toBe("/api/secrets/s1");
+        expect(secondInit.method).toBe("PUT");
+        // The retry resubmits the very same body (already client-hashed) rather than re-hashing anything new.
+        expect(secondInit.body).toBe(firstInit.body);
+        expect(parseBody(secondInit).data).toMatch(CLIENT_HASHED_PASSWORD_PATTERN);
+    });
+
+    it("updateSecret surfaces the original error when the user cancels the elevation prompt", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(403, { message: "Elevation required.", code: "api-104" }));
+        const unsubscribe = subscribeElevation(() => {
+            if (isElevationRequested()) {
+                resolveElevation(false);
+            }
+        });
+
+        await expect(updateSecret({ uid: "s1", version: 0, data: "newpass" }, "u1")).rejects.toMatchObject({
+            message: "Elevation required.",
+            code: "api-104",
+        });
+
+        unsubscribe();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it("createTotpSecret posts a totp-type secret with no data", async () => {

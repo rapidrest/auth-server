@@ -42,7 +42,17 @@ const DETAIL: MessageTemplateDetail = {
     html: "<p>Default</p>",
     sms: "Default sms",
     defaults: { enabled: true, subject: "Default subject", text: "Default text", html: "<p>Default</p>", sms: "Default sms" },
-    overridden: { enabled: false, subject: false, text: false, html: false, sms: false },
+    overridden: {
+        enabled: false,
+        subject: false,
+        text: false,
+        html: false,
+        sms: false,
+        whatsapp: false,
+        whatsappTemplateName: false,
+        whatsappTemplateLanguage: false,
+        whatsappTemplateParameters: false,
+    },
     variables: [],
 };
 

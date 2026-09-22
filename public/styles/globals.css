@@ -1062,6 +1062,13 @@ a {
     outline: none;
 }
 
+/* A menu item that is a link (e.g. "Exit Admin Console") should look like its button siblings, not like body text links. */
+:root .rr-avatar-menu__panel a.rr-avatar-menu__item {
+    box-sizing: border-box;
+    color: var(--rr-color-text);
+    text-decoration: none;
+}
+
 /* Narrow screens: the sidebar folds into a horizontal strip above the top bar. */
 @media (max-width: 640px) {
     .rr-admin {

@@ -6,16 +6,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { jsonResponse, mockFetch } from "../testUtils.js";
 import {
     getMessageTemplate,
+    getSmsSettings,
     getSmtpSettings,
-    getTwilioSettings,
+    getWhatsAppSettings,
     listMessageTemplates,
     previewMessageTemplate,
     resetMessageTemplate,
+    resetSmsSettings,
     resetSmtpSettings,
-    resetTwilioSettings,
+    resetWhatsAppSettings,
     updateMessageTemplate,
+    updateSmsSettings,
     updateSmtpSettings,
-    updateTwilioSettings,
+    updateWhatsAppSettings,
 } from "../../../apps/shared/lib/messagingApi.js";
 
 afterEach(() => {
@@ -62,7 +65,7 @@ describe("message templates", () => {
     });
 
     it("previewMessageTemplate POSTs the draft to the template's preview endpoint", async () => {
-        const rendered = { subject: "S", text: "T", html: null, sms: null };
+        const rendered = { subject: "S", text: "T", html: null, sms: null, whatsapp: 'Template "login_code" (en_US)\n{{1}}: 123456' };
         const fetchMock = mockFetch(() => jsonResponse(200, rendered));
 
         const result = await previewMessageTemplate("login-otp", { sms: "Draft" });
@@ -75,33 +78,83 @@ describe("message templates", () => {
     });
 });
 
-describe("Twilio settings", () => {
-    it("getTwilioSettings GETs /settings/twilio", async () => {
-        const fetchMock = mockFetch(() => jsonResponse(200, { tokenSet: false, configured: false }));
+describe("SMS settings", () => {
+    const NONE = { twilio: { tokenSet: false }, telnyx: { apiKeySet: false }, configured: false };
 
-        expect(await getTwilioSettings()).toEqual({ tokenSet: false, configured: false });
-        expect(fetchMock).toHaveBeenCalledWith("/api/settings/twilio", expect.anything());
+    it("getSmsSettings GETs /settings/sms", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, NONE));
+
+        expect(await getSmsSettings()).toEqual(NONE);
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/sms", expect.anything());
     });
 
-    it("updateTwilioSettings PUTs the SID, token and sender to /settings/twilio", async () => {
-        const fetchMock = mockFetch(() => jsonResponse(200, { accountSid: "AC1", tokenSet: true, from: "+1", configured: true }));
+    it("updateSmsSettings PUTs the provider, its settings and the sender to /settings/sms", async () => {
+        const input = { provider: "twilio" as const, twilio: { accountSid: "AC1", token: "secret" }, from: "+1" };
+        const fetchMock = mockFetch(() =>
+            jsonResponse(200, { provider: "twilio", twilio: { accountSid: "AC1", tokenSet: true }, telnyx: { apiKeySet: false }, from: "+1", configured: true }),
+        );
 
-        await updateTwilioSettings({ accountSid: "AC1", token: "secret", from: "+1" });
+        await updateSmsSettings(input);
 
         expect(fetchMock).toHaveBeenCalledWith(
-            "/api/settings/twilio",
-            expect.objectContaining({ method: "PUT", body: JSON.stringify({ accountSid: "AC1", token: "secret", from: "+1" }) }),
+            "/api/settings/sms",
+            expect.objectContaining({ method: "PUT", body: JSON.stringify(input) }),
+        );
+    });
+
+    it("updateSmsSettings PUTs a switch to Telnyx, nulls included", async () => {
+        const input = { provider: "telnyx" as const, telnyx: { apiKey: "KEY", messagingProfileId: null }, from: null };
+        const fetchMock = mockFetch(() => jsonResponse(200, NONE));
+
+        await updateSmsSettings(input);
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/settings/sms",
+            expect.objectContaining({ method: "PUT", body: JSON.stringify(input) }),
+        );
+    });
+});
+
+describe("WhatsApp settings", () => {
+    it("getWhatsAppSettings GETs /settings/whatsapp", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { accessTokenSet: false, configured: false }));
+
+        expect(await getWhatsAppSettings()).toEqual({ accessTokenSet: false, configured: false });
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/whatsapp", expect.anything());
+    });
+
+    it("updateWhatsAppSettings PUTs the phone number ID, token and version to /settings/whatsapp, nulls included", async () => {
+        const fetchMock = mockFetch(() =>
+            jsonResponse(200, { phoneNumberId: "1234567890", accessTokenSet: true, apiVersion: "v23.0", configured: true }),
+        );
+
+        await updateWhatsAppSettings({ phoneNumberId: "1234567890", accessToken: "secret", apiVersion: null });
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/settings/whatsapp",
+            expect.objectContaining({
+                method: "PUT",
+                body: JSON.stringify({ phoneNumberId: "1234567890", accessToken: "secret", apiVersion: null }),
+            }),
         );
     });
 });
 
 describe("resetting to config", () => {
-    it("resetTwilioSettings POSTs to /settings/twilio/reset and returns the settings as they now are", async () => {
-        const after = { accountSid: "AC1", tokenSet: true, from: "+1", configured: true };
+    it("resetSmsSettings POSTs to /settings/sms/reset and returns the settings as they now are", async () => {
+        const after = { provider: "telnyx", twilio: { tokenSet: false }, telnyx: { apiKeySet: true }, from: "+1", configured: true };
         const fetchMock = mockFetch(() => jsonResponse(200, after));
 
-        expect(await resetTwilioSettings()).toEqual(after);
-        expect(fetchMock).toHaveBeenCalledWith("/api/settings/twilio/reset", expect.objectContaining({ method: "POST" }));
+        expect(await resetSmsSettings()).toEqual(after);
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/sms/reset", expect.objectContaining({ method: "POST" }));
+    });
+
+    it("resetWhatsAppSettings POSTs to /settings/whatsapp/reset and returns the settings as they now are", async () => {
+        const after = { phoneNumberId: "1234567890", accessTokenSet: true, configured: true };
+        const fetchMock = mockFetch(() => jsonResponse(200, after));
+
+        expect(await resetWhatsAppSettings()).toEqual(after);
+        expect(fetchMock).toHaveBeenCalledWith("/api/settings/whatsapp/reset", expect.objectContaining({ method: "POST" }));
     });
 
     it("resetSmtpSettings POSTs to /settings/smtp/reset and returns the settings as they now are", async () => {

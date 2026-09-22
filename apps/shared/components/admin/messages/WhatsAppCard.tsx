@@ -4,40 +4,45 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useState } from "react";
 import { ApiRequestError } from "../../../lib/api.js";
-import { resetTwilioSettings, TwilioSettings, TwilioSettingsInput, updateTwilioSettings } from "../../../lib/messagingApi.js";
+import {
+    resetWhatsAppSettings,
+    updateWhatsAppSettings,
+    WhatsAppSettings,
+    WhatsAppSettingsInput,
+} from "../../../lib/messagingApi.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
 import FormField from "../../forms/FormField.js";
 
-export interface TwilioCardProps {
-    settings: TwilioSettings;
-    onUpdated: (settings: TwilioSettings) => void;
+export interface WhatsAppCardProps {
+    settings: WhatsAppSettings;
+    onUpdated: (settings: WhatsAppSettings) => void;
 }
 
 /**
- * The Twilio account SID, auth token and sender text messages are sent with. They were set from this deployment's
- * configuration the first time the server started, and what's saved here takes over from then on — used from the very
- * next message, with no restart. The token is write-only: it's stored encrypted and never shown again, so a blank
- * token field means "keep the one that's saved" — it is never pre-filled.
+ * The WhatsApp Business phone number ID, access token and API version WhatsApp messages are sent with. They were set from
+ * this deployment's configuration the first time the server started, and what's saved here takes over from then on —
+ * used from the very next message, with no restart. The access token is write-only: it's stored encrypted and never
+ * shown again, so a blank token field means "keep the one that's saved" — it is never pre-filled.
  */
-export default function TwilioCard({ settings, onUpdated }: TwilioCardProps) {
-    const [accountSid, setAccountSid] = useState(settings.accountSid ?? "");
-    const [token, setToken] = useState("");
-    const [from, setFrom] = useState(settings.from ?? "");
+export default function WhatsAppCard({ settings, onUpdated }: WhatsAppCardProps) {
+    const [phoneNumberId, setPhoneNumberId] = useState(settings.phoneNumberId ?? "");
+    const [accessToken, setAccessToken] = useState("");
+    const [apiVersion, setApiVersion] = useState(settings.apiVersion ?? "");
     const [saving, setSaving] = useState(false);
     const [removing, setRemoving] = useState(false);
     const [resetting, setResetting] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const sidChanged = accountSid.trim() !== (settings.accountSid ?? "");
-    const fromChanged = from.trim() !== (settings.from ?? "");
-    const hasSavedCredentials = !!settings.accountSid || settings.tokenSet;
+    const idChanged = phoneNumberId.trim() !== (settings.phoneNumberId ?? "");
+    const versionChanged = apiVersion.trim() !== (settings.apiVersion ?? "");
+    const hasSavedCredentials = !!settings.phoneNumberId || settings.accessTokenSet;
 
-    function applyServerSettings(updated: TwilioSettings) {
-        setAccountSid(updated.accountSid ?? "");
-        setFrom(updated.from ?? "");
-        setToken("");
+    function applyServerSettings(updated: WhatsAppSettings) {
+        setPhoneNumberId(updated.phoneNumberId ?? "");
+        setApiVersion(updated.apiVersion ?? "");
+        setAccessToken("");
         onUpdated(updated);
     }
 
@@ -46,12 +51,12 @@ export default function TwilioCard({ settings, onUpdated }: TwilioCardProps) {
         setSaved(false);
         setSaving(true);
         // Only what changed, and a blank token field means "keep it" — so it's left out, not sent as null.
-        const input: TwilioSettingsInput = {};
-        if (sidChanged) input.accountSid = accountSid.trim() || null;
-        if (fromChanged) input.from = from.trim() || null;
-        if (token) input.token = token;
+        const input: WhatsAppSettingsInput = {};
+        if (idChanged) input.phoneNumberId = phoneNumberId.trim() || null;
+        if (versionChanged) input.apiVersion = apiVersion.trim() || null;
+        if (accessToken) input.accessToken = accessToken;
         try {
-            applyServerSettings(await updateTwilioSettings(input));
+            applyServerSettings(await updateWhatsAppSettings(input));
             setSaved(true);
         } catch (err) {
             setError(err instanceof ApiRequestError ? err.message : "Could not save these settings.");
@@ -61,14 +66,14 @@ export default function TwilioCard({ settings, onUpdated }: TwilioCardProps) {
     }
 
     async function handleRemove() {
-        if (!window.confirm("Remove the saved Twilio credentials? Text messages will stop until new ones are saved.")) {
+        if (!window.confirm("Remove the saved WhatsApp credentials? WhatsApp messages will stop until new ones are saved.")) {
             return;
         }
         setError(null);
         setSaved(false);
         setRemoving(true);
         try {
-            applyServerSettings(await updateTwilioSettings({ accountSid: null, token: null }));
+            applyServerSettings(await updateWhatsAppSettings({ phoneNumberId: null, accessToken: null }));
         } catch (err) {
             setError(err instanceof ApiRequestError ? err.message : "Could not remove these credentials.");
         } finally {
@@ -79,7 +84,7 @@ export default function TwilioCard({ settings, onUpdated }: TwilioCardProps) {
     async function handleReset() {
         if (
             !window.confirm(
-                "Replace the saved Twilio settings with the ones in this deployment's configuration? Anything you've changed here " +
+                "Replace the saved WhatsApp settings with the ones in this deployment's configuration? Anything you've changed here " +
                     "is lost, and any the configuration doesn't have is cleared.",
             )
         ) {
@@ -89,7 +94,7 @@ export default function TwilioCard({ settings, onUpdated }: TwilioCardProps) {
         setSaved(false);
         setResetting(true);
         try {
-            applyServerSettings(await resetTwilioSettings());
+            applyServerSettings(await resetWhatsAppSettings());
         } catch (err) {
             setError(err instanceof ApiRequestError ? err.message : "Could not reset these settings.");
         } finally {
@@ -101,67 +106,73 @@ export default function TwilioCard({ settings, onUpdated }: TwilioCardProps) {
 
     return (
         <div className="rr-card">
-            <div className="rr-card__title">Text messages (Twilio)</div>
+            <div className="rr-card__title">WhatsApp</div>
             <p className="rr-card__subtitle">
                 {settings.configured
-                    ? "Text messages are sent with the credentials and sender saved here."
-                    : "Text messages can't be sent yet: an account SID, an auth token and a sender are all needed."}
+                    ? "WhatsApp messages are sent with the phone number and access token saved here."
+                    : "WhatsApp messages can't be sent yet: a phone number ID and an access token are both needed."}
             </p>
             {error && <Alert>{error}</Alert>}
 
-            <FormField label="Account SID" htmlFor="twilioAccountSid">
+            <FormField label="Phone number ID" htmlFor="whatsappPhoneNumberId">
                 <input
-                    id="twilioAccountSid"
+                    id="whatsappPhoneNumberId"
                     className="rr-input"
                     type="text"
                     autoComplete="off"
                     spellCheck={false}
-                    placeholder="AC…"
+                    inputMode="numeric"
                     style={{ fontFamily: "monospace" }}
-                    value={accountSid}
+                    value={phoneNumberId}
                     onChange={(e) => {
-                        setAccountSid(e.target.value);
+                        setPhoneNumberId(e.target.value);
                         setSaved(false);
                     }}
                 />
+                <p className="rr-hint">
+                    The ID Meta gives your WhatsApp Business phone number, shown under API setup in your Meta app&rsquo;s WhatsApp
+                    settings. It&rsquo;s a long number, and isn&rsquo;t the phone number itself.
+                </p>
             </FormField>
 
-            <FormField label="Auth token" htmlFor="twilioToken">
+            <FormField label="Access token" htmlFor="whatsappAccessToken">
                 <input
-                    id="twilioToken"
+                    id="whatsappAccessToken"
                     className="rr-input"
                     type="password"
                     autoComplete="new-password"
-                    placeholder={settings.tokenSet ? "Saved — leave blank to keep it" : ""}
-                    value={token}
+                    placeholder={settings.accessTokenSet ? "Saved — leave blank to keep it" : ""}
+                    value={accessToken}
                     onChange={(e) => {
-                        setToken(e.target.value);
+                        setAccessToken(e.target.value);
                         setSaved(false);
                     }}
                 />
                 <p className="rr-hint">Stored encrypted, and can&rsquo;t be viewed again once saved.</p>
             </FormField>
 
-            <FormField label="Send from" htmlFor="twilioFrom">
+            <FormField label="API version" htmlFor="whatsappApiVersion">
                 <input
-                    id="twilioFrom"
+                    id="whatsappApiVersion"
                     className="rr-input"
                     type="text"
                     autoComplete="off"
                     spellCheck={false}
-                    placeholder="+15555550100"
-                    value={from}
+                    placeholder="v23.0"
+                    value={apiVersion}
                     onChange={(e) => {
-                        setFrom(e.target.value);
+                        setApiVersion(e.target.value);
                         setSaved(false);
                     }}
                 />
-                <p className="rr-hint">
-                    A phone number in international format, like +15555550100, or an alphanumeric sender ID of up to 11
-                    characters.
-                </p>
+                <p className="rr-hint">Optional. Leave blank for the default.</p>
             </FormField>
 
+            <p className="rr-hint">
+                WhatsApp only delivers a free-form message to someone who has messaged you in the last 24 hours. To send a code
+                to anyone else, such as someone signing in, set an approved WhatsApp message template on that message&rsquo;s
+                page under Templates.
+            </p>
             <p className="rr-hint">
                 These were set from this deployment&rsquo;s configuration the first time the server started. What you save here
                 takes over from then on; &ldquo;Reset to configuration&rdquo; replaces it with what the configuration says now.
@@ -172,7 +183,7 @@ export default function TwilioCard({ settings, onUpdated }: TwilioCardProps) {
                     type="button"
                     onClick={handleSave}
                     loading={saving}
-                    disabled={busy || (!sidChanged && !fromChanged && !token)}
+                    disabled={busy || (!idChanged && !versionChanged && !accessToken)}
                     style={{ width: "auto" }}
                 >
                     Save

@@ -34,6 +34,10 @@ const { Column, Entity } = PersistenceDecorators;
 export class MessagingSettingsMongo extends BaseMongoEntity {
     @Column()
     @Nullable
+    public smsProvider?: string;
+
+    @Column()
+    @Nullable
     public twilioAccountSid?: string;
 
     @Column()
@@ -42,7 +46,27 @@ export class MessagingSettingsMongo extends BaseMongoEntity {
 
     @Column()
     @Nullable
+    public telnyxApiKey?: string;
+
+    @Column()
+    @Nullable
+    public telnyxMessagingProfileId?: string;
+
+    @Column()
+    @Nullable
     public fromSms?: string;
+
+    @Column()
+    @Nullable
+    public whatsappPhoneNumberId?: string;
+
+    @Column()
+    @Nullable
+    public whatsappAccessToken?: string;
+
+    @Column()
+    @Nullable
+    public whatsappApiVersion?: string;
 
     @Column()
     @Nullable
@@ -76,6 +100,16 @@ export class MessagingSettingsMongo extends BaseMongoEntity {
         super(other);
 
         if (other) {
+            this.smsProvider = other.smsProvider !== undefined ? other.smsProvider : this.smsProvider;
+            this.telnyxApiKey = other.telnyxApiKey !== undefined ? other.telnyxApiKey : this.telnyxApiKey;
+            this.telnyxMessagingProfileId =
+                other.telnyxMessagingProfileId !== undefined ? other.telnyxMessagingProfileId : this.telnyxMessagingProfileId;
+            this.whatsappPhoneNumberId =
+                other.whatsappPhoneNumberId !== undefined ? other.whatsappPhoneNumberId : this.whatsappPhoneNumberId;
+            this.whatsappAccessToken =
+                other.whatsappAccessToken !== undefined ? other.whatsappAccessToken : this.whatsappAccessToken;
+            this.whatsappApiVersion =
+                other.whatsappApiVersion !== undefined ? other.whatsappApiVersion : this.whatsappApiVersion;
             this.twilioAccountSid = other.twilioAccountSid !== undefined ? other.twilioAccountSid : this.twilioAccountSid;
             this.twilioToken = other.twilioToken !== undefined ? other.twilioToken : this.twilioToken;
             this.fromSms = other.fromSms !== undefined ? other.fromSms : this.fromSms;

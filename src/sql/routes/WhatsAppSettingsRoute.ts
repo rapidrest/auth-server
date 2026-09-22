@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MPL-2.0
 ////////////////////////////////////////////////////////////////////////////////
 import { RouteDecorators } from "@rapidrest/service-core";
-import { BaseTwilioSettingsRoute } from "../../routes/BaseTwilioSettingsRoute.js";
+import { BaseWhatsAppSettingsRoute } from "../../routes/BaseWhatsAppSettingsRoute.js";
 const { ApiRoute } = RouteDecorators;
 
 /**
- * Mounted at `/api/settings/twilio`. See `BaseTwilioSettingsRoute` for the endpoints.
+ * Mounted at `/api/settings/whatsapp`. See `BaseWhatsAppSettingsRoute` for the endpoints.
  */
-@ApiRoute("/settings/twilio")
-export class TwilioSettingsRoute extends BaseTwilioSettingsRoute {}
+@ApiRoute("/settings/whatsapp")
+export class WhatsAppSettingsRoute extends BaseWhatsAppSettingsRoute {}

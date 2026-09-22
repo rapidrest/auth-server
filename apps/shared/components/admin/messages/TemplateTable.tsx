@@ -14,7 +14,7 @@ export function templateHref(name: string): string {
     return `/admin/messages/${encodeURIComponent(name)}`;
 }
 
-/** The e-mails and text messages this server sends, one row each, with whether each has been customized. */
+/** The e-mails, text messages and WhatsApp messages this server sends, one row each, with whether each has been customized. */
 export default function TemplateTable({ templates }: TemplateTableProps) {
     if (templates.length === 0) {
         return <p className="rr-hint">No messages found.</p>;

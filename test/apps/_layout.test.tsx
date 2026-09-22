@@ -10,6 +10,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import Layout from "../../apps/www/_layout.js";
+import { THEME_INIT_SCRIPT } from "../../apps/shared/lib/theme.js";
 
 describe("Layout", () => {
     it("renders the document shell with the given children inside the body", () => {
@@ -110,5 +111,16 @@ describe("Layout", () => {
             </Layout>,
         );
         expect(html).not.toContain("rr-custom-stylesheet");
+    });
+
+    // Applies a remembered dark/light choice before first paint (see theme.ts's THEME_INIT_SCRIPT).
+    it("renders the inline theme script ahead of the stylesheet, so a stored choice applies before first paint", () => {
+        const html = renderToStaticMarkup(
+            <Layout>
+                <p>x</p>
+            </Layout>,
+        );
+        expect(html).toContain(`<script>${THEME_INIT_SCRIPT}</script>`);
+        expect(html.indexOf("<script>")).toBeLessThan(html.indexOf('href="/styles/globals.css"'));
     });
 });

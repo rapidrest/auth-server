@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add a dark/light theme toggle to the user menu, remembered in the browser and applied before first paint
+- Add an Exit Admin Console item to the admin console's user menu
+- Add a Return to App button to /account that goes to the URL set in the app_url config
+- Add a Change button for a password on the Sign-in methods card, which changes it in place
+- Add Telnyx as an SMS provider alongside Twilio, chosen one at a time on the admin Messages page
+- Add WhatsApp messaging: credentials and template editing in the admin console, and WhatsApp as a one-time-code option for a verified phone number
+- Add a site_settings config that seeds the site branding once, after which the admin console owns it
+- Add a Reset branding button that puts the site branding back to what site_settings says right now
+
+### Changed
+- Update @rapidrest/core to 6.0, moving the SMS config from twilio to sms_config with a provider and its settings
+- Move the admin text-message settings API from /api/settings/twilio to /api/settings/sms
+
 ## [1.0.0-beta.15] - 2026-09-20
 
 ### Added

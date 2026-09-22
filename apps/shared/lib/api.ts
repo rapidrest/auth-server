@@ -517,6 +517,12 @@ export function verifyFido2SignIn(response: unknown): Promise<AuthResult> {
 export interface DiscoveredOtpContact {
     contact: string;
     type: RegistrationIdentifierType;
+    /**
+     * Set to `"whatsapp"` on the extra hint the server lists right after a phone's normal (SMS) hint when
+     * WhatsApp delivery is configured. `type` stays `"phone"` and `contact` is the same obfuscated number;
+     * omitted for the default e-mail / SMS delivery.
+     */
+    channel?: "whatsapp";
 }
 
 /** The set of sign-in methods available for a claimed account identifier. */
@@ -543,10 +549,13 @@ export function discoverAuthMethods(id: string): Promise<DiscoverResult> {
 /**
  * Begins an OTP sign-in ceremony: sends a one-time code to `contact` (which must be the real, exact
  * contact value the caller types in — `discoverAuthMethods()`'s hints are obfuscated and intentionally not
- * enough on their own to trigger this).
+ * enough on their own to trigger this). Pass `channel: "whatsapp"` (from the chosen `DiscoveredOtpContact`)
+ * to have the code delivered over WhatsApp instead of SMS/e-mail; `contact` is still the real phone number.
+ * The request carries no `channel` at all when it's omitted, so the server's default delivery applies.
+ * `signInWithOtp()` is unchanged — the verify request is the same whichever channel delivered the code.
  */
-export function getOtpChallenge(contact: string): Promise<unknown> {
-    return apiFetch("/auth/otp", { method: "POST", body: JSON.stringify({ id: contact }) });
+export function getOtpChallenge(contact: string, channel?: "whatsapp"): Promise<unknown> {
+    return apiFetch("/auth/otp", { method: "POST", body: JSON.stringify(channel ? { id: contact, channel } : { id: contact }) });
 }
 
 /** Finishes an OTP sign-in ceremony with the code sent by `getOtpChallenge()`. */

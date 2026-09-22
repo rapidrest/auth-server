@@ -8,6 +8,7 @@ import { readPublicSiteSettings, type PublicSiteSettings } from "../routes/BaseS
 import {
     buildBrand,
     CONTENT_FIELDS,
+    contentOf,
     describeTemplate,
     DescribedTemplate,
     isCustomized,
@@ -27,12 +28,15 @@ import {
     ConfiguredMessaging,
     MessagingSettingsEntity,
     messagingFromConfig,
+    ResolvedSms,
+    SmsSettingsDTO,
+    SmsSettingsInput,
     SmtpOptions,
     SmtpSettingsDTO,
     SmtpSettingsInput,
     TwilioCredentials,
-    TwilioSettingsDTO,
-    TwilioSettingsInput,
+    WhatsAppSettingsDTO,
+    WhatsAppSettingsInput,
 } from "./MessagingSettings.js";
 import { MessagingSettingsStore } from "./MessagingSettingsStore.js";
 
@@ -55,10 +59,11 @@ const MAX_FIELD_LENGTH = 100_000;
  * `MESSAGE_VARIABLES`), taken from the site branding, so a message looks like the site without each template
  * repeating it. The caller's own variables win if they pass a `brand` of their own.
  *
- * **Transport settings from the database.** The SMTP server, the Twilio credentials and the address/number messages come
- * from are saved through the admin console (see `MessagingSettingsStore`), seeded once from the deployment's config
- * and the source of truth after that. The SMTP transport and Twilio client are rebuilt whenever what's in effect
- * changes, so a rotated password or token is used by the very next message with no restart.
+ * **Transport settings from the database.** The SMTP server, the SMS provider's credentials (Twilio or Telnyx — one at
+ * a time), the WhatsApp credentials and the address/number messages come from are saved through the admin console (see
+ * `MessagingSettingsStore`), seeded once from the deployment's config and the source of truth after that. The SMTP
+ * transport and the SMS and WhatsApp clients are rebuilt whenever what's in effect changes, so a rotated password or
+ * token is used by the very next message with no restart.
  *
  * It's swapped in by registering it under the name `MessagingUtils` (see `src/sql/MessagingUtils.ts`), which is how
  * `ObjectFactory` finds the class each route's `@Inject(MessagingUtils)` asks for — nothing in `@rapidrest/auth`
@@ -90,30 +95,38 @@ export abstract class BaseDatabaseMessagingUtils extends MessagingUtils {
     @Config("auth:oauth_server:issuer", "")
     protected serverUrl: string = "";
 
+    /** The deployment's `site_settings` config, which seeds the branding row if a message is the first thing to read it. */
+    @Config("site_settings", null)
+    protected configuredSiteSettings: unknown = null;
+
     /**
-     * The key the Twilio token is encrypted with at rest — the same 64-character hex AES-256 key that already
+     * The key the messaging secrets (SMTP password, SMS and WhatsApp tokens) are encrypted with at rest — the same 64-character hex AES-256 key that already
      * encrypts signing keys (see `config.defaults.ts`), which production refuses to start with its default.
      */
     @Config("auth:oauth_server:keys:encryption_key", "")
     protected encryptionKey: string = "";
 
     /**
-     * The deployment's `smtp_config` and `twilio`, read live and never written to. `MessagingUtils` keeps its own
-     * `smtpConfig`/`twilio`, which `syncSmtp()`/`syncTwilio()` overwrite with what's in effect — these are what
-     * the database is seeded from, and what applies while it can't be read.
+     * The deployment's `smtp_config`, `sms_config` and `whatsapp`, read live and never written to. `MessagingUtils`
+     * keeps its own `smtpConfig`/`smsConfig`/`twilio`/`telnyx`/`whatsapp`, which `syncSmtp()`/`syncSms()`/
+     * `syncWhatsApp()` overwrite with what's in effect — these are what the database is seeded from, and what applies
+     * while it can't be read.
      */
     @Config("smtp_config", null)
     protected configuredSmtp: ConfiguredMessaging["smtp"] = null;
 
-    @Config("twilio", null)
-    protected configuredTwilio: ConfiguredMessaging["twilio"] = null;
+    @Config("sms_config", null)
+    protected configuredSms: ConfiguredMessaging["sms"] = null;
+
+    @Config("whatsapp", null)
+    protected configuredWhatsApp: ConfiguredMessaging["whatsapp"] = null;
 
     private repos = new Map<unknown, RepoUtils<any>>();
     private ownsTemplates = false;
     private settingsStore?: MessagingSettingsStore;
-    /** What the current SMTP transport / Twilio client were built from, as comparable strings. Unset until first needed. */
+    /** What the current SMTP transport / SMS client were built from, as comparable strings. Unset until first needed. */
     private smtpKey?: string;
-    private twilioKey?: string;
+    private smsKey?: string;
 
     private warn(message: string, err: unknown): void {
         (this as any).logger?.warn(`${message}: ${err instanceof Error ? err.message : String(err)}`);
@@ -133,10 +146,15 @@ export abstract class BaseDatabaseMessagingUtils extends MessagingUtils {
 
     /** The deployment's messaging config, as the store seeds from and falls back to it. */
     private configuredMessaging(): ConfiguredMessaging {
-        return { smtp: this.configuredSmtp, from: this.configuredTemplates.from, twilio: this.configuredTwilio };
+        return {
+            smtp: this.configuredSmtp,
+            from: this.configuredTemplates.from,
+            sms: this.configuredSms,
+            whatsapp: this.configuredWhatsApp,
+        };
     }
 
-    /** Where the SMTP, sender and Twilio settings live. */
+    /** Where the SMTP, sender, SMS and WhatsApp settings live. */
     private get settings(): MessagingSettingsStore {
         if (!this.settingsStore) {
             this.settingsStore = new MessagingSettingsStore({
@@ -192,7 +210,7 @@ export abstract class BaseDatabaseMessagingUtils extends MessagingUtils {
             if (!this._objectFactory) {
                 throw new Error("objectFactory is not set.");
             }
-            settings = await readPublicSiteSettings(this._objectFactory, this.settingsClass);
+            settings = await readPublicSiteSettings(this._objectFactory, this.settingsClass, this.configuredSiteSettings);
         } catch (err) {
             this.warn("Unable to read the site branding for a message, using the stock brand", err);
         }
@@ -258,8 +276,23 @@ export abstract class BaseDatabaseMessagingUtils extends MessagingUtils {
     }
 
     override async sendSMS(templateName: string, templateVars: any, options: any = {}): Promise<any> {
-        await this.syncTwilio();
+        await this.syncSms();
         return super.sendSMS(templateName, await this.withBrand(templateVars), options);
+    }
+
+    override async sendWhatsApp(templateName: string, templateVars: any, options: any = {}): Promise<any> {
+        await this.syncWhatsApp();
+        return super.sendWhatsApp(templateName, await this.withBrand(templateVars), options);
+    }
+
+    /**
+     * Whether a WhatsApp message could be sent right now — the credentials are set, wherever they came from. Read
+     * fresh each time, so it follows the admin console without a restart. `@rapidrest/auth`'s routes ask this before
+     * offering WhatsApp as a way to receive a one-time code. Whether the message template a code goes out with is
+     * one WhatsApp will deliver is a separate matter: see `Template.whatsapp_template`.
+     */
+    public async isWhatsAppConfigured(): Promise<boolean> {
+        return (await this.settings.resolve()).whatsapp !== undefined;
     }
 
     // -- The transports --------------------------------------------------------------------------------------------
@@ -304,25 +337,39 @@ export abstract class BaseDatabaseMessagingUtils extends MessagingUtils {
         }
     }
 
-    /** As `syncSmtp()`, for Twilio: `MessagingUtils.init()` has already built a client from the `twilio` config. */
-    private async syncTwilio(): Promise<void> {
+    /**
+     * As `syncSmtp()`, for SMS: makes `MessagingUtils`' provider, and its Twilio client or Telnyx settings, the ones in
+     * effect right now. `MessagingUtils.init()` has already set them up from `sms_config`, so that's the starting
+     * point. One provider at a time: whichever isn't in use is cleared, so a send can only ever go through the chosen
+     * one. With no provider configured a send reports that, as `MessagingUtils` does.
+     */
+    private async syncSms(): Promise<void> {
         const self = this as any;
-        if (this.twilioKey === undefined) {
-            const configured = messagingFromConfig(this.configuredMessaging()).twilio;
-            this.twilioKey = configured ? `${configured.accountSid}:${configured.token}` : "";
+        const keyOf = (sms: ResolvedSms | undefined) => (sms ? JSON.stringify(sms) : "");
+        if (this.smsKey === undefined) {
+            this.smsKey = keyOf(messagingFromConfig(this.configuredMessaging()).sms);
         }
-        const { twilio } = await this.settings.resolve();
-        const key = twilio ? `${twilio.accountSid}:${twilio.token}` : "";
-        if (key === this.twilioKey) {
+        const { sms } = await this.settings.resolve();
+        const key = keyOf(sms);
+        if (key === this.smsKey) {
             return;
         }
-        this.twilioKey = key;
+        this.smsKey = key;
         try {
-            self.twilio = twilio ? await this.createTwilioClient(twilio) : undefined;
+            self.twilio = sms?.provider === "twilio" ? await this.createTwilioClient(sms.config) : undefined;
+            self.telnyx = sms?.provider === "telnyx" ? sms.config : undefined;
+            self.smsConfig = sms ?? null;
         } catch (err) {
-            this.warn("Unable to set up Twilio with the current credentials", err);
+            this.warn("Unable to set up SMS with the current settings", err);
             self.twilio = undefined;
+            self.telnyx = undefined;
+            self.smsConfig = null;
         }
+    }
+
+    /** As `syncSms()`, for WhatsApp. There's no client to build — `MessagingUtils` sends over HTTP with these credentials — so they're just set. */
+    private async syncWhatsApp(): Promise<void> {
+        (this as any).whatsapp = (await this.settings.resolve()).whatsapp;
     }
 
     override async sendSlack(templateName: string, templateVars: any): Promise<any> {
@@ -372,25 +419,41 @@ export abstract class BaseDatabaseMessagingUtils extends MessagingUtils {
         return describeTemplate(name, base, saved);
     }
 
-    /** The Twilio settings as the admin console sees them — never including the token. */
-    public getTwilioSettings(): Promise<TwilioSettingsDTO> {
-        return this.settings.getTwilio();
+    /** The SMS settings as the admin console sees them — never including a token or API key. */
+    public getSmsSettings(): Promise<SmsSettingsDTO> {
+        return this.settings.getSms();
     }
 
     /**
-     * Saves the Twilio account SID, token and sender. A key that's left out is untouched and `null` clears it. The
-     * token is encrypted before it's stored and is never returned — see `TwilioSettingsDTO`.
+     * Saves which SMS provider sends texts, that provider's credentials and the sender. A key that's left out is
+     * untouched and `null` clears it. Secrets are encrypted before they're stored and are never returned — see
+     * `SmsSettingsDTO`.
      */
-    public updateTwilioSettings(changes: TwilioSettingsInput): Promise<TwilioSettingsDTO> {
-        return this.settings.updateTwilio(changes);
+    public updateSmsSettings(changes: SmsSettingsInput): Promise<SmsSettingsDTO> {
+        return this.settings.updateSms(changes);
     }
 
-    /** Puts the Twilio credentials and SMS sender back to what the deployment's config says, discarding what's saved. */
-    public resetTwilioSettings(): Promise<TwilioSettingsDTO> {
-        return this.settings.resetTwilio();
+    /** Puts the SMS provider, its credentials and the SMS sender back to what the deployment's config says, discarding what's saved. */
+    public resetSmsSettings(): Promise<SmsSettingsDTO> {
+        return this.settings.resetSms();
     }
 
-    /** As `resetTwilioSettings()`, for the SMTP server, its credentials and the e-mail sender. */
+    /** The WhatsApp settings as the admin console sees them — never including the access token. */
+    public getWhatsAppSettings(): Promise<WhatsAppSettingsDTO> {
+        return this.settings.getWhatsApp();
+    }
+
+    /** As `updateSmsSettings()`, for the WhatsApp phone number ID, access token and API version. */
+    public updateWhatsAppSettings(changes: WhatsAppSettingsInput): Promise<WhatsAppSettingsDTO> {
+        return this.settings.updateWhatsApp(changes);
+    }
+
+    /** As `resetSmsSettings()`, for the WhatsApp credentials. */
+    public resetWhatsAppSettings(): Promise<WhatsAppSettingsDTO> {
+        return this.settings.resetWhatsApp();
+    }
+
+    /** As `resetSmsSettings()`, for the SMTP server, its credentials and the e-mail sender. */
     public resetSmtpSettings(): Promise<SmtpSettingsDTO> {
         return this.settings.resetSmtp();
     }
@@ -400,7 +463,7 @@ export abstract class BaseDatabaseMessagingUtils extends MessagingUtils {
         return this.settings.getSmtp();
     }
 
-    /** As `updateTwilioSettings()`, for the SMTP server and the sender address. */
+    /** As `updateSmsSettings()`, for the SMTP server and the sender address. */
     public updateSmtpSettings(changes: SmtpSettingsInput): Promise<SmtpSettingsDTO> {
         return this.settings.updateSmtp(changes);
     }
@@ -464,18 +527,17 @@ export abstract class BaseDatabaseMessagingUtils extends MessagingUtils {
         this.assertValid(changes ?? {});
         const next: MessageTemplateOverride = {
             enabled: existing?.enabled ?? null,
-            subject: existing?.subject ?? null,
-            text: existing?.text ?? null,
-            html: existing?.html ?? null,
-            sms: existing?.sms ?? null,
+            ...Object.fromEntries(CONTENT_FIELDS.map((field) => [field, existing?.[field] ?? null])),
         };
         if (changes?.enabled !== undefined) {
             next.enabled = changes.enabled === base.enabled ? null : changes.enabled;
         }
+        const defaults = contentOf(base);
         for (const field of CONTENT_FIELDS) {
             const value = changes?.[field];
             if (value !== undefined) {
-                next[field] = value === base[field] ? null : value;
+                // An empty string where the default is unset says nothing, so it isn't stored as an edit.
+                next[field] = value === (defaults[field] ?? "") ? null : value;
             }
         }
         return next;

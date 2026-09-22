@@ -107,6 +107,9 @@ describe("AdminShell", () => {
         expect(trigger).toHaveAttribute("aria-expanded", "true");
         expect(within(screen.getByRole("menu")).getByText("Ada Lovelace")).toBeInTheDocument();
 
+        // Leaving the console for the www home page is an ordinary link.
+        expect(screen.getByRole("menuitem", { name: "Exit Admin Console" })).toHaveAttribute("href", "/");
+
         await user.click(screen.getByRole("menuitem", { name: "Sign Out" }));
         await waitFor(() => expect(location.href).toBe("/auth/signin"));
         expect(screen.queryByRole("menu")).not.toBeInTheDocument();

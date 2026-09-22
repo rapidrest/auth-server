@@ -52,6 +52,22 @@ export class MessageTemplateMongo extends BaseMongoEntity {
     @Nullable
     public sms?: string;
 
+    @Column()
+    @Nullable
+    public whatsapp?: string;
+
+    @Column()
+    @Nullable
+    public whatsappTemplateName?: string;
+
+    @Column()
+    @Nullable
+    public whatsappTemplateLanguage?: string;
+
+    @Column()
+    @Nullable
+    public whatsappTemplateParameters?: string;
+
     constructor(other?: Partial<MessageTemplateMongo>) {
         super(other);
 
@@ -61,6 +77,15 @@ export class MessageTemplateMongo extends BaseMongoEntity {
             this.text = other.text !== undefined ? other.text : this.text;
             this.html = other.html !== undefined ? other.html : this.html;
             this.sms = other.sms !== undefined ? other.sms : this.sms;
+            this.whatsapp = other.whatsapp !== undefined ? other.whatsapp : this.whatsapp;
+            this.whatsappTemplateName =
+                other.whatsappTemplateName !== undefined ? other.whatsappTemplateName : this.whatsappTemplateName;
+            this.whatsappTemplateLanguage =
+                other.whatsappTemplateLanguage !== undefined ? other.whatsappTemplateLanguage : this.whatsappTemplateLanguage;
+            this.whatsappTemplateParameters =
+                other.whatsappTemplateParameters !== undefined
+                    ? other.whatsappTemplateParameters
+                    : this.whatsappTemplateParameters;
         }
     }
 }
