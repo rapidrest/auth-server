@@ -1,6 +1,8 @@
 # Release Notes
 
 ## Unreleased
+
+## v1.0.0-beta.16
 * Fixed the Helm chart never setting `auth:passkey`/`auth:fido2`'s `rpID`/`origin`, so a deployment fell back to
   `@rapidrest/auth`'s built-in defaults (rpID `rapidrest`, origin `http://localhost:3000`) — neither of which matches a
   real domain. WebAuthn refuses even to start when the relying-party ID doesn't match the page's own domain, so every

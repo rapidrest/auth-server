@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.16] - 2026-09-22
+
+### Added
+- Added Telnyx as an SMS provider alongside Twilio, chosen one at a time with sms_config.provider; switching keeps the other provider's saved credentials but leaves them unused
+- Added a WhatsApp message and approved-template editor to each message template, sent through MessagingUtils.sendWhatsApp with a live preview
+- Added a site_settings config that seeds the site branding once, the first time it's read; the admin console owns every field from then on, so an admin's edit or cleared field is never overwritten by a later config change
+- Added a Reset branding button that puts every branding field, and any directly uploaded logo, icon or stylesheet, back to what site_settings says right now
+- Added a dark/light theme toggle to the user menu, remembered in the browser and applied before the page paints so there is no flash
+- Added an Exit Admin Console item to the admin console's user menu, which goes to /
+- Added a Return to App button next to Log out on /account, shown when the new app_url config is set to an absolute http(s) URL
+- Added a Change button beside a password on the Sign-in methods card, which changes the password in place instead of removing and re-adding it
+
+### Changed
+- Update @rapidrest/core to 6.0.0, moving SMS settings from the top-level twilio config key to sms_config, which names the provider and holds its own settings, and add whatsapp for WhatsApp Business Cloud API credentials
+- Move the admin text-message settings API from /api/settings/twilio to /api/settings/sms and add /api/settings/whatsapp, with matching admin console cards
+- Offer WhatsApp as a one-time-code delivery option for a verified phone number at sign-in, MFA and elevation, once @rapidrest/auth is upgraded to a release with WhatsApp OTP
+- Document the changes in the README, CHANGELOG, release notes and NOTES
+- Document the changes in the README, CHANGELOG, release notes and NOTES
+
+### Fixed
+- Fixed the Helm chart never setting auth:passkey/auth:fido2's rpID/origin for the deployment's own domain, which made every passkey or security key registration fail instantly with a browser SecurityError before any prompt appeared, by defaulting both to the server's own host and preferred scheme in service-config.yaml
+- Fixed the passkey and security key forms showing only a generic failure message for a WebAuthn error, by including the browser's own error name and message
+- Fixed the Helm chart's service.config being unable to actually override cors__origins, trusted_proxies, NODE_ENV or the new passkey/FIDO2 keys, which rendered a ConfigMap with a duplicate key that helm template and kubectl apply both refuse, by gathering every chart-derived default into one guarded loop
+
+
 ### Fixed
 - Fix the Helm chart never setting a passkey/FIDO2 relying-party ID or origin for the deployment's own domain, which made every passkey or security key registration fail instantly with a browser SecurityError
 - Fix the passkey and security key forms showing only a generic failure message instead of the browser's own WebAuthn error
@@ -496,7 +521,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.15...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.16...HEAD
+[1.0.0-beta.16]: github/auth-server/compare/v1.0.0-beta.15...v1.0.0-beta.16
 [1.0.0-beta.15]: github/auth-server/compare/v1.0.0-beta.14...v1.0.0-beta.15
 [1.0.0-beta.14]: github/auth-server/compare/v1.0.0-beta.13...v1.0.0-beta.14
 [1.0.0-beta.13]: github/auth-server/compare/v1.0.0-beta.12...v1.0.0-beta.13
