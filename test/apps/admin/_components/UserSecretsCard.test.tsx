@@ -125,6 +125,89 @@ describe("UserSecretsCard", () => {
         expect(await screen.findByText("Could not remove that sign-in method.")).toBeInTheDocument();
     });
 
+    it("mentions app passwords and recovery codes in the subtitle, as visible-and-revocable but not admin-creatable", async () => {
+        mockedListUserSecrets.mockResolvedValue([]);
+        render(<UserSecretsCard uid="u1" />);
+        await screen.findByText("No sign-in methods registered.");
+        expect(screen.getByText(/app passwords, and recovery codes/)).toBeInTheDocument();
+        expect(screen.getByText(/every other method can only be viewed and\s+revoked here, not created/)).toBeInTheDocument();
+    });
+
+    describe("last used", () => {
+        it("shows a formatted last-used date when the secret has one", async () => {
+            mockedListUserSecrets.mockResolvedValue([
+                {
+                    uid: "s1",
+                    version: 0,
+                    type: "totp",
+                    userUid: "u1",
+                    dateCreated: "2024-01-15T00:00:00.000Z",
+                    lastUsedAt: "2026-03-04T00:00:00.000Z",
+                },
+            ]);
+            render(<UserSecretsCard uid="u1" />);
+            await screen.findByText("Authenticator app");
+            const expectedDate = new Date("2026-03-04T00:00:00.000Z").toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+            });
+            expect(screen.getByText(expectedDate)).toBeInTheDocument();
+        });
+
+        it('shows "Never used" when the secret has no lastUsedAt', async () => {
+            mockedListUserSecrets.mockResolvedValue([
+                { uid: "s1", version: 0, type: "totp", userUid: "u1", dateCreated: "2024-01-15T00:00:00.000Z" },
+            ]);
+            render(<UserSecretsCard uid="u1" />);
+            expect(await screen.findByText("Never used")).toBeInTheDocument();
+        });
+    });
+
+    describe("widened secret types (app-password, recovery-codes)", () => {
+        it("renders an app-password row with its label and hint, and removes it with a singular confirmation", async () => {
+            mockedListUserSecrets.mockResolvedValue([
+                {
+                    uid: "ap1",
+                    version: 0,
+                    type: "app-password",
+                    userUid: "u1",
+                    dateCreated: "2024-01-15T00:00:00.000Z",
+                    hint: "Mail client",
+                },
+            ]);
+            mockedDeleteSecret.mockResolvedValue(undefined);
+            const user = userEvent.setup();
+            render(<UserSecretsCard uid="u1" />);
+            expect(await screen.findByText("App password")).toBeInTheDocument();
+            expect(screen.getByText("(Mail client)")).toBeInTheDocument();
+
+            await user.click(screen.getByRole("button", { name: "Remove" }));
+            expect(window.confirm).toHaveBeenCalledWith(
+                "Remove app password? The account holder will no longer be able to use it to sign in.",
+            );
+            expect(mockedDeleteSecret).toHaveBeenCalledWith("ap1");
+            await waitFor(() => expect(screen.getByText("No sign-in methods registered.")).toBeInTheDocument());
+        });
+
+        it("renders a recovery-codes row by its type label alone (no hint) — recovery codes are never given one — and removes it with a plural confirmation", async () => {
+            mockedListUserSecrets.mockResolvedValue([
+                { uid: "rc1", version: 0, type: "recovery-codes", userUid: "u1", dateCreated: "2024-01-15T00:00:00.000Z" },
+            ]);
+            mockedDeleteSecret.mockResolvedValue(undefined);
+            const user = userEvent.setup();
+            render(<UserSecretsCard uid="u1" />);
+            expect(await screen.findByText("Recovery codes")).toBeInTheDocument();
+
+            await user.click(screen.getByRole("button", { name: "Remove" }));
+            expect(window.confirm).toHaveBeenCalledWith(
+                "Remove recovery codes? The account holder will no longer be able to use them to sign in.",
+            );
+            expect(mockedDeleteSecret).toHaveBeenCalledWith("rc1");
+            await waitFor(() => expect(screen.getByText("No sign-in methods registered.")).toBeInTheDocument());
+        });
+    });
+
     describe("Set password modal", () => {
         it("rejects a weak password on a force-submit (the Save button is otherwise disabled)", async () => {
             mockedListUserSecrets.mockResolvedValue([]);

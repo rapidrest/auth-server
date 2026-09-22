@@ -9,12 +9,24 @@ import Button from "../../buttons/Button.js";
 import AddSecretModal, { AddMethodType } from "./AddSecretModal.js";
 import ChangePasswordModal from "./ChangePasswordModal.js";
 
-const SECRET_TYPE_LABELS: Record<SecretType, string> = {
+/**
+ * The secret types this card renders as a "sign-in method" — everything except `app-password`, which has its
+ * own card (`AppPasswordsCard`) since it isn't a general sign-in method (it only works against `/auth/basic`,
+ * for a legacy app/client that can't complete a second factor) and must never appear in this table.
+ */
+type SignInMethodType = Exclude<SecretType, "app-password">;
+
+const SECRET_TYPE_LABELS: Record<SignInMethodType, string> = {
     password: "Password",
     totp: "Authenticator app",
     passkey: "Passkey",
     fido2: "Hardware key",
 };
+
+/** Narrows to the sign-in-method secret types this card renders — see `SignInMethodType`'s doc comment. */
+function isSignInMethod(secret: SecretSummary): secret is SecretSummary & { type: SignInMethodType } {
+    return secret.type !== "app-password";
+}
 
 function formatDate(iso: string | undefined): string {
     if (!iso) return "";
@@ -23,6 +35,11 @@ function formatDate(iso: string | undefined): string {
     } catch {
         return iso;
     }
+}
+
+/** `lastUsedAt` formatted for display, or "Never used" when the secret has never authenticated a sign-in. */
+function formatLastUsed(iso: string | undefined): string {
+    return iso ? formatDate(iso) : "Never used";
 }
 
 export interface SecretsCardProps {
@@ -72,6 +89,9 @@ export default function SecretsCard({ userUid, secrets, secretsError, setSecrets
         }
     }
 
+    // App passwords have their own card and must never appear in this table — see `isSignInMethod`.
+    const signInMethods = secrets === null ? null : secrets.filter(isSignInMethod);
+
     return (
         <div className="rr-card">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -85,19 +105,20 @@ export default function SecretsCard({ userUid, secrets, secretsError, setSecrets
             </div>
             {secretsError && <Alert>{secretsError}</Alert>}
             {secretError && <Alert>{secretError}</Alert>}
-            {secrets !== null && secrets.length === 0 && <p className="rr-hint">No sign-in methods added yet.</p>}
-            {secrets && secrets.length > 0 && (
+            {signInMethods !== null && signInMethods.length === 0 && <p className="rr-hint">No sign-in methods added yet.</p>}
+            {signInMethods && signInMethods.length > 0 && (
                 <div style={{ overflowX: "auto" }}>
                     <table className="rr-table">
                         <thead>
                             <tr>
                                 <th>Method</th>
                                 <th>Added</th>
+                                <th>Last used</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
-                            {secrets.map((s) => (
+                            {signInMethods.map((s) => (
                                 <tr key={s.uid}>
                                     <td>
                                         {SECRET_TYPE_LABELS[s.type]}
@@ -108,6 +129,7 @@ export default function SecretsCard({ userUid, secrets, secretsError, setSecrets
                                         )}
                                     </td>
                                     <td>{formatDate(s.dateCreated)}</td>
+                                    <td>{formatLastUsed(s.lastUsedAt)}</td>
                                     <td>
                                         {s.type === "password" && (
                                             <Button

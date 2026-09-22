@@ -42,8 +42,12 @@ export default function SetUserPasswordModal({ open, onClose, uid, secrets, onSa
         setSaving(true);
         try {
             const existing = (secrets ?? []).find((s) => s.type === "password");
+            // `updateSecret()` (from the self-service `lib/api.ts`) returns the general `SecretSummary` shape,
+            // whose `type` now also allows `"app-password"` — but `existing` is only ever found above when its
+            // `type` is already `"password"`, and an update never changes a secret's `type`, so the result is
+            // provably still an `AdminSecretSummary` even though the general return type can't express that.
             const saved = existing
-                ? await updateSecret({ uid: existing.uid, version: existing.version, data: password }, existing.userUid)
+                ? ((await updateSecret({ uid: existing.uid, version: existing.version, data: password }, existing.userUid)) as AdminSecretSummary)
                 : await createUserPasswordSecret(uid, password, "Set by administrator");
             onSaved([...(secrets ?? []).filter((s) => s.type !== "password"), saved]);
             setPassword("");

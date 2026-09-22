@@ -12,6 +12,7 @@ import UsernameCard from "../shared/components/account/username/UsernameCard.js"
 import ProfileCard from "../shared/components/account/profile/ProfileCard.js";
 import ContactsCard from "../shared/components/account/contacts/ContactsCard.js";
 import SecretsCard from "../shared/components/account/secrets/SecretsCard.js";
+import AppPasswordsCard from "../shared/components/account/app-passwords/AppPasswordsCard.js";
 import SecurityCard from "../shared/components/account/security/SecurityCard.js";
 import RequireMfaSetupModal from "../shared/components/account/security/RequireMfaSetupModal.js";
 
@@ -118,6 +119,8 @@ export default function AccountPage({ userUid, siteSettings, appUrl }: AccountPa
             />
 
             <SecretsCard userUid={userUid} secrets={secrets} secretsError={accountError} setSecrets={setSecrets} />
+
+            <AppPasswordsCard secrets={secrets} secretsError={accountError} setSecrets={setSecrets} />
 
             <SecurityCard user={user} setUser={setUser} />
 

@@ -15,6 +15,7 @@ import {
     completeElevationFido2,
     completeOAuthSignIn,
     createAlias,
+    createAppPasswordSecret,
     createPasswordSecret,
     createProfile,
     createTotpSecret,
@@ -940,6 +941,25 @@ describe("secrets", () => {
             "/api/secrets",
             expect.objectContaining({ body: JSON.stringify({ type: "totp", hint: "LastPass" }) }),
         );
+    });
+
+    it("createAppPasswordSecret posts an app-password-type secret with the required hint, no data", async () => {
+        const created = {
+            uid: "s1",
+            version: 0,
+            type: "app-password",
+            userUid: "u1",
+            dateCreated: "2026-01-01T00:00:00.000Z",
+            hint: "Mail client",
+            password: "generated-plaintext",
+        };
+        const fetchMock = mockFetch(() => jsonResponse(200, created));
+        const result = await createAppPasswordSecret("Mail client");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/secrets",
+            expect.objectContaining({ body: JSON.stringify({ type: "app-password", hint: "Mail client" }) }),
+        );
+        expect(result).toEqual(created);
     });
 
     it("getPasskeyRegistrationOptions fetches /secrets/passkey/register", async () => {

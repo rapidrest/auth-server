@@ -29,6 +29,7 @@ vi.mock("../../apps/shared/lib/api.js", async (importOriginal) => {
         ...actual,
         logout: vi.fn(),
         createAlias: vi.fn(),
+        createAppPasswordSecret: vi.fn(),
         createPasswordSecret: vi.fn(),
         createProfile: vi.fn(),
         createTotpSecret: vi.fn(),
@@ -64,6 +65,7 @@ import {
     Profile,
     SecretSummary,
     createAlias,
+    createAppPasswordSecret,
     createPasswordSecret,
     createProfile,
     createTotpSecret,
@@ -96,6 +98,7 @@ const mockedStartRegistration = vi.mocked(startRegistration);
 const mockedToDataURL = vi.mocked(QRCode.toDataURL);
 const mockedLogout = vi.mocked(logout);
 const mockedCreateAlias = vi.mocked(createAlias);
+const mockedCreateAppPasswordSecret = vi.mocked(createAppPasswordSecret);
 const mockedCreatePasswordSecret = vi.mocked(createPasswordSecret);
 const mockedCreateProfile = vi.mocked(createProfile);
 const mockedCreateTotpSecret = vi.mocked(createTotpSecret);
@@ -1057,6 +1060,34 @@ describe("AccountPage — formatDate fallback", () => {
         await screen.findByText("Authenticator app");
         const row = screen.getByText("Authenticator app").closest("tr")!;
         expect(within(row).getAllByRole("cell")[1]).toHaveTextContent("");
+    });
+});
+
+describe("AccountPage — last used", () => {
+    it("shows a formatted last-used date on a sign-in method that has one", async () => {
+        const lastUsedAt = "2026-03-04T00:00:00.000Z";
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ secrets: [secret({ uid: "totp1", type: "totp", lastUsedAt })] }),
+        );
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Authenticator app");
+        // Matches formatDate()'s own toLocaleDateString call rather than a hardcoded string, so this doesn't
+        // depend on the test runner's local timezone.
+        const expectedDate = new Date(lastUsedAt).toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        });
+        expect(within(secretsCard()).getByText(expectedDate)).toBeInTheDocument();
+    });
+
+    it('shows "Never used" on a sign-in method with no lastUsedAt', async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "totp1", type: "totp" })] }));
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Authenticator app");
+        expect(within(secretsCard()).getByText("Never used")).toBeInTheDocument();
     });
 });
 
@@ -2162,6 +2193,332 @@ describe("AccountPage — FIDO2 security key", () => {
     });
 });
 
+describe("AccountPage — app passwords", () => {
+    function appPasswordsCard(): HTMLElement {
+        return screen.getByText("App passwords").closest(".rr-card") as HTMLElement;
+    }
+
+    async function openCreateModal(user: ReturnType<typeof userEvent.setup>) {
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("App passwords");
+        await user.click(within(appPasswordsCard()).getByRole("button", { name: "+" }));
+        await screen.findByRole("dialog", { name: "Add an app password" });
+    }
+
+    it("renders a table row per existing app password, with its label and creation date", async () => {
+        const dateCreated = "2026-02-03T12:00:00.000Z";
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ secrets: [secret({ uid: "ap1", type: "app-password", hint: "Mail client", dateCreated })] }),
+        );
+        render(<AccountPage userUid="u1" />);
+
+        expect(await within(appPasswordsCard()).findByText("Mail client")).toBeInTheDocument();
+        // Matches formatDate()'s own toLocaleDateString call rather than a hardcoded string, so this doesn't
+        // depend on the test runner's local timezone.
+        const expectedDate = new Date(dateCreated).toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        });
+        expect(within(appPasswordsCard()).getByText(expectedDate)).toBeInTheDocument();
+    });
+
+    it("renders an empty state with no app passwords", async () => {
+        render(<AccountPage userUid="u1" />);
+        expect(await within(appPasswordsCard()).findByText("No app passwords added yet.")).toBeInTheDocument();
+        expect(within(appPasswordsCard()).queryByRole("table")).toBeNull();
+    });
+
+    it("shows the ApiRequestError message on a load failure, same as the account fetch it shares", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockRejectedValueOnce(new ApiRequestError("nope", 500));
+        render(<AccountPage userUid="u1" />);
+        expect(await within(appPasswordsCard()).findByText("nope")).toBeInTheDocument();
+    });
+
+    it("shows a generic message when the shared account fetch fails with a non-API error", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockRejectedValueOnce(new TypeError("boom"));
+        render(<AccountPage userUid="u1" />);
+        expect(await within(appPasswordsCard()).findByText("Could not load your account.")).toBeInTheDocument();
+    });
+
+    it("falls back to the raw ISO string if toLocaleDateString throws", async () => {
+        vi.spyOn(Date.prototype, "toLocaleDateString").mockImplementationOnce(() => {
+            throw new RangeError("boom");
+        });
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                secrets: [secret({ uid: "ap1", type: "app-password", hint: "Mail client", dateCreated: "2026-01-01T00:00:00.000Z" })],
+            }),
+        );
+        render(<AccountPage userUid="u1" />);
+        expect(await within(appPasswordsCard()).findByText("2026-01-01T00:00:00.000Z")).toBeInTheDocument();
+    });
+
+    it("renders an empty date when dateCreated is missing", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ secrets: [secret({ uid: "ap1", type: "app-password", hint: "Mail client", dateCreated: "" })] }),
+        );
+        render(<AccountPage userUid="u1" />);
+        const row = (await within(appPasswordsCard()).findByText("Mail client")).closest("tr")!;
+        expect(within(row).getAllByRole("cell")[1]).toHaveTextContent("");
+    });
+
+    it("shows a formatted last-used date when the app password has one", async () => {
+        const lastUsedAt = "2026-02-10T08:30:00.000Z";
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ secrets: [secret({ uid: "ap1", type: "app-password", hint: "Mail client", lastUsedAt })] }),
+        );
+        render(<AccountPage userUid="u1" />);
+
+        const expectedDate = new Date(lastUsedAt).toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        });
+        expect(await within(appPasswordsCard()).findByText(expectedDate)).toBeInTheDocument();
+    });
+
+    it('shows "Never used" when the app password has never authenticated a sign-in', async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ secrets: [secret({ uid: "ap1", type: "app-password", hint: "Mail client" })] }),
+        );
+        render(<AccountPage userUid="u1" />);
+        expect(await within(appPasswordsCard()).findByText("Never used")).toBeInTheDocument();
+    });
+
+    it("never lists an app-password secret in the Sign-in methods table, even though both cards share the same fetched secrets", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                secrets: [
+                    secret({ uid: "sp", type: "password" }),
+                    secret({ uid: "ap1", type: "app-password", hint: "Mail client" }),
+                ],
+            }),
+        );
+        render(<AccountPage userUid="u1" />);
+
+        // Both cards render from the one fetch...
+        expect(await within(appPasswordsCard()).findByText("Mail client")).toBeInTheDocument();
+        expect(within(secretsCard()).getByText("Password")).toBeInTheDocument();
+        // ...but the app password never appears as a row in Sign-in methods, and that table has exactly the
+        // one row for the real sign-in method.
+        expect(within(secretsCard()).queryByText("Mail client")).toBeNull();
+        expect(within(secretsCard()).getAllByRole("row")).toHaveLength(2); // header row + the one password row
+    });
+
+    describe("create flow", () => {
+        it("disables Create until a label is entered, and trims it before submitting", async () => {
+            const user = userEvent.setup();
+            await openCreateModal(user);
+            const submit = screen.getByRole("button", { name: "Create" });
+            expect(submit).toBeDisabled();
+
+            await user.type(screen.getByLabelText("Label"), "   ");
+            expect(submit).toBeDisabled();
+
+            await user.clear(screen.getByLabelText("Label"));
+            await user.type(screen.getByLabelText("Label"), "  Mail client  ");
+            expect(submit).toBeEnabled();
+
+            mockedCreateAppPasswordSecret.mockResolvedValueOnce({
+                ...secret({ uid: "ap1", type: "app-password", hint: "Mail client" }),
+                password: "generated-pw-1",
+            });
+            await user.click(submit);
+
+            await waitFor(() => expect(mockedCreateAppPasswordSecret).toHaveBeenCalledWith("Mail client"));
+        });
+
+        it("reveals the plaintext exactly once on success, and Done adds only the summary to the shared list", async () => {
+            const user = userEvent.setup();
+            await openCreateModal(user);
+            await user.type(screen.getByLabelText("Label"), "Mail client");
+            mockedCreateAppPasswordSecret.mockResolvedValueOnce({
+                ...secret({ uid: "ap1", type: "app-password", hint: "Mail client", version: 0 }),
+                password: "generated-pw-1",
+            });
+
+            await user.click(screen.getByRole("button", { name: "Create" }));
+
+            expect(await screen.findByText("generated-pw-1")).toBeInTheDocument();
+            // Not listed yet — only added to the shared list once "Done" is clicked.
+            expect(within(appPasswordsCard()).queryByText("Mail client")).toBeNull();
+
+            await user.click(screen.getByRole("button", { name: "Done" }));
+
+            await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+            expect(within(appPasswordsCard()).getByText("Mail client")).toBeInTheDocument();
+            // The plaintext itself was never handed to shared state — it's gone once the modal closes.
+            expect(screen.queryByText("generated-pw-1")).not.toBeInTheDocument();
+        });
+
+        it("shows a different mocked plaintext correctly on a second, separate create", async () => {
+            const user = userEvent.setup();
+            await openCreateModal(user);
+            await user.type(screen.getByLabelText("Label"), "Mail client");
+            mockedCreateAppPasswordSecret.mockResolvedValueOnce({
+                ...secret({ uid: "ap1", type: "app-password", hint: "Mail client" }),
+                password: "generated-pw-1",
+            });
+            await user.click(screen.getByRole("button", { name: "Create" }));
+            await screen.findByText("generated-pw-1");
+            await user.click(screen.getByRole("button", { name: "Done" }));
+            await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+            await user.click(within(appPasswordsCard()).getByRole("button", { name: "+" }));
+            await screen.findByRole("dialog", { name: "Add an app password" });
+            await user.type(screen.getByLabelText("Label"), "Second app");
+            mockedCreateAppPasswordSecret.mockResolvedValueOnce({
+                ...secret({ uid: "ap2", type: "app-password", hint: "Second app" }),
+                password: "generated-pw-2",
+            });
+            await user.click(screen.getByRole("button", { name: "Create" }));
+
+            expect(await screen.findByText("generated-pw-2")).toBeInTheDocument();
+            expect(screen.queryByText("generated-pw-1")).not.toBeInTheDocument();
+            await user.click(screen.getByRole("button", { name: "Done" }));
+
+            await waitFor(() => expect(within(appPasswordsCard()).getByText("Second app")).toBeInTheDocument());
+            expect(within(appPasswordsCard()).getByText("Mail client")).toBeInTheDocument();
+        });
+
+        it("shows the ApiRequestError message when creation fails", async () => {
+            const user = userEvent.setup();
+            await openCreateModal(user);
+            await user.type(screen.getByLabelText("Label"), "Mail client");
+            mockedCreateAppPasswordSecret.mockRejectedValueOnce(new ApiRequestError("label already used", 400));
+
+            await user.click(screen.getByRole("button", { name: "Create" }));
+
+            expect(await screen.findByText("label already used")).toBeInTheDocument();
+            expect(within(appPasswordsCard()).queryByText("Mail client")).toBeNull();
+        });
+
+        it("shows a generic message when creation fails with a non-API error", async () => {
+            const user = userEvent.setup();
+            await openCreateModal(user);
+            await user.type(screen.getByLabelText("Label"), "Mail client");
+            mockedCreateAppPasswordSecret.mockRejectedValueOnce(new TypeError("boom"));
+
+            await user.click(screen.getByRole("button", { name: "Create" }));
+
+            expect(await screen.findByText("Could not create an app password.")).toBeInTheDocument();
+        });
+
+        it("does nothing on a submit with only whitespace, defensively, even though Create is already disabled then", async () => {
+            const user = userEvent.setup();
+            await openCreateModal(user);
+            await user.type(screen.getByLabelText("Label"), "   ");
+
+            fireEvent.submit(screen.getByLabelText("Label").closest("form")!);
+
+            expect(mockedCreateAppPasswordSecret).not.toHaveBeenCalled();
+        });
+
+        it("resets the form (and any in-progress label) when the modal is closed and reopened", async () => {
+            const user = userEvent.setup();
+            await openCreateModal(user);
+            await user.type(screen.getByLabelText("Label"), "something");
+
+            await user.keyboard("{Escape}");
+            expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+            await user.click(within(appPasswordsCard()).getByRole("button", { name: "+" }));
+            await screen.findByRole("dialog", { name: "Add an app password" });
+            expect(screen.getByLabelText("Label")).toHaveValue("");
+        });
+    });
+
+    describe("remove flow", () => {
+        it("removes an app password after confirmation, mentioning its label", async () => {
+            const user = userEvent.setup();
+            mockedGetAccount.mockReset();
+            mockedGetAccount.mockResolvedValueOnce(
+                accountData({ secrets: [secret({ uid: "ap1", type: "app-password", hint: "Mail client" })] }),
+            );
+            render(<AccountPage userUid="u1" />);
+            await within(appPasswordsCard()).findByText("Mail client");
+            mockedDeleteSecret.mockResolvedValueOnce();
+
+            await user.click(within(appPasswordsCard()).getByRole("button", { name: "Remove" }));
+
+            expect(window.confirm).toHaveBeenCalledWith(
+                'Remove the app password "Mail client"? Any app using it will stop working immediately.',
+            );
+            await waitFor(() => expect(mockedDeleteSecret).toHaveBeenCalledWith("ap1"));
+            expect(await within(appPasswordsCard()).findByText("No app passwords added yet.")).toBeInTheDocument();
+        });
+
+        it("does nothing when the confirmation is declined", async () => {
+            const user = userEvent.setup();
+            window.confirm = vi.fn(() => false);
+            mockedGetAccount.mockReset();
+            mockedGetAccount.mockResolvedValueOnce(
+                accountData({ secrets: [secret({ uid: "ap1", type: "app-password", hint: "Mail client" })] }),
+            );
+            render(<AccountPage userUid="u1" />);
+            await within(appPasswordsCard()).findByText("Mail client");
+
+            await user.click(within(appPasswordsCard()).getByRole("button", { name: "Remove" }));
+
+            expect(mockedDeleteSecret).not.toHaveBeenCalled();
+            expect(within(appPasswordsCard()).getByText("Mail client")).toBeInTheDocument();
+        });
+
+        it("shows the ApiRequestError message when removal fails", async () => {
+            const user = userEvent.setup();
+            mockedGetAccount.mockReset();
+            mockedGetAccount.mockResolvedValueOnce(
+                accountData({ secrets: [secret({ uid: "ap1", type: "app-password", hint: "Mail client" })] }),
+            );
+            render(<AccountPage userUid="u1" />);
+            await within(appPasswordsCard()).findByText("Mail client");
+            mockedDeleteSecret.mockRejectedValueOnce(new ApiRequestError("cannot delete", 403));
+
+            await user.click(within(appPasswordsCard()).getByRole("button", { name: "Remove" }));
+
+            expect(await within(appPasswordsCard()).findByText("cannot delete")).toBeInTheDocument();
+        });
+
+        it("shows a generic message when removal fails with a non-API error", async () => {
+            const user = userEvent.setup();
+            mockedGetAccount.mockReset();
+            mockedGetAccount.mockResolvedValueOnce(
+                accountData({ secrets: [secret({ uid: "ap1", type: "app-password", hint: "Mail client" })] }),
+            );
+            render(<AccountPage userUid="u1" />);
+            await within(appPasswordsCard()).findByText("Mail client");
+            mockedDeleteSecret.mockRejectedValueOnce(new TypeError("boom"));
+
+            await user.click(within(appPasswordsCard()).getByRole("button", { name: "Remove" }));
+
+            expect(await within(appPasswordsCard()).findByText("Could not remove that app password.")).toBeInTheDocument();
+        });
+
+        it("falls back to an empty label in the confirmation when a row somehow has none (the server always sets one)", async () => {
+            const user = userEvent.setup();
+            mockedGetAccount.mockReset();
+            mockedGetAccount.mockResolvedValueOnce(
+                accountData({ secrets: [secret({ uid: "ap1", type: "app-password", hint: undefined })] }),
+            );
+            render(<AccountPage userUid="u1" />);
+            await within(appPasswordsCard()).findByRole("button", { name: "Remove" });
+
+            await user.click(within(appPasswordsCard()).getByRole("button", { name: "Remove" }));
+
+            expect(window.confirm).toHaveBeenCalledWith('Remove the app password ""? Any app using it will stop working immediately.');
+        });
+    });
+});
+
 describe("AccountPage — state updaters fire while the initial account fetch is still pending", () => {
     // aliases/secrets start out `null` until the single GET /accounts/me request resolves, but the "add"
     // forms and buttons are rendered unconditionally regardless — so a fast user (or a slow network) can
@@ -2268,6 +2625,28 @@ describe("AccountPage — state updaters fire while the initial account fetch is
 
         await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
         expect(screen.getByText("Hardware key")).toBeInTheDocument();
+    });
+
+    it("CreateAppPasswordModal's Done seeds the list from [] when the account hadn't loaded yet", async () => {
+        const user = userEvent.setup();
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockReturnValueOnce(new Promise(() => undefined));
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("App passwords");
+        await user.click(within(screen.getByText("App passwords").closest(".rr-card") as HTMLElement).getByRole("button", { name: "+" }));
+        await screen.findByRole("dialog", { name: "Add an app password" });
+        await user.type(screen.getByLabelText("Label"), "Mail client");
+        mockedCreateAppPasswordSecret.mockResolvedValueOnce({
+            ...secret({ uid: "ap1", type: "app-password", hint: "Mail client" }),
+            password: "generated-pw-1",
+        });
+        await user.click(screen.getByRole("button", { name: "Create" }));
+        await screen.findByText("generated-pw-1");
+
+        await user.click(screen.getByRole("button", { name: "Done" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(screen.getByText("Mail client")).toBeInTheDocument();
     });
 });
 

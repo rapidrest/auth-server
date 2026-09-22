@@ -18,6 +18,8 @@ const SECRET_TYPE_LABELS: Record<AdminSecretSummary["type"], string> = {
     totp: "Authenticator app",
     passkey: "Passkey",
     fido2: "Hardware key",
+    "app-password": "App password",
+    "recovery-codes": "Recovery codes",
 };
 
 function formatDate(iso: string | undefined): string {
@@ -27,6 +29,11 @@ function formatDate(iso: string | undefined): string {
     } catch {
         return iso;
     }
+}
+
+/** `lastUsedAt` formatted for display, or "Never used" when the secret has never authenticated a sign-in. */
+function formatLastUsed(iso: string | undefined): string {
+    return iso ? formatDate(iso) : "Never used";
 }
 
 export default function UserSecretsCard({ uid }: UserSecretsCardProps) {
@@ -40,8 +47,11 @@ export default function UserSecretsCard({ uid }: UserSecretsCardProps) {
             .catch((err) => setError(err instanceof ApiRequestError ? err.message : "Could not load this account's sign-in methods."));
     }, [uid]);
 
-    async function handleDelete(uidToDelete: string, label: string) {
-        if (!window.confirm(`Remove ${label}? The account holder will no longer be able to use it to sign in.`)) {
+    async function handleDelete(uidToDelete: string, label: string, type: AdminSecretSummary["type"]) {
+        // `recovery-codes` is a batch of several codes, not one credential — "use it" reads wrong for a
+        // plural; every other type (including `app-password`, still one password) keeps "it".
+        const pronoun = type === "recovery-codes" ? "them" : "it";
+        if (!window.confirm(`Remove ${label}? The account holder will no longer be able to use ${pronoun} to sign in.`)) {
             return;
         }
         setError(null);
@@ -61,8 +71,9 @@ export default function UserSecretsCard({ uid }: UserSecretsCardProps) {
                 <div>
                     <div className="rr-card__title">Sign-in methods</div>
                     <p className="rr-card__subtitle">
-                        Passwords, authenticator apps, passkeys, and security keys. Only a password can be provisioned by
-                        an administrator — passkeys and security keys require the account holder's own device.
+                        Passwords, authenticator apps, passkeys, security keys, app passwords, and recovery codes. Only a
+                        password can be provisioned by an administrator — every other method can only be viewed and
+                        revoked here, not created, since each is set up by the account holder themselves.
                     </p>
                 </div>
                 <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={() => setSetPasswordOpen(true)}>
@@ -78,6 +89,7 @@ export default function UserSecretsCard({ uid }: UserSecretsCardProps) {
                             <tr>
                                 <th>Method</th>
                                 <th>Added</th>
+                                <th>Last used</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -93,11 +105,12 @@ export default function UserSecretsCard({ uid }: UserSecretsCardProps) {
                                         )}
                                     </td>
                                     <td>{formatDate(s.dateCreated)}</td>
+                                    <td>{formatLastUsed(s.lastUsedAt)}</td>
                                     <td>
                                         <Button
                                             variant="text"
                                             type="button"
-                                            onClick={() => handleDelete(s.uid, SECRET_TYPE_LABELS[s.type].toLowerCase())}
+                                            onClick={() => handleDelete(s.uid, SECRET_TYPE_LABELS[s.type].toLowerCase(), s.type)}
                                         >
                                             Remove
                                         </Button>

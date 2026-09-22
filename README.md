@@ -25,6 +25,7 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 
 * Account registration and profile pages, including multiple aliases (e.g. email, phone, third-party OAuth ID)
 * Change-password (in place, from the Sign-in methods card) and secret (TOTP/Passkey/FIDO2) enrollment flows
+* App passwords — separate, server-generated passwords a user creates for an app/client that can't complete a two-factor prompt (e.g. an older e-mail client speaking HTTP Basic Auth), each independently revocable and shown once at creation
 * A "Return to App" button on `/account` that sends the user back to the downstream app named by `app_url`
 * Self-service account deletion
 
@@ -69,6 +70,7 @@ console owns it (see each row).
 | `sms_config` | How texts are sent: `provider` is `twilio` **or** `telnyx` (one at a time) and `config` holds that provider's settings — `{ accountSid, token }` for Twilio, `{ apiKey, messagingProfileId }` for Telnyx. The sender is `templates.from.sms`. Seeds once; edit it afterwards on the admin Messages page. |
 | `whatsapp` | WhatsApp Business Cloud API credentials: `{ accessToken, phoneNumberId, apiVersion }` (`phoneNumberId` is Meta's ID for your number, not the number). Seeds once; edit it on the Messages page. |
 | `smtp_config` | The SMTP server for e-mail, as before. Seeds once. |
+| `auth:app_password:enabled` | Set to `false` to turn off app passwords deployment-wide: creating new ones is refused and existing ones stop authenticating (not deleted — re-enabling restores them). Defaults to `true`. |
 
 > **Passkeys/FIDO2 on a real deployment:** the Helm chart now defaults `auth:passkey`/`auth:fido2`'s `rpID`/
 > `origin` to the server's own host (`service-config.yaml`), since `@rapidrest/auth`'s built-in default (rpID
@@ -81,6 +83,24 @@ console owns it (see each row).
 > `sms_config__config__accountSid`, `sms_config__config__token`). A deployment that already started keeps working
 > without any change, since its Twilio credentials were copied into the database on first start. The admin API moved
 > from `/api/settings/twilio` to `/api/settings/sms` (and `/api/settings/whatsapp` is new).
+
+### App passwords
+
+From the account page's **App passwords** card, a user can create a separate, server-generated password for one
+app or device that can't respond to a two-factor prompt — an older e-mail client speaking HTTP Basic Auth to a
+downstream service (e.g. a mail server) that validates its credentials against this server's `/auth/basic`, for
+example. Unlike the account's real password, an app password is allowed to authenticate over `/auth/basic` even
+when the account has `requireMFA` set — that bypass is the entire point: a legacy client that can't complete an
+MFA challenge gets its own high-entropy, individually revocable credential instead of the account's MFA being
+disabled to accommodate it. A real password is never exempt from `requireMFA` there. The plaintext is shown
+exactly once, at creation; only its hash is ever stored, and there's no way to rotate one in place — remove it
+and create a new one. This needs a release of `@rapidrest/auth` that includes app passwords; see
+`auth:app_password:enabled` above to turn the feature off.
+
+Every secret — this one included — also tracks when it was last used to sign in, shown on the account
+page (and to an admin viewing an account's Sign-in methods) as "Never used" until then; an admin can now
+also see and revoke a user's app passwords and recovery codes from that same card, which previously left
+both out.
 
 ### WhatsApp one-time codes
 

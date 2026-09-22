@@ -158,6 +158,98 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-22 — App passwords
+
+JP published auth-server `1.0.0-beta.16` (commit `a56c4c7`) at the start of this session, picking up everything through
+the entry below — the running app-server `package.json` version and the auth repo's `2.0.0-beta.11` (still unreleased)
+are both current as of this entry. This feature (including the follow-up below) is committed in both repos, still
+unpublished — `@rapidrest/auth` needs a real release before any of it reaches a running auth-server.
+
+- **The feature.** From `/account`'s new "App passwords" card, a user creates a separate, server-generated password
+  for one app/client that can't complete an MFA challenge (a legacy mail client speaking HTTP Basic Auth to a
+  downstream service that validates against this server's `/auth/basic`, the motivating case). Unlike the account's
+  real password, an app password authenticates there **even when `requireMFA` is set** — that bypass is the entire
+  point: a Basic-auth-only client gets its own high-entropy, individually revocable credential instead of the whole
+  account's MFA being disabled to accommodate it. Immutable once created (delete + recreate to rotate); plaintext
+  shown exactly once, only its argon2 hash ever persisted.
+- **Split across both repos, same pattern as WhatsApp OTP:** `SecretType.APP_PASSWORD = "app-password"`, generation,
+  validation and the `BaseAuthBasicRoute.verify()` bypass all live in `@rapidrest/auth` (uncommitted there too,
+  version `2.0.0-beta.11`) — auth-server's client side (`AppPasswordsCard`/`CreateAppPasswordModal`, `api.ts`) was
+  built against the contract *before* the backend agent's report came back, same well-tested-in-parallel approach as
+  WhatsApp OTP. **Cannot be exercised end to end** until `@rapidrest/auth` 2.0.0-beta.11 (or later) is published and
+  this repo's `"@rapidrest/auth"` constraint (currently `^2.0.0-beta.10`) is bumped to it — same caveat as WhatsApp
+  OTP, don't forget it again.
+- **Bypass ordering in `BaseAuthBasicRoute.verify()`:** app-password secrets are checked *before* the `user.requireMFA`
+  gate — a match returns immediately regardless of that flag; a real `password` secret is checked *after*, completely
+  unchanged, so `requireMFA` still blocks it exactly as before. Verified with a plain `argon2.verify()`, never
+  `normalizePasswordSubmission()` — an app password is always pasted as literal plaintext by a legacy client, no
+  client-hashing concept applies. Timing-safety spirit preserved: `verifyDummyPassword()` burns equivalent time when
+  an account has zero app-password secrets, matching the existing PASSWORD-secret dummy-burn pattern.
+- **Config:** `auth:app_password:enabled` (default `true`), read independently by `BaseSecretRoute` (gates creating
+  new ones) and `BaseAuthBasicRoute` (gates the bypass) — two separate `@Config`-bound fields on the same path,
+  meant to be kept in sync. Disabling never deletes an existing app password; it just stops it authenticating and
+  refuses new creates. No auth-server config-table/Helm change needed beyond the README row already added — there's
+  no chart-derivable default the way `auth:passkey`/`auth:fido2`'s `rpID`/`origin` needed one.
+- **One-time response field is `password`** (top-level, alongside the normal `Secret` shape with `data` stripped) —
+  confirmed to match what the client agent assumed before the backend contract was final, no correction needed.
+  `GET /secrets`/`GET /secrets/:id` never return it or the hash again after creation (unconditional `cleanData()`).
+- **Client-side filtering:** `app-password` secrets ride the same shared `secrets`/`setSecrets` state `SecretsCard`
+  already used, but must never appear in that "Sign-in methods" table. `SecretsCard.tsx` now types its own
+  `SECRET_TYPE_LABELS`/rendered rows over `Exclude<SecretType, "app-password">` with a type-guard filter
+  (`isSignInMethod()`) — no `as any` anywhere. `AppPasswordsCard` filters the same shared array down to
+  `type === "app-password"` internally. Widening the shared `SecretType` union also broke `tsc -p
+  tsconfig.client.json` in `SetUserPasswordModal.tsx` (an admin-console file `tsc -p .` alone doesn't cover) via
+  `updateSecret()`'s return type — fixed with a narrow, commented, provably-safe type assertion (the `existing`
+  secret found there is only ever `type: "password"`, and update never changes a secret's `type`). **Always run both
+  `tsc -p .` and `tsc -p tsconfig.client.json`** when touching a client-side shared type — the former alone misses
+  `apps/**` entirely.
+- **Deliberately not built at first, then asked for and added same day — see the follow-up bullet below:** admin
+  visibility/revocation, "last used" tracking, and audit events. No usage-count limit was still not built (never
+  asked for).
+- **Follow-up (same day): last used, audit events, admin visibility/revocation.** Same split-across-both-repos,
+  built-against-the-contract-in-parallel approach as the rest of this entry.
+  - **`Secret.lastUsedAt`** (ISO-8601, `auth` repo): absent/`undefined` until a secret is first used to
+    authenticate; **`null` on SQL** once a never-used row round-trips through TypeORM (confirmed by the backend
+    agent with a real integration test — same pre-existing quirk `hint` already has, not new). The client's
+    `formatLastUsed()`-style helpers use a truthy check (`iso ? ... : "Never used"`), which treats `null` and
+    `undefined` identically, so this is harmless in practice even though `SecretSummary`/`AdminSecretSummary`
+    only declare the field as `string | undefined` — a minor type-vs-runtime mismatch, not a bug, not worth
+    widening the type for.
+  - **Where it's touched, `auth` repo:** a new best-effort `touchSecretLastUsedAt()` helper (swallows every
+    failure internally, never rejects — a missing/failed timestamp must never fail an otherwise-successful
+    login) for call sites with no write of their own (`BaseAuthBasicRoute`'s password/app-password match,
+    `BaseAuthMFARoute`/`BaseAuthElevationRoute`'s phase-1 password check); merged into an *existing* per-secret
+    write for the six call sites that already do one (`updateCredentialCounter()` ×4, TOTP's inline
+    `lastTimeStep` update ×3, `consumeRecoveryCode()` ×1) — merging avoids racing two writes on the same
+    row's `version`, at the cost of those six inheriting that write's pre-existing all-or-nothing failure
+    semantics (already true before this change, not a new risk).
+  - **New `AuthEventType` values** (`auth` repo, all fire-and-forget like the existing ones): `PASSWORD_CHANGED`
+    (create, or update **only** when `data` actually changes — not a hint-only rename), `APP_PASSWORD_CREATED`/
+    `APP_PASSWORD_REMOVED` (deliberately its own pair, not folded into `MFA_ENROLLED`/`MFA_REMOVED` — app
+    passwords still aren't MFA), `APP_PASSWORD_USED` (fired *in addition to* the generic `SESSION_CREATED` on
+    every app-password login — the one that specifically says "`requireMFA` was bypassed for this login," the
+    single highest-value new signal here), `RECOVERY_CODE_USED`. **No local, queryable audit-log store or admin
+    UI exists for these** — `EventUtils.record()` only ever POSTs to an external `telemetry_services:url` sink
+    (confirmed by reading `@rapidrest/core`'s `EventUtils` class before assuming otherwise) or fires local
+    `.on()` listeners; if an in-app audit-log viewer is ever wanted, that's a materially bigger, separate
+    project (a persisted event store + query API + admin page), not a small addition to this one.
+  - **Admin visibility/revocation, auth-server repo:** `AdminSecretSummary["type"]` widened to add
+    `"app-password"`/`"recovery-codes"` (previously excluded from `UserSecretsCard` entirely — see the
+    superseded bullet above), plus `lastUsedAt` and a "Last used" column, on both the admin card and the
+    self-service `SecretsCard`/`AppPasswordsCard`. Revocation needed no new code — the existing generic
+    `deleteSecret()`/`Remove` button already worked once these types were listed at all. Confirmed (again) that
+    widening `AdminSecretSummary["type"]` doesn't repeat the `SetUserPasswordModal.tsx` `tsconfig.client.json`
+    break from earlier in this entry — searched the whole `apps/` tree for another exhaustive
+    `Record<AdminSecretSummary["type"], ...>`/switch and found none; both `tsc -p .` and `tsc -p
+    tsconfig.client.json` stayed clean.
+  - **Still not built, still deliberate:** admin *creating* an app password on a user's behalf (only
+    view/revoke), a usage-count limit, and the audit-log viewer noted above.
+- **CHANGELOG.md tooling quirk observed, not fixed:** the `1.0.0-beta.16` release run (`rapidrest release`) promoted
+  the hand-written `## [Unreleased]` section to `## [1.0.0-beta.16]` *and* separately regenerated its own bullets
+  from the same commits' git-log bodies, landing both under one version heading — visible duplication (e.g.
+  "Document the changes..." twice, two `### Fixed` blocks) in that now-published, already-committed section. Not
+  something to retroactively edit; worth knowing about if a future `rapidrest release` run does it again.
+
 ### 2026-09-21 (later) — Reset branding button, and the passkey/FIDO2 Helm rpID bug
 
 Follow-up to the entry directly below, same day. Both committed (auth-server `a16ca15` for the first batch below, plus

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+* Added **app passwords**: from the account page's new "App passwords" card, a user can create a separate,
+  server-generated password for one app or device that can't respond to a two-factor prompt — an older e-mail
+  client speaking HTTP Basic Auth to a downstream service (e.g. a mail server) that validates its credentials
+  against this server's `/auth/basic`, for example. Unlike the account's real password, an app password
+  authenticates there even when the account has `requireMFA` set — that's the entire point: a legacy client that
+  can't do MFA gets its own high-entropy, individually revocable credential instead of the account's MFA being
+  disabled to accommodate it. The plaintext is shown exactly once, at creation; only its hash is ever stored, and
+  there's no way to rotate one in place — remove it and create a new one. New `auth:app_password:enabled` config
+  (default `true`) turns the feature off deployment-wide: existing app passwords stop authenticating and new ones
+  can't be created, but nothing is deleted. Needs `@rapidrest/auth` 2.0.0-beta.11 or later
+* Every secret — password, app password, authenticator app, passkey, security key, and recovery codes —
+  now tracks **when it was last used** to sign in, shown on the account page (and to an admin viewing an
+  account's sign-in methods) as "Never used" until then. An admin's **Sign-in methods** card also now shows
+  and can revoke app passwords and recovery codes, which it previously left out entirely
+
 ## v1.0.0-beta.16
 * Fixed the Helm chart never setting `auth:passkey`/`auth:fido2`'s `rpID`/`origin`, so a deployment fell back to
   `@rapidrest/auth`'s built-in defaults (rpID `rapidrest`, origin `http://localhost:3000`) — neither of which matches a

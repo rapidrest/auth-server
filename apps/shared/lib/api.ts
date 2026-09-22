@@ -611,7 +611,7 @@ export async function updateUsernameAlias(oldUid: string, value: string): Promis
     return createUsernameAlias(value);
 }
 
-export type SecretType = "password" | "totp" | "passkey" | "fido2";
+export type SecretType = "password" | "totp" | "passkey" | "fido2" | "app-password";
 
 /**
  * The shape returned by `GET /secrets` and `GET /secrets/:id` — `data` is always scrubbed server-side, but
@@ -625,6 +625,8 @@ export interface SecretSummary {
     userUid: string;
     dateCreated: string;
     hint?: string;
+    /** ISO-8601, set the first time this secret authenticates a sign-in. Absent if it never has (a fresh secret, or a spare recovery code that's never been redeemed). */
+    lastUsedAt?: string;
 }
 
 /**
@@ -704,6 +706,28 @@ export interface CreatedTotpSecret extends SecretSummary {
  */
 export function createTotpSecret(hint?: string): Promise<CreatedTotpSecret> {
     return apiFetch("/secrets", { method: "POST", body: JSON.stringify({ type: "totp", ...(hint ? { hint } : {}) }) });
+}
+
+export interface CreatedAppPasswordSecret extends SecretSummary {
+    /**
+     * The generated plaintext app password. Returned ONLY in this response — like `CreatedTotpSecret`'s
+     * `data`, every later `GET`/list scrubs it, so the caller must capture and display it immediately, since
+     * it can never be re-fetched.
+     */
+    password: string;
+}
+
+/**
+ * Registers a new app password: a server-generated random secret for a legacy app/client that can't complete
+ * a second-factor challenge (e.g. an old mail client's HTTP Basic Auth against `/auth/basic`, which this
+ * secret type is specifically allowed to bypass `requireMFA` for — pure server-side behavior, nothing to
+ * build for it here). Unlike `hint` on every other secret type, `hint` here is REQUIRED and must be
+ * non-blank (the server 400s a missing/blank one) — since the secret is immutable (no `PUT .../data`; rotate
+ * by deleting and creating a new one), the label is the only way the caller can tell multiple app passwords
+ * apart later.
+ */
+export function createAppPasswordSecret(hint: string): Promise<CreatedAppPasswordSecret> {
+    return apiFetch("/secrets", { method: "POST", body: JSON.stringify({ type: "app-password", hint }) });
 }
 
 /** Begins a passkey *registration* ceremony (as opposed to `getPasskeyChallenge()`, which is for sign-in). */

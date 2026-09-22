@@ -172,10 +172,12 @@ export function createUserAlias(userUid: string, type: AliasType, alias: string)
 export interface AdminSecretSummary {
     uid: string;
     version: number;
-    type: "password" | "totp" | "passkey" | "fido2";
+    type: "password" | "totp" | "passkey" | "fido2" | "app-password" | "recovery-codes";
     userUid: string;
     dateCreated: string;
     hint?: string;
+    /** ISO-8601, set the first time this secret authenticates a sign-in. Absent if it never has (a fresh secret, or a spare recovery code that's never been redeemed). */
+    lastUsedAt?: string;
 }
 
 /** Lists the sign-in methods (secrets) registered to the given account. */
