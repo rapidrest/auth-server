@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.18] - 2026-09-23
+
+### Added
+- Added csrf and auth:csrf config defaults (both enabled) to config.sql.ts/config.mongo.ts, enabling CSRF (double-submit cookie) protection on every cookie-authenticated, state-changing request
+- Added CSRF header echo (x-csrf-token) to apps/shared/lib/api.ts's apiFetch(), mirroring @rapidmx/react-shared's apiFetch()/authApiFetch()
+- Added regression tests for each of the above and document the findings in NOTES.md
+
+### Changed
+- Upgraded deps
+- Change stopImpersonating() from GET to POST, matching @rapidrest/auth's BaseImpersonationRoute fix - a state-changing GET is exploitable via a bare navigation, bypassing CSRF defenses entirely
+- Update the doc comments in both ImpersonateRoute.ts wrappers to reflect the POST-only endpoint
+- Document the changes in the README, CHANGELOG, release notes and NOTES
+- Upgraded deps
+
+
 ### Added
 - Added config defaults for `csrf` (top-level, enforcement) and `auth:csrf` (cookie rotation) to both `config.sql.ts`/`config.mongo.ts`, enabling CSRF (double-submit cookie) protection by default
 - Added CSRF header echo (`x-csrf-token`) to `apps/shared/lib/api.ts`'s `apiFetch()`, mirroring `@rapidmx/react-shared`'s `apiFetch()`/`authApiFetch()`
@@ -556,7 +571,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.17...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.18...HEAD
+[1.0.0-beta.18]: github/auth-server/compare/v1.0.0-beta.17...v1.0.0-beta.18
 [1.0.0-beta.17]: github/auth-server/compare/v1.0.0-beta.16...v1.0.0-beta.17
 [1.0.0-beta.16]: github/auth-server/compare/v1.0.0-beta.15...v1.0.0-beta.16
 [1.0.0-beta.15]: github/auth-server/compare/v1.0.0-beta.14...v1.0.0-beta.15

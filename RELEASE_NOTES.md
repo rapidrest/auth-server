@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.18
+
 * Added **CSRF (double-submit cookie) protection**, on by default (`csrf:enabled`/`auth:csrf:enabled`
   config, both `true` in `config.sql.ts`/`config.mongo.ts`). Enforcement lives in
   `@rapidrest/service-core`'s `RouteUtils.checkCsrf()` and applies automatically to every mutating
