@@ -92,6 +92,18 @@ describe("BaseAuditLogRoute", () => {
             );
         });
 
+        it("treats a null query (no query string at all) like an empty one", async () => {
+            const find = vi.fn().mockResolvedValue([]);
+            const route = makeRoute({ find });
+
+            await expect(route.list(null as any, USER)).resolves.toEqual([]);
+
+            expect(find).toHaveBeenCalledWith(
+                { sort: "-dateCreated" },
+                { limit: undefined, page: undefined, user: USER, ignoreACL: true },
+            );
+        });
+
         it("keeps the caller's own sort untouched", async () => {
             const find = vi.fn().mockResolvedValue([]);
             const route = makeRoute({ find });

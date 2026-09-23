@@ -94,6 +94,22 @@ describe("useSiteSettings", () => {
         expect(document.querySelectorAll(`#${CUSTOM_STYLESHEET_LINK_ID}`).length).toBe(1);
     });
 
+    it("updates an already-present link in place, rather than adding a second, when the stylesheet changes", async () => {
+        const existing = document.createElement("link");
+        existing.id = CUSTOM_STYLESHEET_LINK_ID;
+        existing.rel = "stylesheet";
+        existing.href = "https://example.com/stale.css";
+        document.head.appendChild(existing);
+
+        mockedGetSiteSettings.mockResolvedValueOnce({ ...base, stylesheetUrl: "https://example.com/fresh.css" });
+
+        renderHook(() => useSiteSettings());
+
+        await waitFor(() => expect(existing.href).toBe("https://example.com/fresh.css"));
+        expect(document.getElementById(CUSTOM_STYLESHEET_LINK_ID)).toBe(existing);
+        expect(document.querySelectorAll(`#${CUSTOM_STYLESHEET_LINK_ID}`).length).toBe(1);
+    });
+
     it("removes a previously-injected link when no stylesheet is configured", async () => {
         const existing = document.createElement("link");
         existing.id = CUSTOM_STYLESHEET_LINK_ID;
@@ -106,6 +122,16 @@ describe("useSiteSettings", () => {
         renderHook(() => useSiteSettings());
 
         await waitFor(() => expect(document.getElementById(CUSTOM_STYLESHEET_LINK_ID)).toBeNull());
+    });
+
+    it("injects nothing when no stylesheet is configured and none was injected before", async () => {
+        mockedGetSiteSettings.mockResolvedValueOnce({ ...base, siteTitle: "Acme" });
+
+        const { result } = renderHook(() => useSiteSettings());
+
+        await waitFor(() => expect(result.current?.siteTitle).toBe("Acme"));
+        expect(document.getElementById(CUSTOM_STYLESHEET_LINK_ID)).toBeNull();
+        expect(document.head.querySelectorAll("link[rel=stylesheet]").length).toBe(0);
     });
 
     it("keeps returning null and leaves defaults in place when the fetch fails", async () => {

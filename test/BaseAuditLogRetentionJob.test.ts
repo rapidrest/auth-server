@@ -103,6 +103,18 @@ describe("BaseAuditLogRetentionJob", () => {
             expect(warn).toHaveBeenCalledWith(expect.stringContaining("db down"));
         });
 
+        it("logs the stringified value when the purge rejects with something that isn't an Error", async () => {
+            const truncate = vi.fn().mockRejectedValue("connection reset");
+            const warn = vi.fn();
+            const job = makeStartedJob({ truncate }, 30);
+            (job as any).logger = { warn };
+
+            await expect(job.run()).resolves.toBeUndefined();
+            expect(warn).toHaveBeenCalledWith(
+                "Failed to purge audit log entries older than 30 day(s): connection reset",
+            );
+        });
+
         it("copes with having no logger when the purge write fails", async () => {
             const truncate = vi.fn().mockRejectedValue(new Error("db down"));
             const job = makeStartedJob({ truncate }, 30);

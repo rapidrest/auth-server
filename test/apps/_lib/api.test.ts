@@ -355,6 +355,23 @@ describe("apiFetch", () => {
             expect(headers.get("x-csrf-token")).toBe("caller-supplied");
         });
 
+        it("sends no x-csrf-token header, and doesn't throw, when there is no document (SSR)", async () => {
+            document.cookie = "csrf=tok-abc123";
+            const fetchMock = mockFetch(() => jsonResponse(200, {}));
+            const originalDocument = document;
+            vi.stubGlobal("document", undefined);
+
+            try {
+                await expect(apiFetch("/profiles", { method: "POST" })).resolves.toEqual({});
+            } finally {
+                vi.stubGlobal("document", originalDocument);
+            }
+
+            const init = fetchMock.mock.calls[0][1] as RequestInit;
+            const headers = init.headers as Headers;
+            expect(headers.has("x-csrf-token")).toBe(false);
+        });
+
         it("reads only the csrf cookie by exact name, ignoring a cookie whose name merely contains it", async () => {
             document.cookie = "not_csrf=wrong-value";
             document.cookie = "csrf=right-value";
