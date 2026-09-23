@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.19] - 2026-09-23
+
+_No notable changes._
+
 ## [1.0.0-beta.18] - 2026-09-23
 
 ### Added
@@ -571,7 +575,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.18...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.19...HEAD
+[1.0.0-beta.19]: github/auth-server/compare/v1.0.0-beta.18...v1.0.0-beta.19
 [1.0.0-beta.18]: github/auth-server/compare/v1.0.0-beta.17...v1.0.0-beta.18
 [1.0.0-beta.17]: github/auth-server/compare/v1.0.0-beta.16...v1.0.0-beta.17
 [1.0.0-beta.16]: github/auth-server/compare/v1.0.0-beta.15...v1.0.0-beta.16

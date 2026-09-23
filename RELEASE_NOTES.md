@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.19
+
 ## v1.0.0-beta.18
 
 * Added **CSRF (double-submit cookie) protection**, on by default (`csrf:enabled`/`auth:csrf:enabled`
