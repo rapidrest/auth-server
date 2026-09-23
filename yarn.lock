@@ -1646,9 +1646,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/react@npm:^2.0.0-beta.3":
-  version: 2.0.0-beta.3
-  resolution: "@rapidrest/react@npm:2.0.0-beta.3"
+"@rapidrest/react@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@rapidrest/react@npm:1.1.0"
   dependencies:
     cross-spawn: "npm:^7.0.6"
   peerDependencies:
@@ -1671,13 +1671,13 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/c2f563f4f04bd1f514aabd5ed64de0f005b2876638d349c5cad32d16118cd7ae381213f97e7be4ec6a0a3c59a7a9d5233e56fd9d9de4cf4eddc152c7050fc217
+  checksum: 10c0/b1ad4df61f9bcd519decf6864a9f483eecbfd281840b0f2ec8dafa559764e1060cbc86affcb14f392cf0565416d31a3daa5028d2da121857a01c00e21f75fe27
   languageName: node
   linkType: hard
 
-"@rapidrest/service-core@npm:^2.1.1":
-  version: 2.1.1
-  resolution: "@rapidrest/service-core@npm:2.1.1"
+"@rapidrest/service-core@npm:^2.2.1":
+  version: 2.2.1
+  resolution: "@rapidrest/service-core@npm:2.2.1"
   dependencies:
     axios: "npm:^1.20.0"
     dayjs: "npm:^1.11.23"
@@ -1707,7 +1707,7 @@ __metadata:
       optional: true
     uWebSockets.js:
       optional: true
-  checksum: 10c0/474c9f0c19be4fab0e95d2a814abed158ae31e78caa37a97716ba34b028db98f668b8e3ae3f0d1f7d8073c3d1057532ffb68064fa9feceb05cfb56844a0641c0
+  checksum: 10c0/a1c27273bda5ace76ee4db1cbd82222df4b5e60abc646908c0b96abfa653e4aa191b598567fef2c5b9509dfaf9eb16824db1c869e4d7c767fbc5884518e55725
   languageName: node
   linkType: hard
 
@@ -3044,8 +3044,8 @@ __metadata:
     "@rapidrest/auth": "npm:^2.0.0-beta.12"
     "@rapidrest/cli": "npm:^2.1.0"
     "@rapidrest/core": "npm:^6.0.0"
-    "@rapidrest/react": "npm:^2.0.0-beta.3"
-    "@rapidrest/service-core": "npm:^2.1.1"
+    "@rapidrest/react": "npm:^1.1.0"
+    "@rapidrest/service-core": "npm:^2.2.1"
     "@simplewebauthn/browser": "npm:^14.0.0"
     "@simplewebauthn/server": "npm:^14.0.1"
     "@swc/core": "npm:^1.16.2"
