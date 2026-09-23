@@ -47,6 +47,14 @@ conf.defaults({
     cors: {
         origins: ["http://localhost:3000"],
     },
+    // CSRF (double-submit cookie) protection, enforced automatically by @rapidrest/service-core's
+    // RouteUtils.checkCsrf() on every cookie-authenticated, state-changing request. The Origin/Referer
+    // allow-list it also checks defaults to `cors.origins` above when `csrf.allowedOrigins` isn't set
+    // separately - only set the latter if a legitimately cross-origin caller (e.g. a sibling app driving
+    // this server via react-shared's `authApiFetch()`) needs a different allow-list than CORS itself uses.
+    csrf: {
+        enabled: true,
+    },
     datastores: {
         acl: {
             type: "postgres",
@@ -123,6 +131,14 @@ conf.defaults({
             enabled: true,
             access: { name: "jwt", maxAge: 60 * 60 },
             refresh: { name: "refresh", maxAge: 60 * 60 * 24 * 14 },
+        },
+        // Rotates the CSRF double-submit cookie (see the top-level `csrf` block above, which is what
+        // actually enforces it) alongside `jwt`/`refresh` at login, refresh and elevation, and clears it
+        // at logout. Always host-only (@rapidrest/auth's CsrfUtils never applies a `domain`, unlike
+        // `cookie.access`/`cookie.refresh` above) - see @rapidrest/service-core's src/http/csrf/csrf.ts
+        // for why a wildcard-domain double-submit cookie would defeat the whole scheme.
+        csrf: {
+            enabled: true,
         },
         options: {
             // "algorithm": "HS256",

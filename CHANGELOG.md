@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added config defaults for `csrf` (top-level, enforcement) and `auth:csrf` (cookie rotation) to both `config.sql.ts`/`config.mongo.ts`, enabling CSRF (double-submit cookie) protection by default
+- Added CSRF header echo (`x-csrf-token`) to `apps/shared/lib/api.ts`'s `apiFetch()`, mirroring `@rapidmx/react-shared`'s `apiFetch()`/`authApiFetch()`
+
+### Changed
+- Changed `stopImpersonating()` (`apps/shared/lib/api.ts`) from GET to POST, matching `@rapidrest/auth`'s `BaseImpersonationRoute` fix — a state-changing GET is exploitable via a bare navigation, bypassing CSRF defenses entirely
+- Document the changes in the README, CHANGELOG, release notes and NOTES
+
 ## [1.0.0-beta.17] - 2026-09-22
 
 ### Added

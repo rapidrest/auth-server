@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+* Added **CSRF (double-submit cookie) protection**, on by default (`csrf:enabled`/`auth:csrf:enabled`
+  config, both `true` in `config.sql.ts`/`config.mongo.ts`). Enforcement lives in
+  `@rapidrest/service-core`'s `RouteUtils.checkCsrf()` and applies automatically to every mutating
+  request whose only credential is the `jwt` cookie — a bearer-token/API-key caller is unaffected.
+  `@rapidrest/auth`'s `TokenUtils`/`CsrfUtils` issue/rotate the cookie at login/refresh/elevation and
+  clear it at logout. Needs `@rapidrest/auth` 2.0.0-beta.13 (or later) and `@rapidrest/service-core`
+  2.3.0 (or later). Two frontend changes ship alongside it:
+  * `apps/shared/lib/api.ts`'s `apiFetch()` now echoes the CSRF cookie back as an `x-csrf-token` header
+    on every mutating request, same as `@rapidmx/react-shared`'s own `apiFetch()`/`authApiFetch()`.
+  * `stopImpersonating()` now POSTs instead of GETs `/admin/impersonate/stop` — a state-changing GET is
+    exploitable via a bare navigation, bypassing CSRF defenses entirely (they only ever apply to
+    non-safe methods).
+
 ## v1.0.0-beta.17
 
 * Added a durable, queryable **audit log** for security-relevant account activity — sign-ins (by method), registration, elevation, admin impersonation, account deletion, "log out everywhere", MFA enrolled/removed, password changed, and app-password created/removed/used. A new admin **Audit Log** page lists and filters every account's entries; each account's own detail page also shows its **Recent activity**. This replaces relying on `@rapidrest/core`'s `EventUtils` for anything audit-worthy — that mechanism is lossy, best-effort telemetry (with no `telemetry_services:url` configured, which is this app's default, it silently discards every event end to end) and was never meant for this. A write failure never blocks the action that triggered it — it's logged loudly instead — and nothing is ever purged unless `audit_log:retention_days` is explicitly set (unset means keep forever). Needs `@rapidrest/auth` 2.0.0-beta.11 or later

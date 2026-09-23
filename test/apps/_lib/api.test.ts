@@ -116,10 +116,13 @@ describe("impersonation", () => {
         localStorage.clear();
     });
 
-    it("stopImpersonating GETs /admin/impersonate/stop", async () => {
+    it("stopImpersonating POSTs /admin/impersonate/stop", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, { restored: true }));
         const result = await stopImpersonating();
-        expect(fetchMock).toHaveBeenCalledWith("/api/admin/impersonate/stop", expect.anything());
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/admin/impersonate/stop",
+            expect.objectContaining({ method: "POST" }),
+        );
         expect(result).toEqual({ restored: true });
     });
 
@@ -301,6 +304,67 @@ describe("apiFetch", () => {
             unsubscribe();
             expect(listener).not.toHaveBeenCalled();
             expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe("CSRF header echo", () => {
+        afterEach(() => {
+            document.cookie = "csrf=; Max-Age=0; path=/";
+        });
+
+        it("echoes the csrf cookie as x-csrf-token on a mutating request once the cookie exists", async () => {
+            document.cookie = "csrf=tok-abc123";
+            const fetchMock = mockFetch(() => jsonResponse(200, {}));
+
+            await apiFetch("/profiles", { method: "POST" });
+
+            const init = fetchMock.mock.calls[0][1] as RequestInit;
+            const headers = init.headers as Headers;
+            expect(headers.get("x-csrf-token")).toBe("tok-abc123");
+        });
+
+        it("sends no x-csrf-token header when the cookie hasn't been issued yet", async () => {
+            const fetchMock = mockFetch(() => jsonResponse(200, {}));
+
+            await apiFetch("/profiles", { method: "POST" });
+
+            const init = fetchMock.mock.calls[0][1] as RequestInit;
+            const headers = init.headers as Headers;
+            expect(headers.has("x-csrf-token")).toBe(false);
+        });
+
+        it("never sends x-csrf-token on a safe GET request, even with a cookie present", async () => {
+            document.cookie = "csrf=tok-abc123";
+            const fetchMock = mockFetch(() => jsonResponse(200, {}));
+
+            await apiFetch("/users/me");
+
+            const init = fetchMock.mock.calls[0][1] as RequestInit;
+            const headers = init.headers as Headers;
+            expect(headers.has("x-csrf-token")).toBe(false);
+        });
+
+        it("never overrides a caller-supplied x-csrf-token header", async () => {
+            document.cookie = "csrf=tok-abc123";
+            const fetchMock = mockFetch(() => jsonResponse(200, {}));
+
+            await apiFetch("/profiles", { method: "POST", headers: { "x-csrf-token": "caller-supplied" } });
+
+            const init = fetchMock.mock.calls[0][1] as RequestInit;
+            const headers = init.headers as Headers;
+            expect(headers.get("x-csrf-token")).toBe("caller-supplied");
+        });
+
+        it("reads only the csrf cookie by exact name, ignoring a cookie whose name merely contains it", async () => {
+            document.cookie = "not_csrf=wrong-value";
+            document.cookie = "csrf=right-value";
+            const fetchMock = mockFetch(() => jsonResponse(200, {}));
+
+            await apiFetch("/profiles", { method: "POST" });
+
+            const init = fetchMock.mock.calls[0][1] as RequestInit;
+            const headers = init.headers as Headers;
+            expect(headers.get("x-csrf-token")).toBe("right-value");
         });
     });
 });

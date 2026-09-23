@@ -52,6 +52,32 @@ export class ApiRequestError extends Error {
 const AUTH_REQUIRES_ELEVATION = "api-104";
 
 /**
+ * Mirrors `@rapidrest/service-core`'s `DEFAULT_CSRF_COOKIE_NAME`/`DEFAULT_CSRF_HEADER_NAME` — local
+ * literals for the same dependency-free reason as `AUTH_REQUIRES_ELEVATION` above.
+ */
+const CSRF_COOKIE_NAME = "csrf";
+const CSRF_HEADER_NAME = "x-csrf-token";
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Reads the CSRF double-submit cookie the server sets (see `@rapidrest/auth`'s `CsrfUtils`) directly off
+ * `document.cookie`. Deliberately host-only, non-`HttpOnly` — see `@rapidrest/service-core`'s
+ * `src/http/csrf/csrf.ts` for why. Returns `undefined` outside a browser (SSR) or before the cookie exists.
+ */
+function readCsrfCookie(): string | undefined {
+    if (typeof document === "undefined") {
+        return undefined;
+    }
+    for (const part of document.cookie.split("; ")) {
+        const idx = part.indexOf("=");
+        if (idx > 0 && part.slice(0, idx) === CSRF_COOKIE_NAME) {
+            return part.slice(idx + 1);
+        }
+    }
+    return undefined;
+}
+
+/**
  * Signs the current user out by clearing the server-set `jwt` cookie (an `HttpOnly` cookie can only be
  * cleared by the server writing a new `Set-Cookie`, never by client JavaScript) via `POST /auth/logout`.
  * Callers redirect unconditionally right after awaiting this (see `account`/`AdminShell`), so a failed
@@ -74,7 +100,9 @@ export async function logout(): Promise<void> {
  * browser's next request is already authenticated as the original caller again.
  */
 export function stopImpersonating(): Promise<{ restored: boolean }> {
-    return apiFetch("/admin/impersonate/stop");
+    // POST, not GET: this mutates state (swaps the active jwt cookie back), and a state-changing GET is
+    // exploitable via a bare navigation — see @rapidrest/auth's BaseImpersonationRoute.
+    return apiFetch("/admin/impersonate/stop", { method: "POST" });
 }
 
 /**
@@ -142,6 +170,19 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
     // `uploadSiteStylesheet()` in `adminApi.ts`, which send a raw file body under its own MIME type).
     if (!headers.has("Content-Type")) {
         headers.set("Content-Type", "application/json");
+    }
+    // Echoes the CSRF double-submit cookie back as a header on every mutating request — see
+    // `readCsrfCookie()`'s own doc comment and `@rapidrest/service-core`'s `RouteUtils.checkCsrf()`, which
+    // enforces this server-side. A safe method, or a request made before the cookie exists (e.g. this
+    // page's very first request), is left untouched — the server itself never requires this for either
+    // case (`checkCsrf()` exempts GET/HEAD/OPTIONS, and issues the cookie lazily on the response to that
+    // first request if it wasn't already present).
+    const method = (init.method ?? "GET").toUpperCase();
+    if (!SAFE_METHODS.has(method) && !headers.has(CSRF_HEADER_NAME)) {
+        const csrfToken = readCsrfCookie();
+        if (csrfToken) {
+            headers.set(CSRF_HEADER_NAME, csrfToken);
+        }
     }
 
     const res = await fetch(`/api${path}`, { ...init, headers });

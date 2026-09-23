@@ -13,6 +13,7 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 * Sign-in with Apple, Facebook, Google and Microsoft via OAuth 2.0/OpenID Connect — a provider's button only appears on the sign-in page once its `auth.<provider>.clientID` is set to your real value
 * Step-up account elevation (`@RequiresElevation`) requiring re-verification before sensitive actions — a downstream app can send a signed-in user to `/auth/elevate?return_to=<url>` to elevate and come straight back
 * Secure, `HttpOnly` cookie-based session issuance
+* CSRF (double-submit cookie) protection on every cookie-authenticated, state-changing request — on by default (`csrf`/`auth:csrf` config)
 
 ### OAuth 2.0 / OpenID Connect Authorization Server
 

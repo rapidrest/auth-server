@@ -1901,3 +1901,32 @@ The rapidmx server chart sets `smtp_config__*`/`templates__from__email` for this
 - **Only `clientID` is compared**, as the request specified and as `assertProductionSecretsAreSet()` already uses it to recognise an unconfigured provider. A provider with a real `clientID` but a placeholder secret (or Apple's team/key id/private key) still shows its button. A missing, blank or non-string `clientID` counts as not configured.
 - **The prop is optional and absent means "show all"**, matching how a missing `allowRegistration` keeps sign-up open, so `SignInFlow` used without the route (tests, a future pop-up) behaves as before. `fetchProps()` itself always supplies it, and fails closed (`@Config` default `""`).
 - Only the buttons are hidden: `/api/auth/<provider>` still answers for a placeholder provider, as before.
+
+### 2026-09-23 — CSRF (double-submit cookie) protection wired in, closing the 2026-08-22 review's blind spot
+
+Ecosystem-wide CSRF fix, spanning `service-core` (the actual mechanism), `auth` (cookie issuance, plus
+two special-case routes), this repo (config defaults + frontend), and `react-shared` (browser-side header
+echo). See `@rapidrest/auth`'s NOTES.md for the fuller cross-repo design writeup; this repo's own share:
+
+- Added `csrf: { enabled: true }` (top-level — the actual enforcement gate, `RouteUtils.checkCsrf()`) and
+  `auth: { csrf: { enabled: true } }` (cookie rotation via `CsrfUtils`) to both `config.sql.ts`/
+  `config.mongo.ts`. The Origin/Referer allow-list `checkCsrf()` also consults defaults to the existing
+  `cors.origins` when `csrf.allowedOrigins` isn't set separately — no new allow-list to maintain.
+- `apps/shared/lib/api.ts`'s `apiFetch()` now echoes the `csrf` cookie back as `x-csrf-token` on every
+  mutating request (mirrors `react-shared`'s own `apiFetch()`/`authApiFetch()` — this file is deliberately
+  a separate, dependency-free implementation, not an import of that package, so it needed its own copy of
+  the same header-echo logic).
+- `stopImpersonating()` changed from GET to POST, matching `@rapidrest/auth`'s `BaseImpersonationRoute`
+  fix (a state-changing GET is exploitable via a bare navigation).
+- **On the 2026-08-22 review's "no CSRF-relevant gaps" conclusion** (line ~1242 above): not wrong for the
+  threat model it actually evaluated (classic cross-*site* forgery, which `SameSite=Lax` already blocks),
+  it just didn't consider same-site cross-*origin* forgery (a sibling subdomain, not a foreign site) or
+  naive double-submit's wildcard-domain weakness (not relevant then, since this repo's cookies were
+  already host-only by default and still are). Recorded here so a future reviewer doesn't need to
+  reconcile the two entries from scratch.
+- Verification: full `vitest run` in this repo (139 files / 2237 tests, all passing, including every
+  existing cookie-flow integration test — `service-core`'s `agent()` test helper now echoes the CSRF
+  header automatically, so no per-test changes were needed here beyond the `stopImpersonating()` GET→POST
+  rename and its own test), plus new CSRF-echo tests in `test/apps/_lib/api.test.ts`. `tsc --noEmit`
+  clean. This session ran against locally-built, not-yet-published `service-core`/`auth` — do not assume
+  their published versions already contain this until their own CHANGELOGs confirm it.
