@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- **The sign-in, sign-up, authorize and elevate pages, and the admin user/OAuth-client/message detail pages, answered 500 in every build since `1.0.0-beta.18`.** A dependency-update pass moved `@rapidrest/react` from `^2.0.0-beta.3` to `^1.1.0` (npm's `latest` tag is 1.1.0, which is a *lower* version than the 2.0 beta). 1.x only counts a nested `index.tsx` as a page, so the client build dropped every nested non-index page (`apps/www/auth/signin.tsx`, `apps/admin/users/[uid].tsx`, ...) from its manifest, and rendering one failed with "hydrate=true requires react.manifestPath to be configured and a matching Vite manifest entry". The dependency is back at `^2.0.0-beta.3`. A new test runs the project's real Vite hydration plugin and asserts every page file under `apps/www` and `apps/admin`, nested and dynamic-segment ones included, has a client build entry, so a downgrade like this now fails CI instead of production.
+
 ## v1.0.0-beta.20
 
 ### Changed
