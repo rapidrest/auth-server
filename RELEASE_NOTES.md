@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.20
+
 ### Changed
 
 - **The Helm chart no longer sets any resource limits - only minimum requests.** Limits throttle a pod's CPU or kill it on memory even when the node has plenty to spare; on a live deployment MongoDB's liveness probe was timing out at its 750m CPU cap and restarting the pod. The bundled MongoDB, Redis and PostgreSQL now set Bitnami's `resourcesPreset: none` with the same requests the preset used to give them, so scheduling is unaffected.

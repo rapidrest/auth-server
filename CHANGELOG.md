@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.20] - 2026-09-24
+
+### Changed
+- Switch MongoDB's Deployment to the Recreate update strategy, because with RollingUpdate on a single-writer PVC the replacement pod exits with code 100 while the old one holds the data lock and any change to MongoDB's pod spec deadlocks the helm upgrade
+- Document both changes in the release notes
+
+### Removed
+- Removed every resource limit from the Helm chart, leaving only minimum requests: turn off Bitnami's resourcesPreset for the bundled MongoDB, Redis and PostgreSQL while keeping the requests the preset gave, because MongoDB's liveness probe was timing out at its 750m CPU cap and restarting the pod
+
 ## [1.0.0-beta.19] - 2026-09-23
 
 _No notable changes._
@@ -575,7 +584,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.19...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.20...HEAD
+[1.0.0-beta.20]: github/auth-server/compare/v1.0.0-beta.19...v1.0.0-beta.20
 [1.0.0-beta.19]: github/auth-server/compare/v1.0.0-beta.18...v1.0.0-beta.19
 [1.0.0-beta.18]: github/auth-server/compare/v1.0.0-beta.17...v1.0.0-beta.18
 [1.0.0-beta.17]: github/auth-server/compare/v1.0.0-beta.16...v1.0.0-beta.17
