@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.21] - 2026-09-24
+
+### Added
+- Added a test that runs the project's real Vite hydration plugin and asserts every page file under apps/www and apps/admin, nested and dynamic-segment ones included, has a client build entry, which fails against @rapidrest/react 1.1.0
+
+### Changed
+- Restore @rapidrest/react to ^2.0.0-beta.3, which an "Upgrading deps" pass had moved to ^1.1.0 because npm's latest tag is 1.1.0, since 1.x only treats a nested index.tsx as a page and so dropped signin, signup, authorize, elevate and the admin [uid] detail pages from the client build's manifest, making each answer 500
+- Document the fix in the release notes
+
 ## [1.0.0-beta.20] - 2026-09-24
 
 ### Changed
@@ -584,7 +593,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.20...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.21...HEAD
+[1.0.0-beta.21]: github/auth-server/compare/v1.0.0-beta.20...v1.0.0-beta.21
 [1.0.0-beta.20]: github/auth-server/compare/v1.0.0-beta.19...v1.0.0-beta.20
 [1.0.0-beta.19]: github/auth-server/compare/v1.0.0-beta.18...v1.0.0-beta.19
 [1.0.0-beta.18]: github/auth-server/compare/v1.0.0-beta.17...v1.0.0-beta.18
