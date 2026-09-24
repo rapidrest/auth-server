@@ -69,6 +69,20 @@ mongodb:
   fullnameOverride: mongodb
   auth:
     enabled: false
+  # Minimum requests only, never limits: a limit throttles the pod (CPU) or kills it (memory) even when the node has
+  # plenty to spare - MongoDB's liveness probe was timing out at its CPU cap. Bitnami's default preset sets a limit as
+  # well as a request, so the preset is turned off and its requests kept.
+  resourcesPreset: none
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+      ephemeral-storage: 50Mi
+  # One mongod owns the data directory at a time (its lock file lives on the PVC): with RollingUpdate the replacement pod
+  # can't start while the old one is still running, exits with code 100, and since the old pod is only retired once the
+  # new one is Ready, any change to MongoDB's pod spec deadlocks the upgrade. Recreate stops the old pod first.
+  updateStrategy:
+    type: Recreate
 postgresql:
   create: false
   architecture: standalone
@@ -76,6 +90,13 @@ postgresql:
   auth:
     enablePostgresUser: false
     database: rrst_auth
+  primary:
+    resourcesPreset: none
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+        ephemeral-storage: 50Mi
 redis:
   create: true
   architecture: standalone
@@ -83,6 +104,12 @@ redis:
     enabled: false
   fullnameOverride: redis
   master:
+    resourcesPreset: none
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+        ephemeral-storage: 50Mi
     persistence:
       enabled: false
   replica:

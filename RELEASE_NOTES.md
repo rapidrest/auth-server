@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Changed
+
+- **The Helm chart no longer sets any resource limits - only minimum requests.** Limits throttle a pod's CPU or kill it on memory even when the node has plenty to spare; on a live deployment MongoDB's liveness probe was timing out at its 750m CPU cap and restarting the pod. The bundled MongoDB, Redis and PostgreSQL now set Bitnami's `resourcesPreset: none` with the same requests the preset used to give them, so scheduling is unaffected.
+- **MongoDB's Deployment now uses the `Recreate` update strategy.** With `RollingUpdate` the replacement pod could not start while the old one still held the data directory's lock (it exited with code 100), and because the old pod is only retired once the new one is Ready, any change to MongoDB's pod spec deadlocked the whole `helm upgrade` and left the release `failed`.
+
 ## v1.0.0-beta.19
 
 ## v1.0.0-beta.18
