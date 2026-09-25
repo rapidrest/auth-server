@@ -72,7 +72,8 @@ export default function SetUserPasswordModal({ open, onClose, uid, secrets, onSa
                 // server gives them no rights on it unless asked), so it stays the administrator's way in. The
                 // account's other password, and whether it must be changed, are none of its business.
                 const added = await createUserPasswordSecret(uid, password, PASSWORD_SET_BY_ADMIN_HINT, false);
-                onSaved([...(secrets ?? []), added]);
+                // `additional` is only ever true when `existing` was found, so `secrets` has loaded and isn't null.
+                onSaved([...secrets!, added]);
             } else {
                 // Being required to change the password implies being allowed to.
                 const allowChange = allowPasswordChange || requirePasswordChange;

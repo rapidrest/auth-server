@@ -89,13 +89,15 @@ export default function AccountPage({ userUid, siteSettings, appUrl, returnToOri
     }, [userUid]);
 
     async function handleForcedPasswordChanged(saved: SecretSummary) {
-        setSecrets((prev) => prev?.map((s) => (s.uid === saved.uid ? saved : s)) ?? prev);
+        // The dialog is only shown for a password found in `secrets`, so it has loaded — `prev` is never null here.
+        setSecrets((prev) => prev!.map((s) => (s.uid === saved.uid ? saved : s)));
         // Changing the password cleared `passwordChangeRequired` server-side, which bumped the user's `version` —
         // re-read it, so a later self-service update (e.g. the requireMFA toggle) isn't rejected as stale.
         try {
             setUser(await getCurrentUser());
         } catch {
-            setUser((prev) => (prev ? { ...prev, passwordChangeRequired: false } : prev));
+            // Likewise the dialog is only shown for a loaded `user` whose flag is set, so `prev` is never null.
+            setUser((prev) => ({ ...prev!, passwordChangeRequired: false }));
         }
 
         // Sign-in sent them here, instead of where they were going, because the password had to be changed first
