@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.23] - 2026-09-25
+
+### Changed
+- Restore 100% branch coverage of apps/www and apps/shared/components/admin by removing three null fallbacks that could never run, in Set password's additional-password path and the account page's forced password change, since each is only reachable once secrets and the user have loaded, and use the same non-null assertion SecretsCard uses for that case
+
 ## [1.0.0-beta.22] - 2026-09-25
 
 ### Changed
@@ -607,7 +612,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.22...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.23...HEAD
+[1.0.0-beta.23]: github/auth-server/compare/v1.0.0-beta.22...v1.0.0-beta.23
 [1.0.0-beta.22]: github/auth-server/compare/v1.0.0-beta.21...v1.0.0-beta.22
 [1.0.0-beta.21]: github/auth-server/compare/v1.0.0-beta.20...v1.0.0-beta.21
 [1.0.0-beta.20]: github/auth-server/compare/v1.0.0-beta.19...v1.0.0-beta.20
