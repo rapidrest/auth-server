@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.22
+
 ### Added
 
 - **An administrator can now hand an account a temporary password — when creating it, or later to recover it.** Whenever an admin sets a password (the New user form, or *Set password* on the account's page) two options appear, both on by default: *Allow the user to change their password* and *Require the user to change their password at first/next sign-in*. Leaving the requirement unchecked also lifts one left over from an earlier reset. Requiring a change implies allowing it. A flagged account is sent to `/account` after signing in (ahead of any `return_to`), where a dialog that can't be dismissed asks for a new password; it goes away once the password is changed, and it has a *Sign out* button so it can never trap anyone. Changing the password there needs no separate "confirm your current password" prompt.

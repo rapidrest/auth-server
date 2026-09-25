@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.22] - 2026-09-25
+
+### Changed
+- Document that a downstream package's release bump level follows its upstream dependency's, minor for minor, patch for patch and major for major, in NOTES
+- Let an administrator hand an account a temporary password: add "Allow the user to change their password" and "Require the user to change their password at first/next sign-in" options to the New user form and to Set password, a mandatory change-password dialog on /account for an account flagged passwordChangeRequired that has a Sign out button and needs no second prompt, and carry a safe return_to through it, following it only once the password has been changed Add a Generate button with Show/Hide and Copy for the password on the New user form and Set password Add the allowMultiplePasswords policy (auth.allowMultiplePasswords in config, off by default) with a switch under Settings, and an "Add as an additional password" option in Set password when several are allowed, so an administrator can keep a password of their own on an account; unticking "Allow the user to change their password" now revokes that right outright Clear a password's "Set by administrator" hint when its holder changes it, and restore it when an administrator resets it Retry a change-password once with the current version after an "Invalid object version" conflict, which signing in or elevating causes by stamping the secret's lastUsedAt Fix password sign-in failing with "Invalid authorization request" for a correct password when the browser had cached a stale uid for the identifier, as after a recreated development database, by forgetting it and retrying once with the plaintext Fix a custom logo being forced into a 128x128 square by fixing only its height Reorder the identifier types on the New user form Add tests for each and document the changes in the changelog and release notes
+- Upgraded @rapidrest/auth dep
+
 ### Added
 - Added the `allowMultiplePasswords` policy (`auth.allowMultiplePasswords` in config, off by default) with an admin console switch under Settings, stored in the database like `allowRegistration`: unless it's on, an account can have only one password
 - Added an "Add as an additional password" option to the admin Set password dialog when multiple passwords are allowed, and made unticking "Allow the user to change their password" revoke that right (allowUserChange=false)
@@ -58,7 +65,6 @@ _No notable changes._
 - Document the changes in the README, CHANGELOG, release notes and NOTES
 - Upgraded deps
 
-
 ### Added
 - Added config defaults for `csrf` (top-level, enforcement) and `auth:csrf` (cookie rotation) to both `config.sql.ts`/`config.mongo.ts`, enabling CSRF (double-submit cookie) protection by default
 - Added CSRF header echo (`x-csrf-token`) to `apps/shared/lib/api.ts`'s `apiFetch()`, mirroring `@rapidmx/react-shared`'s `apiFetch()`/`authApiFetch()`
@@ -85,7 +91,6 @@ _No notable changes._
 - Document the changes in the README, CHANGELOG, release notes and NOTES
 - Document the changes in the README, CHANGELOG, release notes and NOTES
 - Upgraded auth dep
-
 
 ### Added
 - Add app passwords: a separate, server-generated password a user creates for an app that can't complete a two-factor prompt, shown once at creation and independently revocable
@@ -117,7 +122,6 @@ _No notable changes._
 - Fixed the Helm chart never setting auth:passkey/auth:fido2's rpID/origin for the deployment's own domain, which made every passkey or security key registration fail instantly with a browser SecurityError before any prompt appeared, by defaulting both to the server's own host and preferred scheme in service-config.yaml
 - Fixed the passkey and security key forms showing only a generic failure message for a WebAuthn error, by including the browser's own error name and message
 - Fixed the Helm chart's service.config being unable to actually override cors__origins, trusted_proxies, NODE_ENV or the new passkey/FIDO2 keys, which rendered a ConfigMap with a duplicate key that helm template and kubectl apply both refuse, by gathering every chart-derived default into one guarded loop
-
 
 ### Fixed
 - Fix the Helm chart never setting a passkey/FIDO2 relying-party ID or origin for the deployment's own domain, which made every passkey or security key registration fail instantly with a browser SecurityError
@@ -168,7 +172,6 @@ _No notable changes._
 - Hide the sign-in page's Continue with Google, Microsoft, Apple and Facebook buttons until that provider's clientID has been replaced from its shipped placeholder in the config, by sending the ids of the configured providers to the page as oauthProviders
 - Hide the or divider on the sign-in page when no OAuth provider is configured
 - Document the change in the README, CHANGELOG, release notes and NOTES
-
 
 ### Changed
 - Hide the Continue with Google, Microsoft, Apple and Facebook buttons on the sign-in page until that provider's clientID has been replaced from its shipped placeholder in the config, and the or divider too when none remain
@@ -265,7 +268,6 @@ _No notable changes._
 ### Fixed
 - Fixed helm datastore configuration
 
-
 ## [1.0.0-beta.6] - 2026-09-18
 
 ### Changed
@@ -274,7 +276,6 @@ _No notable changes._
 ### Fixed
 - Fixed multiple issues with mongo/postgres URL building
 - Fixed acl URL
-
 
 ## [1.0.0-beta.5] - 2026-09-18
 
@@ -291,7 +292,6 @@ _No notable changes._
 
 ### Changed
 - Major refactor to helm chart
-
 
 ## [1.0.0-beta.3] - 2026-09-17
 
@@ -314,7 +314,6 @@ _No notable changes._
 - Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 - Upgraded @rapidrest/auth dep
 - Moving system settings to top of page
-
 
 ## [1.0.0-beta.2] - 2026-09-15
 
@@ -608,7 +607,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.21...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.22...HEAD
+[1.0.0-beta.22]: github/auth-server/compare/v1.0.0-beta.21...v1.0.0-beta.22
 [1.0.0-beta.21]: github/auth-server/compare/v1.0.0-beta.20...v1.0.0-beta.21
 [1.0.0-beta.20]: github/auth-server/compare/v1.0.0-beta.19...v1.0.0-beta.20
 [1.0.0-beta.19]: github/auth-server/compare/v1.0.0-beta.18...v1.0.0-beta.19
