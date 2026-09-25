@@ -93,7 +93,7 @@ function UserDetailContent({ uid }: { uid: string }) {
                     <UserOverviewCard user={user} onUpdated={setUser} />
                     <UserProfileCard uid={user.uid} />
                     <UserIdentifiersCard uid={user.uid} />
-                    <UserSecretsCard uid={user.uid} />
+                    <UserSecretsCard uid={user.uid} onUserUpdated={setUser} />
                     <UserActivityCard uid={user.uid} />
 
                     <div className="rr-card">

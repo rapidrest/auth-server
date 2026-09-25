@@ -650,6 +650,7 @@ describe("SignInPage — password method", () => {
         expect(mockedSignInWithPassword).toHaveBeenCalledWith("a@example.com", "hunter2");
     });
 
+
     it("shows a fixed message on an ApiRequestError", async () => {
         const user = userEvent.setup();
         await goToChallenge(user, "Password");
@@ -690,6 +691,39 @@ describe("SignInPage — returnTo hand-off", () => {
         await user.click(screen.getByRole("button", { name: "Sign in" }));
 
         await waitFor(() => expect(location.href).toBe("/auth/authorize?client_id=abc"));
+    });
+
+    describe("an account that must change its password", () => {
+        const FLAGGED = { ...AUTH_RESULT, user: { ...AUTH_RESULT.user, passwordChangeRequired: true } };
+
+        async function signInFlagged(search: string) {
+            const location = stubLocationWithSearch(search);
+            const user = userEvent.setup();
+            await goToChallenge(user, "Password", ALL_METHODS, "a@example.com");
+            mockedSignInWithPassword.mockResolvedValueOnce(FLAGGED);
+            await user.type(screen.getByLabelText("Password"), "hunter2");
+            await user.click(screen.getByRole("button", { name: "Sign in" }));
+            return location;
+        }
+
+        it("goes to /account first, carrying its returnTo along instead of following it", async () => {
+            const target = "/auth/authorize?client_id=abc";
+            const location = await signInFlagged(`?returnTo=${encodeURIComponent(target)}`);
+
+            await waitFor(() => expect(location.href).toBe(`/account?return_to=${encodeURIComponent(target)}`));
+        });
+
+        it("drops a returnTo that isn't safe, rather than carrying an open redirect through", async () => {
+            const location = await signInFlagged(`?returnTo=${encodeURIComponent("//evil.com")}`);
+
+            await waitFor(() => expect(location.href).toBe("/account"));
+        });
+
+        it("goes to plain /account when it wasn't headed anywhere", async () => {
+            const location = await signInFlagged("");
+
+            await waitFor(() => expect(location.href).toBe("/account"));
+        });
     });
 
     it("falls back to /account when returnTo is an open-redirect attempt", async () => {

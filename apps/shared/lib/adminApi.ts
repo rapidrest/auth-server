@@ -65,6 +65,8 @@ export interface CreateUserInput {
     scopes: string[];
     verified: boolean;
     requireMFA?: boolean;
+    /** Makes the account holder pick a new password at their first sign-in (see `ApiUser.passwordChangeRequired`). */
+    passwordChangeRequired?: boolean;
 }
 
 /**
@@ -86,6 +88,8 @@ export interface UpdateUserInput {
     scopes?: string[];
     verified?: boolean;
     requireMFA?: boolean;
+    /** Makes the account holder pick a new password at their next sign-in, or lifts that requirement. */
+    passwordChangeRequired?: boolean;
 }
 
 export function updateUser(input: UpdateUserInput): Promise<AdminUser> {
@@ -193,10 +197,19 @@ export function listUserSecrets(userUid: string): Promise<AdminSecretSummary[]> 
  * `password` is hashed client-side against `userUid` (see `clientPasswordHash.ts`) when this browser
  * supports it — crucially the *target* account's uid, not the admin's own, since the salt is derived from
  * whichever account the resulting hash must later verify against.
+ *
+ * A secret an admin creates is, by default, one its account holder has no rights on — so they can sign in with it
+ * but can't change it themselves. `allowUserChange` grants them that (`?allowUserChange=true`, see
+ * `BaseSecretRoute.buildOwnerACL()`).
  */
-export async function createUserPasswordSecret(userUid: string, password: string, hint?: string): Promise<AdminSecretSummary> {
+export async function createUserPasswordSecret(
+    userUid: string,
+    password: string,
+    hint?: string,
+    allowUserChange = false,
+): Promise<AdminSecretSummary> {
     const data = await hashPasswordOrFallback(password, userUid);
-    return apiFetch("/secrets", {
+    return apiFetch(`/secrets${allowUserChange ? "?allowUserChange=true" : ""}`, {
         method: "POST",
         body: JSON.stringify({ type: "password", data, userUid, ...(hint ? { hint } : {}) }),
     });

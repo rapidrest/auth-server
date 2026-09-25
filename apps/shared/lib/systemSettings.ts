@@ -25,6 +25,11 @@ export interface SystemSettings {
      * caller isn't allowed to see it.
      */
     requireMFA?: boolean;
+    /**
+     * Whether an account may have more than one password. Like `requireMFA`, omitted for a caller without the admin
+     * trusted role, so its absence doesn't mean it's off. Off by default: one password per account.
+     */
+    allowMultiplePasswords?: boolean;
 }
 
 /** Fetches the current registration/MFA policy. Public — safe to call without an authenticated session. */
@@ -36,6 +41,7 @@ export interface UpdateSystemSettingsInput {
     /** Omit to leave untouched. Unlike branding settings, `null` is rejected — see `SystemSettings`'s own doc comment. */
     allowRegistration?: boolean;
     requireMFA?: boolean;
+    allowMultiplePasswords?: boolean;
 }
 
 /** Trusted-role-only. Partially updates the registration/MFA policy. */

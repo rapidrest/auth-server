@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React from "react";
-import { clearImpersonatingMarker } from "../../shared/lib/api.js";
+import { AuthResult, clearImpersonatingMarker } from "../../shared/lib/api.js";
 import { PublicSiteSettings } from "../../shared/lib/siteSettings.js";
 import { SystemSettings } from "../../shared/lib/systemSettings.js";
 import AuthShell from "../../shared/components/layout/AuthShell.js";
@@ -55,11 +55,22 @@ export function isSafeReturnTo(value: string, trustedOrigins: readonly string[] 
  * query string is gone — see `oauthState.ts`. The live query string wins if it has one. Either way it is checked
  * by `isSafeReturnTo()` before use: a callback URL is as forgeable as any other.
  */
-function completeSignIn(trustedOrigins: readonly string[], carriedReturnTo?: string | null) {
+function completeSignIn(result: AuthResult, trustedOrigins: readonly string[], carriedReturnTo?: string | null) {
     // A fresh, non-impersonated sign-in — clears any marker left over from a previous impersonated
     // session in this browser that was never explicitly stopped (see `isImpersonating()`'s doc comment).
     clearImpersonatingMarker();
     const returnTo = readReturnTo() || carriedReturnTo;
+    // An account still on an administrator-issued temporary password goes to `/account` first, whose mandatory
+    // dialog makes them pick a new one - wherever it was headed (a `return_to`, an `/auth/authorize` request) waits
+    // until they've done that. The destination is carried along, still only if it's safe, and `/account` sends them
+    // on to it once the password is changed.
+    if (result.user?.passwordChangeRequired) {
+        window.location.href =
+            returnTo && isSafeReturnTo(returnTo, trustedOrigins)
+                ? `/account?return_to=${encodeURIComponent(returnTo)}`
+                : "/account";
+        return;
+    }
     window.location.href = returnTo && isSafeReturnTo(returnTo, trustedOrigins) ? returnTo : "/account";
 }
 
@@ -90,7 +101,7 @@ export default function SignInPage({
     return (
         <AuthShell brand settings={siteSettings}>
             <SignInFlow
-                onSuccess={(_result, carriedReturnTo) => completeSignIn(returnToOrigins, carriedReturnTo)}
+                onSuccess={(result, carriedReturnTo) => completeSignIn(result, returnToOrigins, carriedReturnTo)}
                 returnTo={readReturnTo()}
                 oauthProviders={oauthProviders}
             />

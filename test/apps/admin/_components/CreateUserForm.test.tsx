@@ -113,10 +113,164 @@ describe("CreateUserForm", () => {
             scopes: ["profile:contacts"],
             verified: true,
             requireMFA: true,
+            passwordChangeRequired: true,
         });
         expect(mockedCreateUserAlias).toHaveBeenCalledWith("new-2", "name", "newadmin");
-        expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("new-2", VALID_PASSWORD, "Set by administrator");
+        // The password's owner can change it (a requirement to change it implies the right to).
+        expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("new-2", VALID_PASSWORD, "Set by administrator", true);
         expect(onCreated).toHaveBeenCalledWith("new-2");
+    });
+
+    describe("generating a password", () => {
+        const PASSWORD = "Temporary password (optional)";
+        const CONFIRM = "Confirm temporary password";
+
+        it("fills both fields with a password that meets the requirements, and shows it", async () => {
+            const user = userEvent.setup();
+            render(<CreateUserForm onCreated={vi.fn()} />);
+
+            await user.click(screen.getByRole("button", { name: "Generate" }));
+
+            const password = (screen.getByLabelText(PASSWORD)).value;
+            expect(password).toHaveLength(16);
+            expect(screen.getByLabelText(PASSWORD)).toHaveAttribute("type", "text");
+            expect(screen.getByLabelText(CONFIRM)).toHaveValue(password);
+            expect(screen.getByLabelText(CONFIRM)).toHaveAttribute("type", "text");
+            expect(screen.queryByText("Passwords do not match.")).not.toBeInTheDocument();
+        });
+
+        it("creates the account with the generated password", async () => {
+            const user = userEvent.setup();
+            mockedCreateUser.mockResolvedValue({ uid: "new-4", roles: [], scopes: [], verified: false, version: 0, dateCreated: "", dateModified: "" });
+            mockedCreateUserAlias.mockResolvedValue({ uid: "a1", version: 0, alias: "x", type: "email", userUid: "new-4", verified: false });
+            mockedCreateUserPasswordSecret.mockResolvedValue({ uid: "s1", version: 0, type: "password", userUid: "new-4", dateCreated: "" });
+            render(<CreateUserForm onCreated={vi.fn()} />);
+            await fillIdentifier(user);
+            await user.click(screen.getByRole("button", { name: "Generate" }));
+            const generated = (screen.getByLabelText(PASSWORD)).value;
+            await user.click(screen.getByRole("button", { name: "Create account" }));
+
+            await waitFor(() => expect(mockedCreateUserPasswordSecret).toHaveBeenCalled());
+            expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("new-4", generated, "Set by administrator", true);
+        });
+
+        it("makes a different password each time", async () => {
+            const user = userEvent.setup();
+            render(<CreateUserForm onCreated={vi.fn()} />);
+            await user.click(screen.getByRole("button", { name: "Generate" }));
+            const first = (screen.getByLabelText(PASSWORD)).value;
+            await user.click(screen.getByRole("button", { name: "Generate" }));
+            expect((screen.getByLabelText(PASSWORD)).value).not.toBe(first);
+        });
+
+        it("can hide and show what it generated", async () => {
+            const user = userEvent.setup();
+            render(<CreateUserForm onCreated={vi.fn()} />);
+            await user.click(screen.getByRole("button", { name: "Generate" }));
+
+            await user.click(screen.getByRole("button", { name: "Hide" }));
+            expect(screen.getByLabelText(PASSWORD)).toHaveAttribute("type", "password");
+            expect(screen.getByLabelText(CONFIRM)).toHaveAttribute("type", "password");
+
+            await user.click(screen.getByRole("button", { name: "Show" }));
+            expect(screen.getByLabelText(PASSWORD)).toHaveAttribute("type", "text");
+        });
+
+        it("copies it to the clipboard, and says so until it changes", async () => {
+            const user = userEvent.setup();
+            const writeText = vi.fn().mockResolvedValue(undefined);
+            Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+            render(<CreateUserForm onCreated={vi.fn()} />);
+            expect(screen.queryByRole("button", { name: "Copy" })).not.toBeInTheDocument();
+            await user.click(screen.getByRole("button", { name: "Generate" }));
+            const generated = (screen.getByLabelText(PASSWORD)).value;
+
+            await user.click(screen.getByRole("button", { name: "Copy" }));
+
+            expect(writeText).toHaveBeenCalledWith(generated);
+            expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+            await user.type(screen.getByLabelText(PASSWORD), "x");
+            expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+        });
+
+        it("doesn't fail when the clipboard is unavailable", async () => {
+            const user = userEvent.setup();
+            Object.defineProperty(navigator, "clipboard", {
+                configurable: true,
+                value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+            });
+            render(<CreateUserForm onCreated={vi.fn()} />);
+            await user.click(screen.getByRole("button", { name: "Generate" }));
+
+            await user.click(screen.getByRole("button", { name: "Copy" }));
+
+            expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+        });
+    });
+
+    describe("password change options", () => {
+        async function typePassword(user: ReturnType<typeof userEvent.setup>) {
+            await user.type(screen.getByLabelText("Temporary password (optional)"), VALID_PASSWORD);
+            await user.type(screen.getByLabelText("Confirm temporary password"), VALID_PASSWORD);
+        }
+
+        beforeEach(() => {
+            mockedCreateUser.mockResolvedValue({ uid: "new-3", roles: [], scopes: [], verified: false, version: 0, dateCreated: "", dateModified: "" });
+            mockedCreateUserAlias.mockResolvedValue({ uid: "a1", version: 0, alias: "x", type: "email", userUid: "new-3", verified: false });
+            mockedCreateUserPasswordSecret.mockResolvedValue({ uid: "s1", version: 0, type: "password", userUid: "new-3", dateCreated: "" });
+        });
+
+        it("only offers them once a password has been entered", async () => {
+            const user = userEvent.setup();
+            render(<CreateUserForm onCreated={vi.fn()} />);
+            expect(screen.queryByLabelText("Allow the user to change their password")).not.toBeInTheDocument();
+            expect(screen.queryByLabelText("Require the user to change their password at first sign-in")).not.toBeInTheDocument();
+
+            await typePassword(user);
+
+            expect(screen.getByLabelText("Allow the user to change their password")).toBeChecked();
+            expect(screen.getByLabelText("Require the user to change their password at first sign-in")).toBeChecked();
+        });
+
+        it("keeps 'allow' checked and locked while a change is required", async () => {
+            const user = userEvent.setup();
+            render(<CreateUserForm onCreated={vi.fn()} />);
+            await typePassword(user);
+
+            expect(screen.getByLabelText("Allow the user to change their password")).toBeDisabled();
+
+            await user.click(screen.getByLabelText("Require the user to change their password at first sign-in"));
+
+            expect(screen.getByLabelText("Allow the user to change their password")).toBeEnabled();
+            expect(screen.getByLabelText("Allow the user to change their password")).toBeChecked();
+        });
+
+        it("lets an admin allow a change without requiring one", async () => {
+            const user = userEvent.setup();
+            render(<CreateUserForm onCreated={vi.fn()} />);
+            await fillIdentifier(user);
+            await typePassword(user);
+            await user.click(screen.getByLabelText("Require the user to change their password at first sign-in"));
+            await user.click(screen.getByRole("button", { name: "Create account" }));
+
+            await waitFor(() => expect(mockedCreateUserPasswordSecret).toHaveBeenCalled());
+            expect(mockedCreateUser).toHaveBeenCalledWith({ roles: [], scopes: [], verified: false, requireMFA: false });
+            expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("new-3", VALID_PASSWORD, "Set by administrator", true);
+        });
+
+        it("lets an admin set a password the account holder can neither change nor is asked to", async () => {
+            const user = userEvent.setup();
+            render(<CreateUserForm onCreated={vi.fn()} />);
+            await fillIdentifier(user);
+            await typePassword(user);
+            await user.click(screen.getByLabelText("Require the user to change their password at first sign-in"));
+            await user.click(screen.getByLabelText("Allow the user to change their password"));
+            await user.click(screen.getByRole("button", { name: "Create account" }));
+
+            await waitFor(() => expect(mockedCreateUserPasswordSecret).toHaveBeenCalled());
+            expect(mockedCreateUser).toHaveBeenCalledWith({ roles: [], scopes: [], verified: false, requireMFA: false });
+            expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("new-3", VALID_PASSWORD, "Set by administrator", false);
+        });
     });
 
     it("shows the ApiRequestError message when account creation fails", async () => {

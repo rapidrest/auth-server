@@ -39,6 +39,8 @@ vi.mock("../../apps/shared/lib/api.js", async (importOriginal) => {
         deleteSecret: vi.fn(),
         discardSecret: vi.fn(),
         getAccount: vi.fn(),
+        getCurrentUser: vi.fn(),
+        listSecrets: vi.fn(),
         getFido2RegistrationOptions: vi.fn(),
         getPasskeyRegistrationOptions: vi.fn(),
         getPasswordRequirements: vi.fn(),
@@ -75,6 +77,8 @@ import {
     deleteSecret,
     discardSecret,
     getAccount,
+    getCurrentUser,
+    listSecrets,
     getFido2RegistrationOptions,
     getPasskeyRegistrationOptions,
     getPasswordRequirements,
@@ -115,6 +119,8 @@ const mockedRegisterFido2 = vi.mocked(registerFido2);
 const mockedRegisterPasskey = vi.mocked(registerPasskey);
 const mockedUpdateProfile = vi.mocked(updateProfile);
 const mockedUpdateSecret = vi.mocked(updateSecret);
+const mockedGetCurrentUser = vi.mocked(getCurrentUser);
+const mockedListSecrets = vi.mocked(listSecrets);
 const mockedUpdateSelfUser = vi.mocked(updateSelfUser);
 const mockedUpdateUsernameAlias = vi.mocked(updateUsernameAlias);
 const mockedVerifyContact = vi.mocked(verifyContact);
@@ -2792,6 +2798,301 @@ describe("AccountPage — mandatory second-factor setup prompt", () => {
 
         await user.click(screen.getByRole("button", { name: "Confirm" }));
         await waitFor(() => expect(screen.queryByText("Two-factor authentication required")).not.toBeInTheDocument());
+    });
+});
+
+describe("AccountPage — mandatory password change (passwordChangeRequired)", () => {
+    const PROMPT = "An administrator set a temporary password for this account. Choose a new one to continue.";
+
+    function forcedAccount() {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                user: { uid: "u1", version: 1, roles: [], scopes: [], passwordChangeRequired: true },
+                secrets: [secret({ uid: "pw1", version: 3, type: "password" }), secret({ uid: "st", type: "totp" })],
+            }),
+        );
+    }
+
+    it("shows a mandatory change-password prompt when the account must change its password", async () => {
+        forcedAccount();
+        render(<AccountPage userUid="u1" />);
+
+        expect(await screen.findByRole("dialog", { name: "Change password" })).toBeInTheDocument();
+        expect(screen.getByText(PROMPT)).toBeInTheDocument();
+    });
+
+    it("can't be dismissed by the close button, Escape or the backdrop", async () => {
+        const user = userEvent.setup();
+        forcedAccount();
+        render(<AccountPage userUid="u1" />);
+        const dialog = await screen.findByRole("dialog", { name: "Change password" });
+
+        await user.click(within(dialog).getByRole("button", { name: /close/i }));
+        await user.keyboard("{Escape}");
+
+        expect(screen.getByRole("dialog", { name: "Change password" })).toBeInTheDocument();
+    });
+
+    it("goes away once the password is changed, and re-reads the user (whose version the server bumped)", async () => {
+        const user = userEvent.setup();
+        forcedAccount();
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 4, type: "password" }));
+        mockedGetCurrentUser.mockResolvedValueOnce({ uid: "u1", version: 2, roles: [], scopes: [], passwordChangeRequired: false });
+        render(<AccountPage userUid="u1" />);
+        await screen.findByRole("dialog", { name: "Change password" });
+
+        await user.type(screen.getByLabelText("New password"), "Sup3r$ecret1");
+        await user.type(screen.getByLabelText("Confirm new password"), "Sup3r$ecret1");
+        await user.click(screen.getByRole("button", { name: "Save password" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "pw1", version: 3, data: "Sup3r$ecret1" }, "u1");
+        expect(mockedGetCurrentUser).toHaveBeenCalledTimes(1);
+    });
+
+    it("still closes when re-reading the user fails", async () => {
+        const user = userEvent.setup();
+        forcedAccount();
+        mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 4, type: "password" }));
+        mockedGetCurrentUser.mockRejectedValueOnce(new Error("network down"));
+        render(<AccountPage userUid="u1" />);
+        await screen.findByRole("dialog", { name: "Change password" });
+
+        await user.type(screen.getByLabelText("New password"), "Sup3r$ecret1");
+        await user.type(screen.getByLabelText("Confirm new password"), "Sup3r$ecret1");
+        await user.click(screen.getByRole("button", { name: "Save password" }));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    });
+
+    describe("when the password secret has changed since the page loaded", () => {
+        const conflict = () => new ApiRequestError("Invalid object version. Do you have the latest version?", 400, "api-012");
+
+        async function submitNewPassword(user: ReturnType<typeof userEvent.setup>) {
+            await screen.findByRole("dialog", { name: "Change password" });
+            await user.type(screen.getByLabelText("New password"), "Sup3r$ecret1");
+            await user.type(screen.getByLabelText("Confirm new password"), "Sup3r$ecret1");
+            await user.click(screen.getByRole("button", { name: "Save password" }));
+        }
+
+        it("retries once with the secret's current version instead of getting the person stuck", async () => {
+            // Signing in, and elevating, each stamp the secret's `lastUsedAt` and so bump its version.
+            const user = userEvent.setup();
+            forcedAccount();
+            mockedUpdateSecret.mockRejectedValueOnce(conflict());
+            mockedListSecrets.mockResolvedValueOnce([secret({ uid: "pw1", version: 5, type: "password" })]);
+            mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 6, type: "password" }));
+            mockedGetCurrentUser.mockResolvedValueOnce({ uid: "u1", version: 2, roles: [], scopes: [] });
+            render(<AccountPage userUid="u1" />);
+
+            await submitNewPassword(user);
+
+            await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+            expect(mockedUpdateSecret).toHaveBeenCalledTimes(2);
+            expect(mockedUpdateSecret).toHaveBeenNthCalledWith(1, { uid: "pw1", version: 3, data: "Sup3r$ecret1" }, "u1");
+            expect(mockedUpdateSecret).toHaveBeenNthCalledWith(2, { uid: "pw1", version: 5, data: "Sup3r$ecret1" }, "u1");
+        });
+
+        it("shows the conflict when the secret is gone, and doesn't retry", async () => {
+            const user = userEvent.setup();
+            forcedAccount();
+            mockedUpdateSecret.mockRejectedValueOnce(conflict());
+            mockedListSecrets.mockResolvedValueOnce([]);
+            render(<AccountPage userUid="u1" />);
+
+            await submitNewPassword(user);
+
+            expect(await screen.findByText("Invalid object version. Do you have the latest version?")).toBeInTheDocument();
+            expect(mockedUpdateSecret).toHaveBeenCalledTimes(1);
+        });
+
+        it("doesn't retry any other failure", async () => {
+            const user = userEvent.setup();
+            forcedAccount();
+            mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("nope", 403));
+            render(<AccountPage userUid="u1" />);
+
+            await submitNewPassword(user);
+
+            expect(await screen.findByText("nope")).toBeInTheDocument();
+            expect(mockedListSecrets).not.toHaveBeenCalled();
+            expect(mockedUpdateSecret).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe("return_to", () => {
+        function locationWithSearch(search: string) {
+            const location = { href: "", search, replace: vi.fn(), reload: vi.fn() };
+            Object.defineProperty(window, "location", { configurable: true, writable: true, value: location });
+            return location;
+        }
+
+        async function changePassword(user: ReturnType<typeof userEvent.setup>, props: React.ComponentProps<typeof AccountPage> = { userUid: "u1" }) {
+            forcedAccount();
+            mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 4, type: "password" }));
+            mockedGetCurrentUser.mockResolvedValueOnce({ uid: "u1", version: 2, roles: [], scopes: [] });
+            render(<AccountPage {...props} />);
+            await screen.findByRole("dialog", { name: "Change password" });
+            await user.type(screen.getByLabelText("New password"), "Sup3r$ecret1");
+            await user.type(screen.getByLabelText("Confirm new password"), "Sup3r$ecret1");
+            await user.click(screen.getByRole("button", { name: "Save password" }));
+            await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        }
+
+        it("goes on to where sign-in was headed only once the password has been changed", async () => {
+            const user = userEvent.setup();
+            const location = locationWithSearch(`?return_to=${encodeURIComponent("/auth/authorize?client_id=abc")}`);
+            forcedAccount();
+            render(<AccountPage userUid="u1" />);
+            await screen.findByRole("dialog", { name: "Change password" });
+            // Sitting in front of the dialog, it hasn't gone anywhere.
+            expect(location.href).toBe("");
+
+            mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 4, type: "password" }));
+            mockedGetCurrentUser.mockResolvedValueOnce({ uid: "u1", version: 2, roles: [], scopes: [] });
+            await user.type(screen.getByLabelText("New password"), "Sup3r$ecret1");
+            await user.type(screen.getByLabelText("Confirm new password"), "Sup3r$ecret1");
+            await user.click(screen.getByRole("button", { name: "Save password" }));
+
+            await waitFor(() => expect(location.href).toBe("/auth/authorize?client_id=abc"));
+        });
+
+        it("follows a return_to on a trusted origin", async () => {
+            const location = locationWithSearch(`?return_to=${encodeURIComponent("https://mail.mydomain.com/inbox")}`);
+
+            await changePassword(userEvent.setup(), { userUid: "u1", returnToOrigins: ["https://mail.mydomain.com"] });
+
+            await waitFor(() => expect(location.href).toBe("https://mail.mydomain.com/inbox"));
+        });
+
+        it("never follows one that isn't safe", async () => {
+            const location = locationWithSearch(`?return_to=${encodeURIComponent("https://evil.com/phish")}`);
+            await changePassword(userEvent.setup(), { userUid: "u1", returnToOrigins: ["https://mail.mydomain.com"] });
+            expect(location.href).toBe("");
+
+            const second = locationWithSearch(`?return_to=${encodeURIComponent("//evil.com")}`);
+            await changePassword(userEvent.setup());
+            expect(second.href).toBe("");
+        });
+
+        it("stays on the account page when it wasn't headed anywhere", async () => {
+            const location = locationWithSearch("");
+
+            await changePassword(userEvent.setup());
+
+            expect(location.href).toBe("");
+        });
+
+        it("doesn't go anywhere while the change is failing", async () => {
+            const user = userEvent.setup();
+            const location = locationWithSearch(`?return_to=${encodeURIComponent("/auth/authorize")}`);
+            forcedAccount();
+            mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("nope", 403));
+            render(<AccountPage userUid="u1" />);
+            await screen.findByRole("dialog", { name: "Change password" });
+            await user.type(screen.getByLabelText("New password"), "Sup3r$ecret1");
+            await user.type(screen.getByLabelText("Confirm new password"), "Sup3r$ecret1");
+            await user.click(screen.getByRole("button", { name: "Save password" }));
+
+            expect(await screen.findByText("nope")).toBeInTheDocument();
+            expect(location.href).toBe("");
+        });
+    });
+
+    describe("the 'Set by administrator' label", () => {
+        async function changeWithHint(hint: string) {
+            const user = userEvent.setup();
+            mockedGetAccount.mockReset();
+            mockedGetAccount.mockResolvedValueOnce(
+                accountData({
+                    user: { uid: "u1", version: 1, roles: [], scopes: [], passwordChangeRequired: true },
+                    secrets: [secret({ uid: "pw1", version: 3, type: "password", hint })],
+                }),
+            );
+            mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 4, type: "password" }));
+            mockedGetCurrentUser.mockResolvedValueOnce({ uid: "u1", version: 2, roles: [], scopes: [] });
+            render(<AccountPage userUid="u1" />);
+            await screen.findByRole("dialog", { name: "Change password" });
+            await user.type(screen.getByLabelText("New password"), "Sup3r$ecret1");
+            await user.type(screen.getByLabelText("Confirm new password"), "Sup3r$ecret1");
+            await user.click(screen.getByRole("button", { name: "Save password" }));
+            await waitFor(() => expect(mockedUpdateSecret).toHaveBeenCalled());
+        }
+
+        it("is cleared when the account holder changes the password, since it's no longer true", async () => {
+            await changeWithHint("Set by administrator");
+
+            expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "pw1", version: 3, data: "Sup3r$ecret1", hint: "" }, "u1");
+        });
+
+        it("is left alone when it's a label the holder chose themselves", async () => {
+            await changeWithHint("LastPass");
+
+            expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "pw1", version: 3, data: "Sup3r$ecret1" }, "u1");
+        });
+
+        it("is cleared on the retry after a version conflict too", async () => {
+            const user = userEvent.setup();
+            mockedGetAccount.mockReset();
+            mockedGetAccount.mockResolvedValueOnce(
+                accountData({
+                    user: { uid: "u1", version: 1, roles: [], scopes: [], passwordChangeRequired: true },
+                    secrets: [secret({ uid: "pw1", version: 3, type: "password", hint: "Set by administrator" })],
+                }),
+            );
+            mockedUpdateSecret.mockRejectedValueOnce(new ApiRequestError("conflict", 409, "api-012"));
+            mockedListSecrets.mockResolvedValueOnce([secret({ uid: "pw1", version: 5, type: "password" })]);
+            mockedUpdateSecret.mockResolvedValueOnce(secret({ uid: "pw1", version: 6, type: "password" }));
+            mockedGetCurrentUser.mockResolvedValueOnce({ uid: "u1", version: 2, roles: [], scopes: [] });
+            render(<AccountPage userUid="u1" />);
+            await screen.findByRole("dialog", { name: "Change password" });
+            await user.type(screen.getByLabelText("New password"), "Sup3r$ecret1");
+            await user.type(screen.getByLabelText("Confirm new password"), "Sup3r$ecret1");
+            await user.click(screen.getByRole("button", { name: "Save password" }));
+
+            await waitFor(() => expect(mockedUpdateSecret).toHaveBeenCalledTimes(2));
+            expect(mockedUpdateSecret).toHaveBeenNthCalledWith(2, { uid: "pw1", version: 5, data: "Sup3r$ecret1", hint: "" }, "u1");
+        });
+    });
+
+    it("always offers a way out: Sign out", async () => {
+        const user = userEvent.setup();
+        const location = mockLocation();
+        mockedLogout.mockResolvedValueOnce();
+        forcedAccount();
+        render(<AccountPage userUid="u1" />);
+        const dialog = await screen.findByRole("dialog", { name: "Change password" });
+
+        await user.click(within(dialog).getByRole("button", { name: "Sign out" }));
+
+        await waitFor(() => expect(location.href).toBe("/auth/signin"));
+        expect(mockedLogout).toHaveBeenCalled();
+    });
+
+    it("isn't shown when the account has no requirement to change its password", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({ secrets: [secret({ uid: "pw1", type: "password" })] }),
+        );
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Sign-in methods");
+
+        expect(screen.queryByText(PROMPT)).not.toBeInTheDocument();
+    });
+
+    it("isn't shown when the account has no password to change", async () => {
+        mockedGetAccount.mockReset();
+        mockedGetAccount.mockResolvedValueOnce(
+            accountData({
+                user: { uid: "u1", version: 1, roles: [], scopes: [], passwordChangeRequired: true },
+                secrets: [secret({ uid: "st", type: "totp" })],
+            }),
+        );
+        render(<AccountPage userUid="u1" />);
+        await screen.findByText("Sign-in methods");
+
+        expect(screen.queryByText(PROMPT)).not.toBeInTheDocument();
     });
 });
 

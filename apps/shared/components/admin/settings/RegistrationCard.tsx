@@ -27,6 +27,7 @@ export interface RegistrationCardProps {
 export default function RegistrationCard({ settings, onUpdated }: RegistrationCardProps) {
     const [allowRegistration, setAllowRegistration] = useState(settings.allowRegistration !== false);
     const [requireMFA, setRequireMFA] = useState(settings.requireMFA === true);
+    const [allowMultiplePasswords, setAllowMultiplePasswords] = useState(settings.allowMultiplePasswords === true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -36,10 +37,15 @@ export default function RegistrationCard({ settings, onUpdated }: RegistrationCa
         setSaved(false);
         setSaving(true);
         try {
-            const updated = await updateSystemSettings({ allowRegistration, requireMFA });
+            const updated = await updateSystemSettings({
+                allowRegistration,
+                requireMFA,
+                ...(settings.allowMultiplePasswords !== undefined ? { allowMultiplePasswords } : {}),
+            });
             onUpdated(updated);
             setAllowRegistration(updated.allowRegistration !== false);
             setRequireMFA(updated.requireMFA === true);
+            setAllowMultiplePasswords(updated.allowMultiplePasswords === true);
             setSaved(true);
         } catch (err) {
             setError(err instanceof ApiRequestError ? err.message : "Could not save these settings.");
@@ -51,7 +57,7 @@ export default function RegistrationCard({ settings, onUpdated }: RegistrationCa
     return (
         <div className="rr-card">
             <div className="rr-card__title">Registration &amp; Security</div>
-            <p className="rr-card__subtitle">Control whether new accounts can be created and whether MFA is required.</p>
+            <p className="rr-card__subtitle">Control whether new accounts can be created, whether MFA is required, and how many passwords an account can have.</p>
             {error && <Alert>{error}</Alert>}
 
             <div className="rr-field">
@@ -98,6 +104,33 @@ export default function RegistrationCard({ settings, onUpdated }: RegistrationCa
                         When enabled, every account must have a second factor to sign in, and new accounts are
                         created with it required from the start. Administrators can still exempt an individual
                         existing account from this console.
+                    </p>
+                </div>
+            )}
+
+            {settings.allowMultiplePasswords !== undefined && (
+                <div className="rr-field">
+                    <label htmlFor="settingsAllowMultiplePasswords" className="rr-switch">
+                        <input
+                            id="settingsAllowMultiplePasswords"
+                            type="checkbox"
+                            role="switch"
+                            className="rr-switch__input"
+                            checked={allowMultiplePasswords}
+                            onChange={(e) => {
+                                setAllowMultiplePasswords(e.target.checked);
+                                setSaved(false);
+                            }}
+                        />
+                        <span className="rr-switch__track" aria-hidden="true" />
+                        Allow accounts to have multiple passwords
+                    </label>
+                    <p className="rr-hint">
+                        When disabled (the default), an account has only one password, so whoever can change it decides
+                        who can sign in by password. When enabled, an account can have several and any of them signs
+                        in — which lets you keep a password of your own on an account, one its holder can&rsquo;t
+                        change, alongside theirs. Turning this off doesn&rsquo;t remove passwords accounts already
+                        have.
                     </p>
                 </div>
             )}

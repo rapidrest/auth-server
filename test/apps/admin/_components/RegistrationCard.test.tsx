@@ -133,3 +133,79 @@ describe("RegistrationCard", () => {
         expect(screen.queryByText("Saved.")).not.toBeInTheDocument();
     });
 });
+
+describe("RegistrationCard — multiple passwords policy", () => {
+    const LABEL = "Allow accounts to have multiple passwords";
+
+    it("omits the switch when the caller can't see the policy (settings.allowMultiplePasswords is undefined)", () => {
+        render(<RegistrationCard settings={{ allowRegistration: true, requireMFA: false }} onUpdated={vi.fn()} />);
+        expect(screen.queryByRole("switch", { name: LABEL })).not.toBeInTheDocument();
+    });
+
+    it("renders it off by default — one password per account", () => {
+        render(<RegistrationCard settings={{ allowMultiplePasswords: false }} onUpdated={vi.fn()} />);
+        expect(screen.getByRole("switch", { name: LABEL })).not.toBeChecked();
+    });
+
+    it("renders it on when the policy allows several", () => {
+        render(<RegistrationCard settings={{ allowMultiplePasswords: true }} onUpdated={vi.fn()} />);
+        expect(screen.getByRole("switch", { name: LABEL })).toBeChecked();
+    });
+
+    it("saves a toggled value alongside the others, and reflects what the server returns", async () => {
+        const user = userEvent.setup();
+        const updated: SystemSettings = { allowRegistration: true, requireMFA: false, allowMultiplePasswords: true };
+        mockedUpdateSystemSettings.mockResolvedValue(updated);
+        const onUpdated = vi.fn();
+        render(
+            <RegistrationCard
+                settings={{ allowRegistration: true, requireMFA: false, allowMultiplePasswords: false }}
+                onUpdated={onUpdated}
+            />,
+        );
+
+        await user.click(screen.getByRole("switch", { name: LABEL }));
+        await user.click(screen.getByRole("button", { name: "Save" }));
+
+        expect(mockedUpdateSystemSettings).toHaveBeenCalledWith({
+            allowRegistration: true,
+            requireMFA: false,
+            allowMultiplePasswords: true,
+        });
+        expect(onUpdated).toHaveBeenCalledWith(updated);
+        expect(screen.getByRole("switch", { name: LABEL })).toBeChecked();
+        expect(await screen.findByText("Saved.")).toBeInTheDocument();
+    });
+
+    it("clears the 'Saved.' note when it's changed again", async () => {
+        const user = userEvent.setup();
+        mockedUpdateSystemSettings.mockResolvedValue({ allowMultiplePasswords: false });
+        render(<RegistrationCard settings={{ allowMultiplePasswords: false }} onUpdated={vi.fn()} />);
+        await user.click(screen.getByRole("button", { name: "Save" }));
+        expect(await screen.findByText("Saved.")).toBeInTheDocument();
+
+        await user.click(screen.getByRole("switch", { name: LABEL }));
+
+        expect(screen.queryByText("Saved.")).not.toBeInTheDocument();
+    });
+
+    it("doesn't send a policy the caller can't see, so saving the others can't reset it", async () => {
+        const user = userEvent.setup();
+        mockedUpdateSystemSettings.mockResolvedValue({ allowRegistration: true });
+        render(<RegistrationCard settings={{ allowRegistration: true }} onUpdated={vi.fn()} />);
+
+        await user.click(screen.getByRole("button", { name: "Save" }));
+
+        expect(mockedUpdateSystemSettings.mock.calls[0][0]).not.toHaveProperty("allowMultiplePasswords");
+    });
+
+    it("shows the error when saving fails", async () => {
+        const user = userEvent.setup();
+        mockedUpdateSystemSettings.mockRejectedValue(new ApiRequestError("nope", 403));
+        render(<RegistrationCard settings={{ allowMultiplePasswords: true }} onUpdated={vi.fn()} />);
+
+        await user.click(screen.getByRole("button", { name: "Save" }));
+
+        expect(await screen.findByText("nope")).toBeInTheDocument();
+    });
+});

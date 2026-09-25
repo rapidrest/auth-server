@@ -3,7 +3,7 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getKnownUid, rememberKnownUid } from "../../../apps/shared/lib/knownAccounts.js";
+import { forgetKnownUid, getKnownUid, rememberKnownUid } from "../../../apps/shared/lib/knownAccounts.js";
 
 afterEach(() => {
     localStorage.clear();
@@ -29,6 +29,27 @@ describe("getKnownUid", () => {
     it("returns null (rather than throwing) when the stored value isn't valid JSON", () => {
         localStorage.setItem("rr_known_accounts", "not json");
         expect(getKnownUid("a@example.com")).toBeNull();
+    });
+});
+
+describe("forgetKnownUid", () => {
+    it("drops only the given identifier's cached uid, matching it the way getKnownUid() does", () => {
+        rememberKnownUid("a@example.com", "u1");
+        rememberKnownUid("b@example.com", "u2");
+        forgetKnownUid("  A@Example.com ");
+        expect(getKnownUid("a@example.com")).toBeNull();
+        expect(getKnownUid("b@example.com")).toBe("u2");
+    });
+
+    it("does nothing for an identifier that isn't cached", () => {
+        expect(() => forgetKnownUid("nobody@example.com")).not.toThrow();
+    });
+
+    it("does not throw when localStorage is unavailable (e.g. disabled/private browsing)", () => {
+        vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+            throw new Error("storage disabled");
+        });
+        expect(() => forgetKnownUid("a@example.com")).not.toThrow();
     });
 });
 

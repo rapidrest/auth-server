@@ -58,3 +58,18 @@ export function rememberKnownUid(identifier: string, uid: string): void {
         // Storage disabled/unavailable — this is a best-effort convenience cache; sign-in itself is unaffected.
     }
 }
+
+/**
+ * Drops the cached `uid` for `identifier`. Called when a hash salted with that `uid` is rejected, which is how a
+ * stale entry shows up: the identifier now belongs to a different account (e.g. a development database that was
+ * recreated, so the same `admin` has a new `uid`), and every hash salted with the old one fails from then on.
+ */
+export function forgetKnownUid(identifier: string): void {
+    try {
+        const all = readAll();
+        delete all[normalizeIdentifier(identifier)];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    } catch {
+        // Storage disabled/unavailable — see rememberKnownUid().
+    }
+}

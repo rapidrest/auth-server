@@ -160,9 +160,15 @@ a {
     margin-bottom: 1.75rem;
 }
 
+/*
+ * Only the height is fixed: a logo isn't necessarily square, so its width follows its own aspect ratio (capped at
+ * the container's, so a very wide one shrinks, keeping its proportions, rather than overflowing).
+ */
 .rr-brand img {
-    width: 128px;
     height: 128px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
 }
 
 .rr-brand span {

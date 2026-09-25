@@ -4,11 +4,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PasswordRequirements } from "../../../apps/shared/lib/api.js";
 import {
     buildPasswordCriteria,
     FALLBACK_PASSWORD_REQUIREMENTS,
+    generatePassword,
     isPasswordValid,
     PasswordCriteriaList,
 } from "../../../apps/shared/lib/passwordCriteria.js";
@@ -64,6 +65,70 @@ describe("buildPasswordCriteria", () => {
         expect(special.test("abc^")).toBe(true);
         expect(special.test("abc-")).toBe(true);
         expect(special.test("abc\\")).toBe(true);
+    });
+});
+
+describe("generatePassword", () => {
+    const VARIANTS: [string, PasswordRequirements][] = [
+        ["the defaults", FULL_REQUIREMENTS],
+        ["length only", MIN_LENGTH_ONLY_REQUIREMENTS],
+        ["a long minimum", { ...FULL_REQUIREMENTS, min_length: 40 }],
+        ["an unusual special set", { ...FULL_REQUIREMENTS, special_chars: "]^-\\" }],
+        ["only lowercase and numbers required", { ...MIN_LENGTH_ONLY_REQUIREMENTS, require_lowercase: true, require_numeral: true }],
+    ];
+
+    it.each(VARIANTS)("always satisfies the requirements (%s)", (_name, req) => {
+        const criteria = buildPasswordCriteria(req);
+        for (let i = 0; i < 200; i++) {
+            const generated = generatePassword(req);
+            expect(isPasswordValid(generated, criteria)).toBe(true);
+            expect(generated.length).toBeGreaterThanOrEqual(req.min_length);
+        }
+    });
+
+    it("is 16 characters unless the server's minimum is longer", () => {
+        expect(generatePassword(FULL_REQUIREMENTS)).toHaveLength(16);
+        expect(generatePassword({ ...FULL_REQUIREMENTS, min_length: 40 })).toHaveLength(40);
+    });
+
+    it("leaves out special characters when they aren't required, and look-alike characters always", () => {
+        for (let i = 0; i < 200; i++) {
+            expect(generatePassword(MIN_LENGTH_ONLY_REQUIREMENTS)).toMatch(/^[a-km-zA-HJ-NP-Z2-9]+$/);
+        }
+    });
+
+    it("uses only the configured special characters", () => {
+        const req = { ...FULL_REQUIREMENTS, special_chars: "#" };
+        for (let i = 0; i < 100; i++) {
+            expect(generatePassword(req)).toMatch(/^[a-km-zA-HJ-NP-Z2-9#]+$/);
+        }
+    });
+
+    it("doesn't repeat itself, and puts the guaranteed characters in different places", () => {
+        const seen = new Set(Array.from({ length: 50 }, () => generatePassword(FULL_REQUIREMENTS)));
+        expect(seen.size).toBe(50);
+        const firstChars = new Set(Array.from({ length: 200 }, () => generatePassword(FULL_REQUIREMENTS)[0]));
+        expect(firstChars.size).toBeGreaterThan(10);
+    });
+
+    it("gets every random number from the secure source, without bias", () => {
+        // A value in the biased tail of the uint32 range must be rejected, not folded into the result.
+        const spy = vi.spyOn(globalThis.crypto, "getRandomValues");
+        generatePassword(FULL_REQUIREMENTS);
+        expect(spy).toHaveBeenCalled();
+        spy.mockRestore();
+
+        const max = 25;
+        const limit = Math.floor(0x100000000 / max) * max;
+        const values = [0xffffffff, limit, 7];
+        const stub = vi.spyOn(globalThis.crypto, "getRandomValues").mockImplementation(((buf: Uint32Array) => {
+            buf[0] = values.length > 1 ? values.shift()! : values[0];
+            return buf;
+        }) as any);
+        // Every draw here is either rejected (>= limit) or 7, so all 16 characters come from index 7 (mod group size).
+        const generated = generatePassword({ ...MIN_LENGTH_ONLY_REQUIREMENTS, min_length: 8 });
+        stub.mockRestore();
+        expect(generated).toHaveLength(16);
     });
 });
 

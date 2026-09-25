@@ -16,7 +16,7 @@
 
 import { requestElevation } from "./elevation.js";
 import { hashPasswordOrFallback } from "./clientPasswordHash.js";
-import { getKnownUid, rememberKnownUid } from "./knownAccounts.js";
+import { forgetKnownUid, getKnownUid, rememberKnownUid } from "./knownAccounts.js";
 
 export interface ApiUser {
     uid: string;
@@ -26,6 +26,12 @@ export interface ApiUser {
     verified?: boolean;
     /** When `true`, this account must complete a second factor to sign in (see `signInWithPassword`/MFA sign-in). */
     requireMFA?: boolean;
+    /**
+     * When `true`, the account holder must choose a new password before doing anything else — an administrator
+     * provisioned the account with a temporary one. Sign-in still succeeds; see `RequirePasswordChangeModal` and
+     * `completeSignIn()` (which sends such an account to `/account` rather than wherever it was headed).
+     */
+    passwordChangeRequired?: boolean;
 }
 
 export interface AuthResult {
@@ -50,6 +56,20 @@ export class ApiRequestError extends Error {
  * than an import since this file is deliberately dependency-free (see the module doc comment above).
  */
 const AUTH_REQUIRES_ELEVATION = "api-104";
+
+/**
+ * Mirrors `ApiErrors.INVALID_OBJECT_VERSION`: an update carried a stale `version` because something else changed
+ * the record in between. A sign-in (which stamps the password secret's `lastUsedAt`) or an elevation does exactly
+ * that, so a secret loaded before either is out of date by the time it's edited.
+ */
+export const INVALID_OBJECT_VERSION = "api-012";
+
+/**
+ * The label given to a password an administrator set for an account. It says where the password came from, so it stops
+ * being true - and is cleared - once the account holder changes it (see `ChangePasswordModal`), and is put back when an
+ * administrator resets it.
+ */
+export const PASSWORD_SET_BY_ADMIN_HINT = "Set by administrator";
 
 /**
  * Mirrors `@rapidrest/service-core`'s `DEFAULT_CSRF_COOKIE_NAME`/`DEFAULT_CSRF_HEADER_NAME` — local
@@ -398,14 +418,34 @@ export function isMfaChallenge(result: AuthResult | MfaChallenge): result is Mfa
  * that one sign-in transparently falls back to plaintext (the server accepts either form). A successful,
  * non-challenge sign-in caches `id -> user.uid` so every later sign-in with the same identifier from this
  * browser can be hashed.
+ *
+ * A cached `uid` can go stale — the identifier now belongs to a different account, e.g. a recreated development
+ * database — and a hash salted with the wrong `uid` is rejected exactly like a wrong password, no matter how right
+ * the password is. So when a hashed submission is refused (401), the cache entry is dropped and the sign-in retried
+ * once with the plaintext, which the server accepts too; a correct password then succeeds (and re-caches the right
+ * `uid`), while a wrong one is refused again as before.
  */
 export async function signInWithPassword(id: string, password: string): Promise<AuthResult | MfaChallenge> {
+    const submit = (submitted: string) =>
+        apiFetch<AuthResult | MfaChallenge>("/auth/mfa", {
+            method: "POST",
+            body: JSON.stringify({ id, password: submitted }),
+        });
+
     const knownUid = getKnownUid(id);
     const submitted = knownUid ? await hashPasswordOrFallback(password, knownUid) : password;
-    const result = await apiFetch<AuthResult | MfaChallenge>("/auth/mfa", {
-        method: "POST",
-        body: JSON.stringify({ id, password: submitted }),
-    });
+    let result: AuthResult | MfaChallenge;
+    try {
+        result = await submit(submitted);
+    } catch (err) {
+        // Only a hashed attempt can have been undone by a stale uid: a plaintext one (no cached uid, or hashing
+        // unavailable) has nothing to retry with.
+        if (!(err instanceof ApiRequestError && err.status === 401 && submitted !== password)) {
+            throw err;
+        }
+        forgetKnownUid(id);
+        result = await submit(password);
+    }
     if (!isMfaChallenge(result)) {
         rememberKnownUid(id, result.user.uid);
     }
@@ -720,10 +760,21 @@ export interface UpdateSecretInput {
  * another account's password) when `input.data` is a new password value, so it can be hashed client-side
  * (see `clientPasswordHash.ts`) before submission; omit it for a `hint`-only update or any other secret
  * type, where `data` isn't a password and must never be hashed.
+ *
+ * `options.allowUserChange` is for an administrator resetting another account's password, and says whether its holder
+ * may change it: `true` (`?allowUserChange=true`) gives them the right, which a password an administrator created
+ * earlier doesn't grant; `false` takes it away - including from a password they chose themselves - so only an
+ * administrator can change it from then on. Omit to leave it as it is. Ignored by the server for anyone who isn't a
+ * trusted user.
  */
-export async function updateSecret(input: UpdateSecretInput, userUid?: string): Promise<SecretSummary> {
+export async function updateSecret(
+    input: UpdateSecretInput,
+    userUid?: string,
+    options?: { allowUserChange?: boolean },
+): Promise<SecretSummary> {
     const body = userUid && input.data !== undefined ? { ...input, data: await hashPasswordOrFallback(input.data, userUid) } : input;
-    return apiFetch(`/secrets/${encodeURIComponent(input.uid)}`, { method: "PUT", body: JSON.stringify(body) });
+    const query = options?.allowUserChange === undefined ? "" : `?allowUserChange=${options.allowUserChange}`;
+    return apiFetch(`/secrets/${encodeURIComponent(input.uid)}${query}`, { method: "PUT", body: JSON.stringify(body) });
 }
 
 export interface TotpSecretData {

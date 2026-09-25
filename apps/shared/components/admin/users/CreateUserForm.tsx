@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { FormEvent, useState } from "react";
-import { AliasType, ApiRequestError } from "../../../lib/api.js";
+import { AliasType, ApiRequestError, PASSWORD_SET_BY_ADMIN_HINT } from "../../../lib/api.js";
 import { createUser, createUserAlias, createUserPasswordSecret } from "../../../lib/adminApi.js";
-import { isPasswordValid, usePasswordRequirements } from "../../../lib/passwordCriteria.js";
+import { generatePassword, isPasswordValid, usePasswordRequirements } from "../../../lib/passwordCriteria.js";
 import Alert from "../../feedback/Alert.js";
 import PasswordFieldset from "../../forms/PasswordFieldset.js";
 import Button from "../../buttons/Button.js";
@@ -16,13 +16,13 @@ export interface CreateUserFormProps {
 }
 
 const IDENTIFIER_TYPES: { value: AliasType; label: string }[] = [
+    { value: "name", label: "Username" },
     { value: "email", label: "Email" },
     { value: "phone", label: "Phone" },
-    { value: "name", label: "Username" },
 ];
 
 export default function CreateUserForm({ onCreated }: CreateUserFormProps) {
-    const { criteria } = usePasswordRequirements();
+    const { requirements, criteria } = usePasswordRequirements();
 
     const [identifierType, setIdentifierType] = useState<AliasType>("email");
     const [identifierValue, setIdentifierValue] = useState("");
@@ -32,6 +32,10 @@ export default function CreateUserForm({ onCreated }: CreateUserFormProps) {
     const [scopes, setScopes] = useState<string[]>([]);
     const [verified, setVerified] = useState(false);
     const [requireMFA, setRequireMFA] = useState(false);
+    // Both default on: the password is labelled "temporary", and one the account holder can neither change nor
+    // is asked to would be a permanent password nobody chose.
+    const [allowPasswordChange, setAllowPasswordChange] = useState(true);
+    const [requirePasswordChange, setRequirePasswordChange] = useState(true);
 
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -63,10 +67,22 @@ export default function CreateUserForm({ onCreated }: CreateUserFormProps) {
             // optional credential) — the underlying REST resources are separate and there's no transaction
             // spanning them. If a later step fails (e.g. the identifier is already taken), the User record
             // still exists; the admin can finish setup from the account's detail page.
-            const user = await createUser({ roles, scopes, verified, requireMFA });
+            const user = await createUser({
+                roles,
+                scopes,
+                verified,
+                requireMFA,
+                ...(passwordProvided && requirePasswordChange ? { passwordChangeRequired: true } : {}),
+            });
             await createUserAlias(user.uid, identifierType, identifierValue.trim());
             if (passwordProvided) {
-                await createUserPasswordSecret(user.uid, password, "Set by administrator");
+                // Being required to change the password implies being allowed to.
+                await createUserPasswordSecret(
+                    user.uid,
+                    password,
+                    PASSWORD_SET_BY_ADMIN_HINT,
+                    allowPasswordChange || requirePasswordChange,
+                );
             }
             onCreated(user.uid);
         } catch (err) {
@@ -120,7 +136,46 @@ export default function CreateUserForm({ onCreated }: CreateUserFormProps) {
                 criteria={criteria}
                 emptyHint="Leave blank to require the account holder to set their own password later."
                 showConfirmWhenEmpty={false}
+                onGenerate={() => {
+                    const generated = generatePassword(requirements);
+                    setPassword(generated);
+                    setConfirmPassword(generated);
+                }}
             />
+
+            {passwordProvided && (
+                <>
+                    <div className="rr-field">
+                        <label
+                            htmlFor="newUserAllowPasswordChange"
+                            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+                        >
+                            <input
+                                id="newUserAllowPasswordChange"
+                                type="checkbox"
+                                checked={allowPasswordChange || requirePasswordChange}
+                                disabled={requirePasswordChange}
+                                onChange={(e) => setAllowPasswordChange(e.target.checked)}
+                            />
+                            Allow the user to change their password
+                        </label>
+                    </div>
+                    <div className="rr-field">
+                        <label
+                            htmlFor="newUserRequirePasswordChange"
+                            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+                        >
+                            <input
+                                id="newUserRequirePasswordChange"
+                                type="checkbox"
+                                checked={requirePasswordChange}
+                                onChange={(e) => setRequirePasswordChange(e.target.checked)}
+                            />
+                            Require the user to change their password at first sign-in
+                        </label>
+                    </div>
+                </>
+            )}
 
             <RoleScopeEditor id="newUserRoles" label="Roles" values={roles} onChange={setRoles} placeholder="e.g. admin" />
             <RoleScopeEditor id="newUserScopes" label="Scopes" values={scopes} onChange={setScopes} placeholder="e.g. profile:contacts" />

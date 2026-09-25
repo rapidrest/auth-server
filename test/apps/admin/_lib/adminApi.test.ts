@@ -268,6 +268,20 @@ describe("secrets", () => {
         });
     });
 
+    it("createUserPasswordSecret asks the server to let the account holder change the password when allowUserChange is set", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, {}));
+        await createUserPasswordSecret("u1", "S3cret!!!", "Set by administrator", true);
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe("/api/secrets?allowUserChange=true");
+        expect(parseBody(init)).toEqual(expect.objectContaining({ type: "password", userUid: "u1" }));
+    });
+
+    it("createUserPasswordSecret leaves the query string off by default", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, {}));
+        await createUserPasswordSecret("u1", "S3cret!!!", "Set by administrator", false);
+        expect(fetchMock.mock.calls[0][0]).toBe("/api/secrets");
+    });
+
     it("createUserPasswordSecret omits hint when not given", async () => {
         const fetchMock = mockFetch(() => jsonResponse(200, {}));
         await createUserPasswordSecret("u1", "S3cret!!!");

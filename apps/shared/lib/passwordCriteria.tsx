@@ -52,6 +52,50 @@ export function isPasswordValid(password: string, criteria: PasswordCriterion[])
     return criteria.every((c) => c.test(password));
 }
 
+// Without the look-alikes (0/O, 1/l/I), since a generated password is often read out or retyped by a person.
+const GENERATED_LOWER = "abcdefghijkmnopqrstuvwxyz";
+const GENERATED_UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const GENERATED_DIGITS = "23456789";
+/** Long enough to be strong, short enough to read out; the server's own minimum wins when it's higher. */
+const GENERATED_LENGTH = 16;
+
+/** A uniformly random integer in `[0, max)`. Rejection sampling, so no value is likelier than another. */
+function secureRandomInt(max: number): number {
+    const limit = Math.floor(0x100000000 / max) * max;
+    const buf = new Uint32Array(1);
+    do {
+        globalThis.crypto.getRandomValues(buf);
+    } while (buf[0] >= limit);
+    return buf[0] % max;
+}
+
+/**
+ * Generates a random password that satisfies `req` (see `buildPasswordCriteria()`), from the browser's
+ * cryptographically secure random source. Always has at least one lowercase letter, uppercase letter and digit, and
+ * one special character when `req` calls for them; special characters are left out when it doesn't, so a generated
+ * password never contains one the server would refuse.
+ */
+export function generatePassword(req: PasswordRequirements): string {
+    const groups = [GENERATED_LOWER, GENERATED_UPPER, GENERATED_DIGITS];
+    if (req.require_special && req.special_chars.length > 0) {
+        groups.push(req.special_chars);
+    }
+    const pool = groups.join("");
+    const length = Math.max(req.min_length, GENERATED_LENGTH, groups.length);
+
+    // One from each group so every requirement is met by construction, the rest from the whole pool...
+    const chars = groups.map((g) => g[secureRandomInt(g.length)]);
+    while (chars.length < length) {
+        chars.push(pool[secureRandomInt(pool.length)]);
+    }
+    // ...then shuffled (Fisher-Yates) so the guaranteed ones aren't always at the front.
+    for (let i = chars.length - 1; i > 0; i--) {
+        const j = secureRandomInt(i + 1);
+        [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+    return chars.join("");
+}
+
 /**
  * Fetches the server's password requirements (falling back to `FALLBACK_PASSWORD_REQUIREMENTS` while
  * loading or if the request fails — the server remains the source of truth at submit time either way)

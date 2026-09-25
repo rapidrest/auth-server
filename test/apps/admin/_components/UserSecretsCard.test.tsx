@@ -15,11 +15,16 @@ vi.mock("../../../../apps/shared/lib/api.js", async (importOriginal) => {
 
 vi.mock("../../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../../apps/shared/lib/adminApi.js")>();
-    return { ...actual, listUserSecrets: vi.fn(), createUserPasswordSecret: vi.fn() };
+    return { ...actual, listUserSecrets: vi.fn(), createUserPasswordSecret: vi.fn(), getUser: vi.fn(), updateUser: vi.fn() };
+});
+
+vi.mock("../../../../apps/shared/lib/systemSettings.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../../apps/shared/lib/systemSettings.js")>();
+    return { ...actual, getSystemSettings: vi.fn() };
 });
 
 import { ApiRequestError, deleteSecret, getPasswordRequirements, updateSecret } from "../../../../apps/shared/lib/api.js";
-import { createUserPasswordSecret, listUserSecrets } from "../../../../apps/shared/lib/adminApi.js";
+import { AdminUser, createUserPasswordSecret, getUser, listUserSecrets, updateUser } from "../../../../apps/shared/lib/adminApi.js";
 import UserSecretsCard from "../../../../apps/shared/components/admin/users/detail/UserSecretsCard.js";
 
 const mockedListUserSecrets = vi.mocked(listUserSecrets);
@@ -27,10 +32,26 @@ const mockedCreateUserPasswordSecret = vi.mocked(createUserPasswordSecret);
 const mockedDeleteSecret = vi.mocked(deleteSecret);
 const mockedUpdateSecret = vi.mocked(updateSecret);
 const mockedGetPasswordRequirements = vi.mocked(getPasswordRequirements);
+import { getSystemSettings } from "../../../../apps/shared/lib/systemSettings.js";
+
+const mockedGetSystemSettings = vi.mocked(getSystemSettings);
+const mockedGetUser = vi.mocked(getUser);
+const mockedUpdateUser = vi.mocked(updateUser);
 
 const VALID_PASSWORD = "Abcdef1!";
 
+function account(overrides: Partial<AdminUser> = {}): AdminUser {
+    return { uid: "u1", version: 5, roles: [], scopes: [], dateCreated: "", dateModified: "", ...overrides };
+}
+
 beforeEach(() => {
+    // One password per account is the default, and so what every test not about multiple passwords runs against.
+    mockedGetSystemSettings.mockReset();
+    mockedGetSystemSettings.mockResolvedValue({ allowMultiplePasswords: false });
+    mockedGetUser.mockReset();
+    mockedGetUser.mockResolvedValue(account());
+    mockedUpdateUser.mockReset();
+    mockedUpdateUser.mockImplementation(async (input) => account({ version: input.version + 1, passwordChangeRequired: input.passwordChangeRequired }));
     mockedListUserSecrets.mockReset();
     mockedCreateUserPasswordSecret.mockReset();
     mockedDeleteSecret.mockReset();
@@ -254,7 +275,9 @@ describe("UserSecretsCard", () => {
             await user.type(screen.getByLabelText("Confirm new password"), VALID_PASSWORD);
             await user.click(screen.getByRole("button", { name: "Save password" }));
 
-            expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "old-pw", version: 0, data: VALID_PASSWORD }, "u1");
+            expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "old-pw", version: 0, data: VALID_PASSWORD, hint: "Set by administrator" }, "u1", {
+                allowUserChange: true,
+            });
             expect(mockedCreateUserPasswordSecret).not.toHaveBeenCalled();
             expect(mockedDeleteSecret).not.toHaveBeenCalled();
             await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -280,7 +303,7 @@ describe("UserSecretsCard", () => {
             await user.type(screen.getByLabelText("Confirm new password"), VALID_PASSWORD);
             await user.click(screen.getByRole("button", { name: "Save password" }));
 
-            expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("u1", VALID_PASSWORD, "Set by administrator");
+            expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("u1", VALID_PASSWORD, "Set by administrator", true);
             expect(mockedUpdateSecret).not.toHaveBeenCalled();
             await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
         });
@@ -330,9 +353,211 @@ describe("UserSecretsCard", () => {
             await user.type(screen.getByLabelText("Confirm new password"), VALID_PASSWORD);
             await user.click(screen.getByRole("button", { name: "Save password" }));
 
-            expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("u1", VALID_PASSWORD, "Set by administrator");
+            expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("u1", VALID_PASSWORD, "Set by administrator", true);
             expect(mockedDeleteSecret).not.toHaveBeenCalled();
             await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+        });
+
+        describe("when the server allows multiple passwords", () => {
+            const ADDITIONAL = "Add as an additional password, keeping the user’s current one";
+
+            async function open(user: ReturnType<typeof userEvent.setup>, multiple: boolean, withPassword = true) {
+                mockedGetSystemSettings.mockResolvedValue({ allowMultiplePasswords: multiple });
+                mockedListUserSecrets.mockResolvedValue(
+                    withPassword ? [{ uid: "old-pw", version: 0, type: "password", userUid: "u1", dateCreated: "" }] : [],
+                );
+                render(<UserSecretsCard uid="u1" />);
+                await screen.findByText(withPassword ? "Password" : "No sign-in methods registered.");
+                await user.click(screen.getByRole("button", { name: "Set password" }));
+            }
+
+            async function fill(user: ReturnType<typeof userEvent.setup>) {
+                await user.type(screen.getByLabelText("New password"), VALID_PASSWORD);
+                await user.type(screen.getByLabelText("Confirm new password"), VALID_PASSWORD);
+            }
+
+            it("offers to add the administrator's own password alongside the user's", async () => {
+                const user = userEvent.setup();
+                await open(user, true);
+
+                expect(await screen.findByLabelText(ADDITIONAL)).not.toBeChecked();
+            });
+
+            it("adds one the user can't change, leaving theirs and the account's requirements alone", async () => {
+                const user = userEvent.setup();
+                mockedCreateUserPasswordSecret.mockResolvedValue({ uid: "admin-pw", version: 0, type: "password", userUid: "u1", dateCreated: "" });
+                await open(user, true);
+                await user.click(await screen.findByLabelText(ADDITIONAL));
+                // The user-facing options don't apply to a password only the administrator holds.
+                expect(screen.queryByLabelText("Allow the user to change their password")).not.toBeInTheDocument();
+                expect(screen.queryByLabelText("Require the user to change their password at next sign-in")).not.toBeInTheDocument();
+                await fill(user);
+                await user.click(screen.getByRole("button", { name: "Save password" }));
+
+                await waitFor(() => expect(mockedCreateUserPasswordSecret).toHaveBeenCalled());
+                expect(mockedCreateUserPasswordSecret).toHaveBeenCalledWith("u1", VALID_PASSWORD, "Set by administrator", false);
+                expect(mockedUpdateSecret).not.toHaveBeenCalled();
+                expect(mockedUpdateUser).not.toHaveBeenCalled();
+                await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+            });
+
+            it("still resets the existing password by default", async () => {
+                const user = userEvent.setup();
+                mockedUpdateSecret.mockResolvedValue({ uid: "old-pw", version: 1, type: "password", userUid: "u1", dateCreated: "" });
+                await open(user, true);
+                await screen.findByLabelText(ADDITIONAL);
+                await fill(user);
+                await user.click(screen.getByRole("button", { name: "Save password" }));
+
+                await waitFor(() => expect(mockedUpdateSecret).toHaveBeenCalled());
+                expect(mockedCreateUserPasswordSecret).not.toHaveBeenCalled();
+            });
+
+            it("doesn't offer it when the server allows only one password", async () => {
+                const user = userEvent.setup();
+                await open(user, false);
+
+                await waitFor(() => expect(mockedGetSystemSettings).toHaveBeenCalled());
+                expect(screen.queryByLabelText(ADDITIONAL)).not.toBeInTheDocument();
+            });
+
+            it("doesn't offer it when there's no password to keep", async () => {
+                const user = userEvent.setup();
+                await open(user, true, false);
+                await waitFor(() => expect(mockedGetSystemSettings).toHaveBeenCalled());
+                expect(screen.queryByLabelText(ADDITIONAL)).not.toBeInTheDocument();
+            });
+
+            it("treats an unreadable policy as one password only", async () => {
+                const user = userEvent.setup();
+                mockedGetSystemSettings.mockRejectedValue(new Error("nope"));
+                mockedListUserSecrets.mockResolvedValue([{ uid: "old-pw", version: 0, type: "password", userUid: "u1", dateCreated: "" }]);
+                render(<UserSecretsCard uid="u1" />);
+                await screen.findByText("Password");
+                await user.click(screen.getByRole("button", { name: "Set password" }));
+
+                await waitFor(() => expect(mockedGetSystemSettings).toHaveBeenCalled());
+                expect(screen.queryByLabelText(ADDITIONAL)).not.toBeInTheDocument();
+            });
+        });
+
+        it("can generate the password", async () => {
+            mockedListUserSecrets.mockResolvedValue([
+                { uid: "old-pw", version: 0, type: "password", userUid: "u1", dateCreated: "" },
+            ]);
+            mockedUpdateSecret.mockResolvedValue({ uid: "old-pw", version: 1, type: "password", userUid: "u1", dateCreated: "" });
+            const user = userEvent.setup();
+            render(<UserSecretsCard uid="u1" />);
+            await screen.findByText("Password");
+            await user.click(screen.getByRole("button", { name: "Set password" }));
+
+            await user.click(screen.getByRole("button", { name: "Generate" }));
+            const generated = (screen.getByLabelText("New password")).value;
+            expect(generated).toHaveLength(16);
+            expect(screen.getByLabelText("Confirm new password")).toHaveValue(generated);
+            await user.click(screen.getByRole("button", { name: "Save password" }));
+
+            await waitFor(() => expect(mockedUpdateSecret).toHaveBeenCalled());
+            expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "old-pw", version: 0, data: generated, hint: "Set by administrator" }, "u1", {
+                allowUserChange: true,
+            });
+        });
+
+        describe("password change options", () => {
+            const REQUIRE = "Require the user to change their password at next sign-in";
+            const ALLOW = "Allow the user to change their password";
+
+            async function openAndFill(user: ReturnType<typeof userEvent.setup>, onUserUpdated = vi.fn()) {
+                mockedListUserSecrets.mockResolvedValue([
+                    { uid: "old-pw", version: 0, type: "password", userUid: "u1", dateCreated: "" },
+                ]);
+                mockedUpdateSecret.mockResolvedValue({ uid: "old-pw", version: 1, type: "password", userUid: "u1", dateCreated: "" });
+                render(<UserSecretsCard uid="u1" onUserUpdated={onUserUpdated} />);
+                await screen.findByText("Password");
+                await user.click(screen.getByRole("button", { name: "Set password" }));
+                await user.type(screen.getByLabelText("New password"), VALID_PASSWORD);
+                await user.type(screen.getByLabelText("Confirm new password"), VALID_PASSWORD);
+                return onUserUpdated;
+            }
+
+            it("offers both, on by default, with 'allow' locked on while a change is required", async () => {
+                const user = userEvent.setup();
+                await openAndFill(user);
+
+                expect(screen.getByLabelText(REQUIRE)).toBeChecked();
+                expect(screen.getByLabelText(ALLOW)).toBeChecked();
+                expect(screen.getByLabelText(ALLOW)).toBeDisabled();
+
+                await user.click(screen.getByLabelText(REQUIRE));
+                expect(screen.getByLabelText(ALLOW)).toBeEnabled();
+                expect(screen.getByLabelText(ALLOW)).toBeChecked();
+            });
+
+            it("requires the account to change the password at next sign-in, and reports the updated account", async () => {
+                const user = userEvent.setup();
+                const onUserUpdated = await openAndFill(user);
+                await user.click(screen.getByRole("button", { name: "Save password" }));
+
+                await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+                // The account's current version, not a stale one, guards the update.
+                expect(mockedUpdateUser).toHaveBeenCalledWith({ uid: "u1", version: 5, passwordChangeRequired: true });
+                expect(onUserUpdated).toHaveBeenCalledWith(expect.objectContaining({ version: 6, passwordChangeRequired: true }));
+            });
+
+            it("leaves the account alone when it already matches the choice", async () => {
+                mockedGetUser.mockResolvedValue(account({ passwordChangeRequired: true }));
+                const user = userEvent.setup();
+                const onUserUpdated = await openAndFill(user);
+                await user.click(screen.getByRole("button", { name: "Save password" }));
+
+                await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+                expect(mockedUpdateUser).not.toHaveBeenCalled();
+                expect(onUserUpdated).not.toHaveBeenCalled();
+            });
+
+            it("lifts a requirement left over from an earlier reset when unchecked, but still allows the change", async () => {
+                mockedGetUser.mockResolvedValue(account({ passwordChangeRequired: true }));
+                const user = userEvent.setup();
+                await openAndFill(user);
+                await user.click(screen.getByLabelText(REQUIRE));
+                await user.click(screen.getByRole("button", { name: "Save password" }));
+
+                await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+                expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "old-pw", version: 0, data: VALID_PASSWORD, hint: "Set by administrator" }, "u1", {
+                    allowUserChange: true,
+                });
+                expect(mockedUpdateUser).toHaveBeenCalledWith({ uid: "u1", version: 5, passwordChangeRequired: false });
+            });
+
+            it("can set a password the account holder can neither change nor is asked to", async () => {
+                const user = userEvent.setup();
+                await openAndFill(user);
+                await user.click(screen.getByLabelText(REQUIRE));
+                await user.click(screen.getByLabelText(ALLOW));
+                await user.click(screen.getByRole("button", { name: "Save password" }));
+
+                await waitFor(() => expect(mockedUpdateSecret).toHaveBeenCalled());
+                expect(mockedUpdateSecret).toHaveBeenCalledWith({ uid: "old-pw", version: 0, data: VALID_PASSWORD, hint: "Set by administrator" }, "u1", {
+                    allowUserChange: false,
+                });
+                expect(mockedUpdateUser).not.toHaveBeenCalled();
+            });
+
+            it("doesn't need an onUserUpdated handler", async () => {
+                const user = userEvent.setup();
+                mockedListUserSecrets.mockResolvedValue([
+                    { uid: "old-pw", version: 0, type: "password", userUid: "u1", dateCreated: "" },
+                ]);
+                mockedUpdateSecret.mockResolvedValue({ uid: "old-pw", version: 1, type: "password", userUid: "u1", dateCreated: "" });
+                render(<UserSecretsCard uid="u1" />);
+                await screen.findByText("Password");
+                await user.click(screen.getByRole("button", { name: "Set password" }));
+                await user.type(screen.getByLabelText("New password"), VALID_PASSWORD);
+                await user.type(screen.getByLabelText("Confirm new password"), VALID_PASSWORD);
+                await user.click(screen.getByRole("button", { name: "Save password" }));
+
+                await waitFor(() => expect(mockedUpdateUser).toHaveBeenCalled());
+            });
         });
 
         it("closes via the modal's own close control", async () => {

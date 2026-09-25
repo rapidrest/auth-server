@@ -64,6 +64,7 @@ import {
     verifyRegistration,
 } from "../../../apps/shared/lib/api.js";
 import { isElevationRequested, resolveElevation, subscribeElevation } from "../../../apps/shared/lib/elevation.js";
+import { getKnownUid, rememberKnownUid } from "../../../apps/shared/lib/knownAccounts.js";
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -607,6 +608,54 @@ describe("password", () => {
         });
     });
 
+    describe("signInWithPassword with a stale cached uid", () => {
+        const authResult = { token: "tok", user: { uid: "new-uid", roles: [], scopes: [] } };
+        const refused = () => jsonResponse(401, { code: "api-101", message: "Invalid authorization request." });
+
+        it("retries with the plaintext when the hashed attempt is refused, and re-caches the right uid", async () => {
+            rememberKnownUid("a@example.com", "old-uid");
+            const fetchMock = mockFetch((_url, init) =>
+                CLIENT_HASHED_PASSWORD_PATTERN.test(parseBody(init).password) ? refused() : jsonResponse(200, authResult),
+            );
+
+            const result = await signInWithPassword("a@example.com", "pässwörd");
+
+            expect(result).toEqual(authResult);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(parseBody(fetchMock.mock.calls[0][1]).password).toMatch(CLIENT_HASHED_PASSWORD_PATTERN);
+            expect(parseBody(fetchMock.mock.calls[1][1])).toEqual({ id: "a@example.com", password: "pässwörd" });
+            expect(getKnownUid("a@example.com")).toBe("new-uid");
+        });
+
+        it("forgets the stale uid even when the plaintext retry is refused too (a genuinely wrong password)", async () => {
+            rememberKnownUid("a@example.com", "old-uid");
+            const fetchMock = mockFetch(refused);
+
+            await expect(signInWithPassword("a@example.com", "wrong")).rejects.toMatchObject({ status: 401 });
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(getKnownUid("a@example.com")).toBeNull();
+        });
+
+        it("doesn't retry a refused plaintext attempt (nothing was hashed)", async () => {
+            const fetchMock = mockFetch(refused);
+
+            await expect(signInWithPassword("a@example.com", "wrong")).rejects.toMatchObject({ status: 401 });
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
+        it("doesn't retry, or forget the uid, for a failure that isn't a refusal", async () => {
+            rememberKnownUid("a@example.com", "old-uid");
+            const fetchMock = mockFetch(() => jsonResponse(500, { message: "boom" }));
+
+            await expect(signInWithPassword("a@example.com", "pässwörd")).rejects.toMatchObject({ status: 500 });
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(getKnownUid("a@example.com")).toBe("old-uid");
+        });
+    });
+
     it("signInWithPassword resolves an MfaChallenge instead when the account has a second factor", async () => {
         const challenge = { uid: "u1", methods: [{ id: "s1", type: "totp", data: {} }] };
         mockFetch(() => jsonResponse(200, challenge));
@@ -932,6 +981,24 @@ describe("secrets", () => {
             "/api/secrets/s1",
             expect.objectContaining({ body: JSON.stringify({ uid: "s1", version: 0, hint: "New label" }) }),
         );
+    });
+
+    it("updateSecret asks the server to let the account holder change the password when allowUserChange is set", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "s1", version: 1 }));
+        await updateSecret({ uid: "s1", version: 0, data: "newpass" }, "u1", { allowUserChange: true });
+        expect(fetchMock.mock.calls[0][0]).toBe("/api/secrets/s1?allowUserChange=true");
+    });
+
+    it("updateSecret says so explicitly when the account holder must NOT be able to change it (allowUserChange=false takes access away)", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "s1", version: 1 }));
+        await updateSecret({ uid: "s1", version: 0, data: "newpass" }, "u1", { allowUserChange: false });
+        expect(fetchMock.mock.calls[0][0]).toBe("/api/secrets/s1?allowUserChange=false");
+    });
+
+    it("updateSecret leaves the query string off when allowUserChange isn't given", async () => {
+        const fetchMock = mockFetch(() => jsonResponse(200, { uid: "s1", version: 1 }));
+        await updateSecret({ uid: "s1", version: 0, data: "newpass" }, "u1", {});
+        expect(fetchMock.mock.calls[0][0]).toBe("/api/secrets/s1");
     });
 
     it("updateSecret hashes data client-side when a userUid is given (a password update)", async () => {

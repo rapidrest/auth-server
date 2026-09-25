@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added the `allowMultiplePasswords` policy (`auth.allowMultiplePasswords` in config, off by default) with an admin console switch under Settings, stored in the database like `allowRegistration`: unless it's on, an account can have only one password
+- Added an "Add as an additional password" option to the admin Set password dialog when multiple passwords are allowed, and made unticking "Allow the user to change their password" revoke that right (allowUserChange=false)
+- Added "Allow the user to change their password" and "Require the user to change their password at first sign-in" options to the admin console's New user form, and a mandatory change-password dialog on /account for an account flagged `passwordChangeRequired`, with sign-in sending such an account there ahead of any return_to
+- Added a Generate button (with Show/Hide and Copy) for the password on the New user form and Set password dialog, producing a random password that meets the server's requirements
+- Added a Sign out button to the mandatory change-password dialog
+
+### Fixed
+- Fixed the "Set by administrator" label staying on a password its holder had since changed: it's now cleared with the change, and restored when an administrator resets the password
+- Fixed a `return_to` being discarded when an account that must change its password signs in: it's carried to /account and followed once the password has been changed
+- Fixed the change-password dialog failing with "Invalid object version" after a sign-in or elevation had bumped the password secret's version: it now retries once with the current version
+- Fixed password sign-in failing with "Invalid authorization request" for a correct password when the browser had cached a stale account uid (e.g. after a recreated development database): a refused client-hashed attempt now forgets the cached uid and retries once with the plaintext
+- Fixed a custom logo being forced into a 128x128 square on the sign-in and sign-up pages; only its height is fixed now, so a non-square logo keeps its aspect ratio
+- Fixed a password set by an administrator being impossible for the account holder to change, by creating it with allowUserChange=true when permitted
+
 ## [1.0.0-beta.21] - 2026-09-24
 
 ### Added

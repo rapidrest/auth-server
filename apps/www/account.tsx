@@ -3,15 +3,27 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
-import { Alias, ApiRequestError, ApiUser, getAccount, hasSecondFactor, logout, Profile, SecretSummary } from "../shared/lib/api.js";
+import {
+    Alias,
+    ApiRequestError,
+    ApiUser,
+    getAccount,
+    getCurrentUser,
+    hasSecondFactor,
+    logout,
+    Profile,
+    SecretSummary,
+} from "../shared/lib/api.js";
 import { PublicSiteSettings } from "../shared/lib/siteSettings.js";
 import { useSessionRefresh } from "../shared/lib/useSessionRefresh.js";
+import { isSafeReturnTo, readReturnTo } from "./auth/signin.js";
 import AuthShell from "../shared/components/layout/AuthShell.js";
 import AccountHeader from "../shared/components/account/header/AccountHeader.js";
 import UsernameCard from "../shared/components/account/username/UsernameCard.js";
 import ProfileCard from "../shared/components/account/profile/ProfileCard.js";
 import ContactsCard from "../shared/components/account/contacts/ContactsCard.js";
 import SecretsCard from "../shared/components/account/secrets/SecretsCard.js";
+import ChangePasswordModal from "../shared/components/account/secrets/ChangePasswordModal.js";
 import AppPasswordsCard from "../shared/components/account/app-passwords/AppPasswordsCard.js";
 import SecurityCard from "../shared/components/account/security/SecurityCard.js";
 import RequireMfaSetupModal from "../shared/components/account/security/RequireMfaSetupModal.js";
@@ -23,9 +35,14 @@ interface AccountPageProps {
     siteSettings?: PublicSiteSettings;
     /** Populated automatically by the framework — the configured `app_url` (see `wwwRoute`'s `fetchProps()` override); empty/absent when none is configured. */
     appUrl?: string;
+    /**
+     * The origins a `return_to` URL may point at besides this one. Populated automatically by the framework - see
+     * `wwwRoute`'s `fetchProps()` override. Absent means only same-origin paths are honored.
+     */
+    returnToOrigins?: string[];
 }
 
-export default function AccountPage({ userUid, siteSettings, appUrl }: AccountPageProps) {
+export default function AccountPage({ userUid, siteSettings, appUrl, returnToOrigins = [] }: AccountPageProps) {
     const [user, setUser] = useState<ApiUser | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [profileExists, setProfileExists] = useState(false);
@@ -70,6 +87,24 @@ export default function AccountPage({ userUid, siteSettings, appUrl }: AccountPa
                 setProfileLoaded(true);
             });
     }, [userUid]);
+
+    async function handleForcedPasswordChanged(saved: SecretSummary) {
+        setSecrets((prev) => prev?.map((s) => (s.uid === saved.uid ? saved : s)) ?? prev);
+        // Changing the password cleared `passwordChangeRequired` server-side, which bumped the user's `version` —
+        // re-read it, so a later self-service update (e.g. the requireMFA toggle) isn't rejected as stale.
+        try {
+            setUser(await getCurrentUser());
+        } catch {
+            setUser((prev) => (prev ? { ...prev, passwordChangeRequired: false } : prev));
+        }
+
+        // Sign-in sent them here, instead of where they were going, because the password had to be changed first
+        // (see `completeSignIn()`). Now it has been, so carry on - if the destination is still a safe one.
+        const returnTo = readReturnTo();
+        if (returnTo && isSafeReturnTo(returnTo, returnToOrigins)) {
+            window.location.href = returnTo;
+        }
+    }
 
     async function handleLogout() {
         await logout();
@@ -127,6 +162,16 @@ export default function AccountPage({ userUid, siteSettings, appUrl }: AccountPa
             <RequireMfaSetupModal
                 open={!!user?.requireMFA && !hasSecondFactor(secrets, aliases)}
                 setSecrets={setSecrets}
+            />
+
+            {/* Mandatory, like the prompt above: `onClose` is a no-op, so it only goes away once the password is
+                actually changed (which clears `passwordChangeRequired` server-side, and here via `handleForcedPasswordChanged`). */}
+            <ChangePasswordModal
+                secret={user?.passwordChangeRequired ? (secrets?.find((s) => s.type === "password") ?? null) : null}
+                onClose={() => undefined}
+                onSaved={handleForcedPasswordChanged}
+                onSignOut={handleLogout}
+                notice="An administrator set a temporary password for this account. Choose a new one to continue."
             />
         </AuthShell>
     );

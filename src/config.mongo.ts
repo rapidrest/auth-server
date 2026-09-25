@@ -93,6 +93,12 @@ conf.defaults({
     auth: {
         // Set to `true` to allow new account registration, otherwise set to `false`.
         allowRegistration: true,
+        // Set to `true` to let an account have more than one password, otherwise (the default) an account has
+        // only one. Seeds the runtime `SystemSettings.allowMultiplePasswords` the first time it's read — from then
+        // on, an admin can change it in the console (Settings) or via `PUT /api/settings` without touching this
+        // file. With one password, whoever can change it decides who can sign in by password; with several, an
+        // admin can keep a password of their own on an account (one its holder can't change) alongside the holder's.
+        allowMultiplePasswords: false,
         // The default authentication strategy to use
         strategy: "auth.JWTStrategy",
         allowQueryParam: true,

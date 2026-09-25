@@ -4,13 +4,15 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
 import { ApiRequestError, deleteSecret } from "../../../../lib/api.js";
-import { AdminSecretSummary, listUserSecrets } from "../../../../lib/adminApi.js";
+import { AdminSecretSummary, AdminUser, listUserSecrets } from "../../../../lib/adminApi.js";
 import Alert from "../../../feedback/Alert.js";
 import Button from "../../../buttons/Button.js";
 import SetUserPasswordModal from "./SetUserPasswordModal.js";
 
 export interface UserSecretsCardProps {
     uid: string;
+    /** Called with the account after setting a password changed its `passwordChangeRequired` (and so its `version`). */
+    onUserUpdated?: (user: AdminUser) => void;
 }
 
 const SECRET_TYPE_LABELS: Record<AdminSecretSummary["type"], string> = {
@@ -36,7 +38,7 @@ function formatLastUsed(iso: string | undefined): string {
     return iso ? formatDate(iso) : "Never used";
 }
 
-export default function UserSecretsCard({ uid }: UserSecretsCardProps) {
+export default function UserSecretsCard({ uid, onUserUpdated }: UserSecretsCardProps) {
     const [secrets, setSecrets] = useState<AdminSecretSummary[] | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [setPasswordOpen, setSetPasswordOpen] = useState(false);
@@ -128,6 +130,7 @@ export default function UserSecretsCard({ uid }: UserSecretsCardProps) {
                 uid={uid}
                 secrets={secrets}
                 onSaved={setSecrets}
+                onUserUpdated={onUserUpdated}
             />
         </div>
     );
