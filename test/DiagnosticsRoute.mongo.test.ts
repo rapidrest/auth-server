@@ -1,10 +1,12 @@
 ///////////////////////////////////////////////////////////////////////////////
-// Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
+// Copyright (C) 2026 Jean-Philippe Steinmetz
+// SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 // End-to-end integration coverage for the local `DiagnosticsRoute` against a real (if lightweight) running server:
-// that it's discovered and mounted at `/api/diagnostics`, that it's gated behind the trusted role *and* a fresh
-// elevation, and that the framework really injects the primary database (a real MongoDB here) for it to interrogate.
-// The route's own logic, against stubbed datastores and Kubernetes, is in `BaseDiagnosticsRoute.test.ts`.
+// that it's discovered and mounted at `/api/admin/diagnostics` beside the framework's admin endpoints, that it's gated
+// behind the trusted role *and* a fresh elevation, and that its three endpoints (`/versions`, `/runtime`, `/metrics`)
+// answer for a process that is not running in Kubernetes. The collectors' logic, against a stubbed Kubernetes API, is in
+// `test/diagnostics/`, and the route class's declarations in `test/diagnostics/DiagnosticsRoute.test.ts`.
 // This is `DiagnosticsRoute.sql.test.ts`'s Mongo twin, matching this app's convention of mirroring every feature across
 // both datastores. See `AuditLogRoute.mongo.test.ts` for the bootstrap pattern.
 vi.mock("redis", async () => {
@@ -21,7 +23,7 @@ import { AliasMongo, SecretMongo, UserMongo } from "@rapidrest/auth/mongo";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
 const PASSWORD = "S3cret!Pass123";
-const ENDPOINTS = ["/api/diagnostics/versions", "/api/diagnostics/runtime", "/api/diagnostics/system"];
+const ENDPOINTS = ["/api/admin/diagnostics/versions", "/api/admin/diagnostics/runtime", "/api/admin/diagnostics/metrics"];
 
 const mongod: MongoMemoryServer = new MongoMemoryServer({
     instance: {
@@ -95,39 +97,40 @@ describe("DiagnosticsRoute (mongo)", () => {
     });
 
     describe("as an elevated admin", () => {
-        it("reports the real MongoDB database through the injected connection, and the installed packages", async () => {
+        it("reports the server's versions and installed packages, and that the other containers are unknown outside Kubernetes", async () => {
             const admin = await elevatedAdmin("admin-versions");
 
-            const res = await admin.get("/api/diagnostics/versions");
+            const res = await admin.get("/api/admin/diagnostics/versions");
 
             expect(res.status).toBe(200);
-            expect(res.body.server.name).toBe("auth-server");
-            expect(res.body.server.node.version).toBe(process.version);
-            expect(res.body.server.packages.some((p: any) => p.name === "@rapidrest/service-core")).toBe(true);
-            const mongo = res.body.datastores.find((d: any) => d.kind === "mongodb");
-            expect(mongo).toMatchObject({ role: "database", version: expect.stringMatching(/^\d+\.\d+\.\d+/) });
-            expect(res.body.pods).toBeNull();
+            expect(res.body.server.packageName).toBe("auth-server");
+            expect(res.body.server.nodeVersion).toBe(process.version);
+            expect(res.body.packages.some((p: any) => p.name === "@rapidrest/service-core")).toBe(true);
+            expect(res.body.components.map((c: any) => c.component)).toEqual(["mongodb", "postgresql", "redis"]);
+            expect(res.body.components.every((c: any) => c.status === "unknown")).toBe(true);
+            expect(res.body.kubernetes.available).toBe(false);
+            expect(res.body.kubernetes.reason).toMatch(/not running in Kubernetes/);
         });
 
         it("reports that it isn't running in Kubernetes", async () => {
             const admin = await elevatedAdmin("admin-runtime");
-            const res = await admin.get("/api/diagnostics/runtime");
+            const res = await admin.get("/api/admin/diagnostics/runtime");
             expect(res.status).toBe(200);
-            expect(res.body).toEqual({ inCluster: false });
+            expect(res.body).toMatchObject({ available: false, nodes: [] });
         });
 
-        it("reports live system figures, which change from one poll to the next", async () => {
-            const admin = await elevatedAdmin("admin-system");
+        it("reports live figures, which change from one poll to the next", async () => {
+            const admin = await elevatedAdmin("admin-metrics");
 
-            const first = await admin.get("/api/diagnostics/system");
-            const second = await admin.get("/api/diagnostics/system");
+            const first = await admin.get("/api/admin/diagnostics/metrics");
+            const second = await admin.get("/api/admin/diagnostics/metrics");
 
             expect(first.status).toBe(200);
-            expect(first.body.server.memory.rssBytes).toBeGreaterThan(0);
-            expect(first.body.server.cpu.cores).toBeGreaterThan(0);
-            expect(first.body.server.disks.length).toBeGreaterThan(0);
-            expect(first.body.kubernetes).toBeNull();
-            expect(new Date(second.body.timestamp).getTime()).toBeGreaterThanOrEqual(new Date(first.body.timestamp).getTime());
+            expect(first.body.process.rssBytes).toBeGreaterThan(0);
+            expect(first.body.host.cpuCount).toBeGreaterThan(0);
+            expect(first.body.host.disks.length).toBeGreaterThan(0);
+            expect(first.body.kubernetes).toMatchObject({ available: false, pvcs: [], errors: [] });
+            expect(new Date(second.body.collectedAt).getTime()).toBeGreaterThanOrEqual(new Date(first.body.collectedAt).getTime());
         });
     });
 });

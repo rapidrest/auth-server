@@ -158,6 +158,40 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-26 (later) — Diagnostics replaced by the RapidMX server's page and engine
+
+JP: the RapidMX server's diagnostics engine/tools are better than this repo's, so make this repo's Diagnostics
+"look and function exactly like" the server's (`d:/github/rapidmx/server` for the engine, `../web-client` for the UI).
+**Left uncommitted.** Supersedes the *Server*, *UI* and *What the page can't show* bullets of the entry below (its
+decisions - namespace-scoped RBAC only, and the Logs tab talking to `/api/admin/logs` directly - still stand).
+
+- **Engine:** `src/diagnostics/` is now the server's, copied: `KubeClient` (minimal in-cluster JSON GET, token re-read per
+  request), `kubernetesInfo`, `components` (classifies a container by name first, image basename second, ignoring
+  `exporter`/`metrics` sidecars), `metrics`, `quantity`, `serverInfo`, `DiagnosticsCollector`, `types`. The **only**
+  differences from the server's: `DIAGNOSTICS_COMPONENTS` is `mongodb`/`postgresql`/`redis` (the server's is eight mail
+  components), and `components.ts` also knows `postgresql-repmgr` and `valkey`. Keep the two in step - when the server's
+  engine changes, port it here rather than diverging. The old `DatastoreInfo`/`KubernetesInfo`/`PackageInventory`/
+  `SystemMetrics` are gone, so **datastore probing over the app's own connections was dropped on purpose** (the server has
+  none): versions are image tags from the pods, and a database outside the cluster shows as "Not found".
+- **Route:** `BaseDiagnosticsRoute` is the server's (no injected datastores any more; `@Config("diagnostics:namespace")`
+  and `diagnostics:timeout_ms`, added to `config.{mongo,sql}.ts`); `DiagnosticsRoute` mongo/sql are one-liners at
+  `@ApiRoute("/admin/diagnostics")` - **moved from `/api/diagnostics`**, endpoints `/versions`, `/runtime`, `/metrics` (was
+  `/system`). Still `@RequiresElevation()` + `@RequiresTrustedRole()`. The Helm Role already covered it (same rules as the
+  server's) - untouched.
+- **UI:** `apps/shared/components/admin/diagnostics/` is the web-client's `components/admin/diagnostics` ported: the logic
+  and hook modules (`diagnosticsApi`, `format`, `logClient`, `logLines`, `LogStore`, `metricsHistory`, `use*`, `download`)
+  near-verbatim, the components re-skinned from Tailwind to `rr-diag-*` classes in `public/styles/globals.css` (the old
+  `rr-diag-*`/`rr-meter`/`rr-sparkline` block was replaced). Tabs Versions/Runtime/System/Logs + Refresh + "Download
+  diagnostics report" (no plugins in this app, so no InstalledPlugins). `lib/diagnostics.ts`, `lib/diagnosticsApi.ts` and
+  `lib/logStream.ts` are deleted. The page title is an `<h2>` (the shell's top bar has the `<h1>`). Gotchas: `@types/react`
+  is not installed here, so `tsconfig.client.json` rejects `className` on react-icons and `key` on a custom component with
+  narrow props - icons are styled from the parent's CSS (`svg` selectors) and row components are plain render helpers
+  (`componentRow(...)`) rather than `<ComponentRow key=…>`. `apiFetch` here answers `api-104` with the elevation prompt,
+  so tests that simulate it must mock `lib/elevation`.
+- **Tests:** the server's `test/diagnostics/*` and the web-client's diagnostics tests, ported (backend in `test/diagnostics/`,
+  UI in `test/apps/admin/_components/diagnostics/` and `test/apps/admin/diagnostics.test.tsx`); `DiagnosticsRoute.{mongo,sql}.test.ts`
+  now check the new paths. **Not exercised:** a real cluster (RBAC, metrics-server) - only faked, as before.
+
 ### 2026-09-26 — Admin console Diagnostics page
 
 JP asked for a page for troubleshooting a deployment: versions (Node, deployed package, all packages, datastore pods),

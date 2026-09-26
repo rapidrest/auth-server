@@ -265,6 +265,15 @@ conf.defaults({
     audit_log: {
         retention_days: null,
     },
+    // Admin console > Diagnostics (routes/BaseDiagnosticsRoute.ts). Kubernetes is asked with the pod's own service account, which
+    // the Helm chart grants read access to in its own namespace only (global.diagnostics.rbac.create); outside a cluster, or without
+    // it, those parts report they are unavailable.
+    diagnostics: {
+        // The namespace to inspect. Empty is the pod's own.
+        namespace: "",
+        // How long one Kubernetes API request may take before that part reports an error.
+        timeout_ms: 5000,
+    },
     // The e-mail/SMS sent for every one-time code this server issues (sign-in, verifying a contact, registering).
     // Edited in the admin console (Messages) with no redeploy; see `DEFAULT_MESSAGE_TEMPLATES` for the defaults.
     // A copy, because nconf hands nested objects out by reference: without it, `config.set("templates:…")` (or

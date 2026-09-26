@@ -39,7 +39,7 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 * E-mail, SMS and WhatsApp message templates — edit the wording of every one-time-code message with a live preview, stored in the database (no redeploy) and branded from the site branding by default — plus the SMTP server, the SMS provider (Twilio or Telnyx, one at a time), the WhatsApp credentials and the sender addresses they're sent with, seeded from config on first start and editable from then on
 * Admin impersonation of user accounts, with a persistent banner while impersonating
 * A durable, filterable **Audit Log** of security-relevant account activity — sign-ins (by method), registration, elevation, impersonation, account deletion, "log out everywhere", MFA changes, and app-password lifecycle — plus a **Recent activity** section on each account's own detail page; see [Audit logging](#audit-logging)
-* A **Diagnostics** page for troubleshooting a deployment — versions of the server, its packages, its datastores and the Kubernetes cluster, live CPU / memory / disk and volume-claim usage, and a live, downloadable tail of the service log; see [Diagnostics](#diagnostics)
+* A **Diagnostics** page for troubleshooting a deployment — versions of the server, its packages, its datastore containers and the Kubernetes cluster, live CPU / memory / disk and volume-claim usage, a live, downloadable tail of the service log, and a downloadable report; see [Diagnostics](#diagnostics)
 * Default account provisioning on startup via a configurable background job
 
 ### Data & Deployment
@@ -122,19 +122,32 @@ config table above). This needs a release of `@rapidrest/auth` that includes it.
 
 ### Diagnostics
 
-The admin console's **Diagnostics** page (`/admin/diagnostics`, backed by `/api/diagnostics/*`) has three tabs:
-**Versions** (the deployed package, Node.js, every installed package, the version MongoDB/PostgreSQL and Redis each
-report, every container image in the Kubernetes namespace, and the Kubernetes/k3s version), **Live usage** (this
-server's CPU, memory and disk, the namespace's pods with live use beside their requests and limits, its volume
-claims, and each datastore's own storage figures, refreshed every few seconds), and **Service log** (a live tail of
-`/api/admin/logs` from every replica, filterable, with the captured entries downloadable as text or JSON Lines). It
-needs the `admin` role and a fresh elevation, like the rest of the console.
+The admin console's **Diagnostics** page (`/admin/diagnostics`, backed by `/api/admin/diagnostics/*`) has four tabs, and
+the same page and engine as the RapidMX server's:
+
+* **Versions** — the deployed package, Node.js and V8, the host and how long the server has been up; the other
+  containers of the deployment (MongoDB, PostgreSQL, Redis) with their status, image tag, digest, restarts and node,
+  expandable to their pods; and every installed package, filterable, with the direct dependencies marked.
+* **Runtime** — the Kubernetes version and distribution (k3s, RKE2, EKS, GKE, AKS), the namespace, and the nodes the
+  deployment's pods run on.
+* **System** — live, every 5 seconds while the tab is open (pausable), with the last five minutes as sparklines: the
+  node the server runs on (CPU, memory, load, disks), this server process, the namespace's pods (CPU and memory from
+  `metrics-server`) and its persistent volumes, with usage for the volumes this pod has mounted.
+* **Logs** — a live tail of `/api/admin/logs` from every replica, filterable by level and text, with captures
+  downloadable as text (`.log`) or JSON Lines (`.ndjson`).
+
+**Download diagnostics report** saves the versions, the runtime and the latest usage sample as one JSON file (no logs).
+The page needs the `admin` role and a fresh elevation, like the rest of the console.
 
 The Kubernetes parts use the pod's own ServiceAccount to read the API, read-only and only inside its own
 namespace: the Helm chart adds a `Role` and `RoleBinding` for it (`global.diagnostics.rbac.create`, on by
-default). Live pod CPU and memory come from `metrics-server` (installed with k3s); without it the page still shows
-requests and limits. Outside Kubernetes those parts simply report that they aren't available. The live log needs the
-`logs` datastore (Redis) that `/api/admin/logs` itself needs, which the compose files and the chart both configure.
+default). Nodes and the kubelet's disk statistics are cluster-scoped, so the node figures are the ones the server's
+own container sees, and only the volumes this pod mounts have usage figures; the others show their size. Live pod CPU
+and memory come from `metrics-server` (installed with k3s); without it the page says so. Outside Kubernetes those
+parts simply report that they aren't available. `diagnostics:namespace` (the namespace to inspect; empty is the pod's
+own) and `diagnostics:timeout_ms` (how long one Kubernetes API request may take, 5000 by default) are in
+`config.mongo.ts` and `config.sql.ts`. The live log needs the `logs` datastore (Redis) that `/api/admin/logs` itself
+needs, which the compose files and the chart both configure.
 
 ### WhatsApp one-time codes
 

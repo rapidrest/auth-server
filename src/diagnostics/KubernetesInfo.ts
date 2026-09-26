@@ -2,294 +2,174 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
-import { readFile } from "node:fs/promises";
-import https from "node:https";
+import { classifyContainer, imageDigest, imageTag } from "./components.js";
+import type { KubeClient } from "./KubeClient.js";
+import {
+    DIAGNOSTICS_COMPONENTS,
+    type DiagnosticsComponent,
+    type DiagnosticsComponentName,
+    type DiagnosticsNode,
+    type DiagnosticsPod,
+    type DiagnosticsRuntime,
+    type KubernetesDistribution,
+} from "./types.js";
 
-const SERVICE_ACCOUNT_DIR = "/var/run/secrets/kubernetes.io/serviceaccount";
-const REQUEST_TIMEOUT_MS = 5000;
-
-/** Fetches a Kubernetes API path (e.g. `/version`) and resolves to its parsed JSON body. Rejects on any failure. */
-export type KubeRequester = (path: string) => Promise<any>;
-
-/** Everything the in-cluster requester touches outside its own code, so it can be substituted in tests. */
-export interface InClusterDeps {
-    env: Record<string, string | undefined>;
-    readFile: (path: string) => Promise<Buffer>;
-    request: typeof https.request;
-}
-
-export interface KubeContext {
-    request: KubeRequester;
-    namespace: string;
-    /** The pod this server is running in (the container's hostname). */
-    podName?: string;
-}
-
-/**
- * Builds a requester for the Kubernetes API using the pod's own ServiceAccount, or `undefined` when the server isn't
- * running inside a cluster (no `KUBERNETES_SERVICE_HOST`, or no mounted ServiceAccount).
- */
-export async function createKubeContext(
-    deps: InClusterDeps = { env: process.env, readFile, request: https.request },
-): Promise<KubeContext | undefined> {
-    const { env } = deps;
-    const host = env.KUBERNETES_SERVICE_HOST;
-    if (!host) {
-        return undefined;
-    }
-    let ca: Buffer;
-    let namespace: string;
-    try {
-        ca = await deps.readFile(`${SERVICE_ACCOUNT_DIR}/ca.crt`);
-        namespace = (await deps.readFile(`${SERVICE_ACCOUNT_DIR}/namespace`)).toString("utf-8").trim();
-    } catch {
-        return undefined;
-    }
-    const port = Number(env.KUBERNETES_SERVICE_PORT) || 443;
-
-    const request: KubeRequester = async (path) => {
-        // Re-read per request: the projected token is rotated by the kubelet.
-        const token = (await deps.readFile(`${SERVICE_ACCOUNT_DIR}/token`)).toString("utf-8").trim();
-        return new Promise((resolve, reject) => {
-            const req = deps.request(
-                {
-                    host,
-                    port,
-                    path,
-                    method: "GET",
-                    ca,
-                    timeout: REQUEST_TIMEOUT_MS,
-                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-                },
-                (res) => {
-                    const chunks: Buffer[] = [];
-                    res.on("data", (chunk: Buffer) => chunks.push(chunk));
-                    res.on("end", () => {
-                        const body = Buffer.concat(chunks).toString("utf-8");
-                        if ((res.statusCode ?? 500) >= 400) {
-                            reject(new Error(`${path}: HTTP ${res.statusCode}`));
-                            return;
-                        }
-                        try {
-                            resolve(JSON.parse(body));
-                        } catch {
-                            reject(new Error(`${path}: invalid JSON response`));
-                        }
-                    });
-                },
-            );
-            req.on("timeout", () => req.destroy(new Error(`${path}: timed out`)));
-            req.on("error", reject);
-            req.end();
-        });
+/** The parts of a Kubernetes `Pod` this reads. */
+export interface KubePod {
+    metadata?: { name?: string; labels?: Record<string, string> };
+    spec?: {
+        nodeName?: string;
+        containers?: { name: string; image?: string; volumeMounts?: { name: string; mountPath: string }[] }[];
+        volumes?: { name: string; persistentVolumeClaim?: { claimName: string } }[];
     };
-
-    return { request, namespace, podName: env.HOSTNAME };
-}
-
-/**
- * Parses a Kubernetes resource quantity (`250m`, `128Mi`, `1.5`, `12345678n`, `2G`, …) into a plain number: cores
- * for CPU, bytes for memory/storage. `undefined` for anything unparseable.
- */
-export function parseQuantity(quantity: unknown): number | undefined {
-    if (typeof quantity !== "string") {
-        return undefined;
-    }
-    const match = /^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([a-zA-Z]*)$/.exec(quantity.trim());
-    if (!match) {
-        return undefined;
-    }
-    const multipliers: Record<string, number> = {
-        "": 1,
-        n: 1e-9,
-        u: 1e-6,
-        m: 1e-3,
-        k: 1e3,
-        M: 1e6,
-        G: 1e9,
-        T: 1e12,
-        P: 1e15,
-        E: 1e18,
-        Ki: 1024,
-        Mi: 1024 ** 2,
-        Gi: 1024 ** 3,
-        Ti: 1024 ** 4,
-        Pi: 1024 ** 5,
-        Ei: 1024 ** 6,
-    };
-    const multiplier = multipliers[match[2]];
-    return multiplier === undefined ? undefined : Number(match[1]) * multiplier;
-}
-
-export type ContainerKind = "server" | "mongodb" | "postgresql" | "redis" | "other";
-
-/** Which well-known component an image belongs to, from its repository name. */
-export function classifyImage(image: string, serverImageHint?: string): ContainerKind {
-    const repository = image.replace(/[:@].*$/, "").toLowerCase();
-    if (/(^|[/-])mongo(db)?$/.test(repository)) return "mongodb";
-    if (/(^|[/-])(postgres|postgresql|postgresql-repmgr)$/.test(repository)) return "postgresql";
-    if (/(^|[/-])(redis|valkey)$/.test(repository)) return "redis";
-    if (serverImageHint && repository === serverImageHint.replace(/[:@].*$/, "").toLowerCase()) return "server";
-    return "other";
-}
-
-/** The tag (or digest) part of an image reference; `latest` when it has neither. */
-export function imageTag(image: string): string {
-    const digest = image.indexOf("@");
-    if (digest !== -1) {
-        return image.slice(digest + 1);
-    }
-    const colon = image.lastIndexOf(":");
-    return colon > image.lastIndexOf("/") ? image.slice(colon + 1) : "latest";
-}
-
-export interface ContainerSummary {
-    name: string;
-    image: string;
-    tag: string;
-    kind: ContainerKind;
-    ready: boolean;
-    restarts: number;
-    requests: { cpuCores?: number; memoryBytes?: number };
-    limits: { cpuCores?: number; memoryBytes?: number };
-}
-
-export interface PodSummary {
-    name: string;
-    phase: string;
-    node?: string;
-    startTime?: string;
-    /** `true` for the pod this server is running in. */
-    self: boolean;
-    containers: ContainerSummary[];
-    /** Names of the PersistentVolumeClaims the pod mounts. */
-    claims: string[];
-}
-
-/** Lists the namespace's pods in the shape the diagnostics page shows. */
-export async function listPods(kube: KubeContext): Promise<PodSummary[]> {
-    const list = await kube.request(`/api/v1/namespaces/${encodeURIComponent(kube.namespace)}/pods`);
-    const self = (list.items ?? []).find((pod: any) => pod.metadata?.name === kube.podName);
-    const serverImage: string | undefined = self?.spec?.containers?.[0]?.image;
-    return (list.items ?? []).map((pod: any): PodSummary => {
-        const statuses: any[] = pod.status?.containerStatuses ?? [];
-        return {
-            name: pod.metadata?.name ?? "",
-            phase: pod.status?.phase ?? "Unknown",
-            node: pod.spec?.nodeName,
-            startTime: pod.status?.startTime,
-            self: pod.metadata?.name === kube.podName,
-            claims: (pod.spec?.volumes ?? [])
-                .map((volume: any) => volume.persistentVolumeClaim?.claimName)
-                .filter((claim: unknown): claim is string => typeof claim === "string"),
-            containers: (pod.spec?.containers ?? []).map((container: any): ContainerSummary => {
-                const status = statuses.find((s) => s.name === container.name);
-                return {
-                    name: container.name,
-                    image: container.image ?? "",
-                    tag: imageTag(container.image ?? ""),
-                    kind: classifyImage(container.image ?? "", serverImage),
-                    ready: status?.ready ?? false,
-                    restarts: status?.restartCount ?? 0,
-                    requests: {
-                        cpuCores: parseQuantity(container.resources?.requests?.cpu),
-                        memoryBytes: parseQuantity(container.resources?.requests?.memory),
-                    },
-                    limits: {
-                        cpuCores: parseQuantity(container.resources?.limits?.cpu),
-                        memoryBytes: parseQuantity(container.resources?.limits?.memory),
-                    },
-                };
-            }),
-        };
-    });
-}
-
-export interface KubernetesVersion {
-    gitVersion: string;
-    major?: string;
-    minor?: string;
-    platform?: string;
-    goVersion?: string;
-    buildDate?: string;
-    /** Best-effort guess from the version string's vendor suffix (`+k3s1`, `-eks-…`, `-gke.…`). */
-    distribution?: string;
-}
-
-/** The cluster's version (`/version` is readable by every authenticated client, so this needs no RBAC of its own). */
-export async function getKubernetesVersion(kube: KubeContext): Promise<KubernetesVersion> {
-    const v = await kube.request("/version");
-    const gitVersion: string = v.gitVersion ?? "unknown";
-    let distribution: string | undefined;
-    if (/\+k3s/.test(gitVersion)) distribution = "k3s";
-    else if (/-eks-/.test(gitVersion)) distribution = "EKS";
-    else if (/-gke\./.test(gitVersion)) distribution = "GKE";
-    return {
-        gitVersion,
-        major: v.major,
-        minor: v.minor,
-        platform: v.platform,
-        goVersion: v.goVersion,
-        buildDate: v.buildDate,
-        distribution,
+    status?: {
+        phase?: string;
+        hostIP?: string;
+        startTime?: string;
+        containerStatuses?: {
+            name: string;
+            image?: string;
+            imageID?: string;
+            ready?: boolean;
+            restartCount?: number;
+        }[];
     };
 }
 
-export interface PodUsage {
-    /** pod name → container name → live usage. */
-    pods: Map<string, Map<string, { cpuCores?: number; memoryBytes?: number }>>;
+/** A pod, and the component (if any) its containers make it. */
+export interface ClassifiedPod {
+    pod: DiagnosticsPod;
+    component?: DiagnosticsComponentName;
+    /** The tag of the container that made the pod a component. */
+    version?: string;
+    labels: Record<string, string>;
+    hostIP?: string;
+    /** The PVCs the pod mounts, and where. */
+    claims: { claimName: string; mountPath: string }[];
 }
 
-/**
- * Live per-container CPU/memory from `metrics.k8s.io` (metrics-server, which k3s ships). Resolves to `undefined`
- * when the metrics API isn't available or the ServiceAccount may not read it.
- */
-export async function getPodUsage(kube: KubeContext): Promise<PodUsage | undefined> {
-    let list;
-    try {
-        list = await kube.request(`/apis/metrics.k8s.io/v1beta1/namespaces/${encodeURIComponent(kube.namespace)}/pods`);
-    } catch {
-        return undefined;
-    }
-    const pods: PodUsage["pods"] = new Map();
-    for (const item of list.items ?? []) {
-        const containers = new Map<string, { cpuCores?: number; memoryBytes?: number }>();
-        for (const container of item.containers ?? []) {
-            containers.set(container.name, {
-                cpuCores: parseQuantity(container.usage?.cpu),
-                memoryBytes: parseQuantity(container.usage?.memory),
-            });
-        }
-        pods.set(item.metadata?.name, containers);
-    }
-    return { pods };
-}
-
-export interface PvcSummary {
-    name: string;
-    phase: string;
-    storageClass?: string;
-    volumeName?: string;
-    accessModes: string[];
-    /** The provisioned size; Kubernetes reports nothing about how much of it is used. */
-    capacityBytes?: number;
-    /** The pods that currently mount the claim. */
-    mountedBy: string[];
-}
-
-/** Lists the namespace's PersistentVolumeClaims, each with the pods that mount it. */
-export async function listPvcs(kube: KubeContext, pods: PodSummary[]): Promise<PvcSummary[]> {
-    const list = await kube.request(`/api/v1/namespaces/${encodeURIComponent(kube.namespace)}/persistentvolumeclaims`);
-    return (list.items ?? []).map((pvc: any): PvcSummary => {
-        const name: string = pvc.metadata?.name ?? "";
+export function classifyPod(kubePod: KubePod): ClassifiedPod {
+    const statuses = kubePod.status?.containerStatuses ?? [];
+    const specs = kubePod.spec?.containers ?? [];
+    const names = new Set([...specs.map((c) => c.name), ...statuses.map((s) => s.name)]);
+    const containers = [...names].map((name) => {
+        const status = statuses.find((s) => s.name === name);
+        const image = specs.find((c) => c.name === name)?.image ?? status?.image ?? "";
         return {
             name,
-            phase: pvc.status?.phase ?? "Unknown",
-            storageClass: pvc.spec?.storageClassName,
-            volumeName: pvc.spec?.volumeName,
-            accessModes: pvc.status?.accessModes ?? pvc.spec?.accessModes ?? [],
-            capacityBytes: parseQuantity(pvc.status?.capacity?.storage ?? pvc.spec?.resources?.requests?.storage),
-            mountedBy: pods.filter((pod) => pod.claims.includes(name)).map((pod) => pod.name),
+            image,
+            tag: imageTag(image),
+            digest: imageDigest(status?.imageID),
+            ready: status?.ready === true,
+            restartCount: status?.restartCount ?? 0,
         };
     });
+    const main = containers.find((c) => classifyContainer(c.name, c.image));
+    return {
+        pod: {
+            name: kubePod.metadata?.name ?? "",
+            phase: kubePod.status?.phase ?? "Unknown",
+            ready: containers.length > 0 && containers.every((c) => c.ready),
+            restarts: containers.reduce((sum, c) => sum + c.restartCount, 0),
+            node: kubePod.spec?.nodeName,
+            startedAt: kubePod.status?.startTime,
+            containers,
+        },
+        component: main ? classifyContainer(main.name, main.image) : undefined,
+        version: main?.tag,
+        labels: kubePod.metadata?.labels ?? {},
+        hostIP: kubePod.status?.hostIP,
+        claims: podClaims(kubePod),
+    };
+}
+
+function podClaims(kubePod: KubePod): { claimName: string; mountPath: string }[] {
+    const claimOf = new Map((kubePod.spec?.volumes ?? []).map((v) => [v.name, v.persistentVolumeClaim?.claimName]));
+    const claims: { claimName: string; mountPath: string }[] = [];
+    for (const container of kubePod.spec?.containers ?? []) {
+        for (const mount of container.volumeMounts ?? []) {
+            const claimName = claimOf.get(mount.name);
+            if (claimName) {
+                claims.push({ claimName, mountPath: mount.mountPath });
+            }
+        }
+    }
+    return claims;
+}
+
+/** Every component, in display order, with the pods that run it. `pods` is undefined when Kubernetes could not be asked. */
+export function buildComponents(pods: ClassifiedPod[] | undefined): DiagnosticsComponent[] {
+    return DIAGNOSTICS_COMPONENTS.map((component) => {
+        if (!pods) {
+            return { component, status: "unknown", pods: [] };
+        }
+        const mine = pods.filter((p) => p.component === component);
+        const running = mine.find((p) => p.pod.ready);
+        return {
+            component,
+            status: mine.length === 0 ? "missing" : running ? "running" : "not-ready",
+            version: (running ?? mine[0])?.version,
+            pods: mine.map((p) => p.pod),
+        };
+    });
+}
+
+export function distributionOf(gitVersion: string): KubernetesDistribution {
+    if (/\+k3s/.test(gitVersion)) return "k3s";
+    if (/\+rke2/.test(gitVersion)) return "rke2";
+    if (/-eks-/.test(gitVersion)) return "eks";
+    if (/-gke\./.test(gitVersion)) return "gke";
+    if (/-aks/.test(gitVersion)) return "aks";
+    return "kubernetes";
+}
+
+export function errorMessage(err: unknown): string {
+    return err instanceof Error ? err.message : String(err);
+}
+
+export async function listPods(client: KubeClient, namespace: string): Promise<ClassifiedPod[]> {
+    const list = await client.get<{ items?: KubePod[] }>(`/api/v1/namespaces/${encodeURIComponent(namespace)}/pods`);
+    return (list.items ?? []).map(classifyPod);
+}
+
+/** The nodes that run the namespace's pods, as the pods report them: nodes themselves are cluster-scoped, which the Role can't read. */
+export function nodesOf(pods: ClassifiedPod[]): DiagnosticsNode[] {
+    const nodes = new Map<string, DiagnosticsNode>();
+    for (const { pod, hostIP } of pods) {
+        if (!pod.node) {
+            continue;
+        }
+        const node = nodes.get(pod.node) ?? { name: pod.node, internalIP: hostIP, podCount: 0 };
+        node.podCount++;
+        node.internalIP ??= hostIP;
+        nodes.set(pod.node, node);
+    }
+    return [...nodes.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The Kubernetes version (readable by any authenticated account) and the nodes the namespace's pods run on, or why not. */
+export async function collectRuntime(client: KubeClient | undefined, reason: string | undefined, namespace: string): Promise<DiagnosticsRuntime> {
+    if (!client) {
+        return { available: false, reason, nodes: [] };
+    }
+    try {
+        const version = await client.get<any>("/version");
+        const pods = await listPods(client, namespace).catch(() => undefined);
+        return {
+            available: true,
+            namespace,
+            version: {
+                gitVersion: version.gitVersion ?? "",
+                major: version.major ?? "",
+                minor: version.minor ?? "",
+                platform: version.platform ?? "",
+                goVersion: version.goVersion,
+                buildDate: version.buildDate,
+                distribution: distributionOf(version.gitVersion ?? ""),
+            },
+            nodes: pods ? nodesOf(pods) : [],
+        };
+    } catch (err) {
+        return { available: false, reason: errorMessage(err), namespace, nodes: [] };
+    }
 }

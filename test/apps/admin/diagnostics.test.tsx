@@ -3,83 +3,92 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { makeRuntime, makeSystem, makeVersions } from "./_components/diagnosticsFixtures.js";
-
-vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../../apps/shared/lib/api.js")>();
-    return { ...actual, getCurrentUser: vi.fn() };
-});
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { jsonResponse, mockFetch, mockLocation } from "../testUtils.js";
+import { runtimeFixture, versionsFixture } from "./_components/diagnostics/fixtures.js";
 
 vi.mock("../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../apps/shared/lib/adminApi.js")>();
     return { ...actual, ensureElevated: vi.fn() };
 });
 
-vi.mock("../../../apps/shared/lib/diagnosticsApi.js", () => ({
-    getVersions: vi.fn(),
-    getRuntime: vi.fn(),
-    getSystem: vi.fn(),
-}));
-
-vi.mock("../../../apps/shared/lib/logStream.js", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../../apps/shared/lib/logStream.js")>();
-    return { ...actual, openLogStream: vi.fn(() => ({ close: vi.fn() })) };
-});
-
-import { getCurrentUser } from "../../../apps/shared/lib/api.js";
+import { ApiRequestError } from "../../../apps/shared/lib/api.js";
 import { ensureElevated } from "../../../apps/shared/lib/adminApi.js";
-import { getRuntime, getSystem, getVersions } from "../../../apps/shared/lib/diagnosticsApi.js";
-import { openLogStream } from "../../../apps/shared/lib/logStream.js";
 import DiagnosticsPage from "../../../apps/admin/diagnostics.js";
 
+/** Answers the two endpoints the page opens on; anything else (profile, aliases, site settings) is simply not found. */
+function mockApi() {
+    return mockFetch((url) => {
+        switch (url) {
+            case "/api/admin/diagnostics/versions":
+                return jsonResponse(200, versionsFixture());
+            case "/api/admin/diagnostics/runtime":
+                return jsonResponse(200, runtimeFixture());
+            default:
+                return jsonResponse(404, { message: "Not found." });
+        }
+    });
+}
+
 beforeEach(() => {
-    vi.mocked(getCurrentUser).mockResolvedValue({ uid: "admin-1", version: 1, roles: ["admin"], scopes: [] });
-    vi.mocked(ensureElevated).mockResolvedValue(undefined);
-    vi.mocked(getVersions).mockReset().mockResolvedValue(makeVersions());
-    vi.mocked(getRuntime).mockReset().mockResolvedValue(makeRuntime());
-    vi.mocked(getSystem).mockReset().mockResolvedValue(makeSystem());
-    vi.mocked(openLogStream).mockClear();
-    window.history.pushState({}, "", "/admin/diagnostics");
+    vi.mocked(ensureElevated).mockReset().mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+    vi.unstubAllGlobals();
 });
 
 describe("DiagnosticsPage", () => {
-    it("opens on the versions, with the Kubernetes runtime above them", async () => {
+    it("is the Diagnostics section of the admin console, with the diagnostics page inside", async () => {
+        mockApi();
         render(<DiagnosticsPage userUid="admin-1" />);
-        expect(await screen.findByText("v1.30.2+k3s1")).toBeInTheDocument();
-        expect(await screen.findByText("auth-server 1.0.0-beta.24")).toBeInTheDocument();
+        // The console's own top bar has the page's h1, and the page itself an h2.
+        expect(await screen.findByRole("heading", { level: 1, name: "Diagnostics" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 2, name: "Diagnostics" })).toBeInTheDocument();
+        expect(await screen.findByRole("region", { name: "Server" })).toBeInTheDocument();
         expect(screen.getByRole("tab", { name: "Versions" })).toHaveAttribute("aria-selected", "true");
-        expect(screen.getByRole("tab", { name: "Live usage" })).toHaveAttribute("aria-selected", "false");
-        // Nothing live runs until asked for.
-        expect(getSystem).not.toHaveBeenCalled();
-        expect(openLogStream).not.toHaveBeenCalled();
+        expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Download diagnostics report" })).toBeInTheDocument();
     });
 
-    it("switches to the live usage, and to the service log, starting each only when opened", async () => {
+    it("highlights Diagnostics in the console's navigation", async () => {
+        mockApi();
+        render(<DiagnosticsPage userUid="admin-1" />);
+        await screen.findByRole("region", { name: "Server" });
+        const rail = within(screen.getByRole("navigation", { name: "Admin console" }));
+        const link = rail.getByRole("link", { name: "Diagnostics" });
+        expect(link).toHaveAttribute("href", "/admin/diagnostics");
+        expect(link).toHaveAttribute("aria-current", "page");
+        expect(rail.getByRole("link", { name: "Settings" })).not.toHaveAttribute("aria-current");
+    });
+
+    it("switches between the tabs inside the console", async () => {
         const user = userEvent.setup();
+        mockApi();
         render(<DiagnosticsPage userUid="admin-1" />);
-        await screen.findByText("auth-server 1.0.0-beta.24");
-
-        await user.click(screen.getByRole("tab", { name: "Live usage" }));
-        expect(await screen.findByText("This server")).toBeInTheDocument();
-        expect(screen.getByRole("tab", { name: "Live usage" })).toHaveAttribute("aria-selected", "true");
-        expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "diag-tab-usage");
-        expect(getSystem).toHaveBeenCalledTimes(1);
-        expect(screen.queryByText("auth-server 1.0.0-beta.24")).toBeNull();
-
-        await user.click(screen.getByRole("tab", { name: "Service log" }));
-        expect(await screen.findByRole("log", { name: "Service log" })).toBeInTheDocument();
-        expect(openLogStream).toHaveBeenCalledTimes(1);
-
-        await user.click(screen.getByRole("tab", { name: "Versions" }));
-        expect(await screen.findByText("auth-server 1.0.0-beta.24")).toBeInTheDocument();
+        await screen.findByRole("region", { name: "Server" });
+        await user.click(screen.getByRole("tab", { name: "Runtime" }));
+        expect(await screen.findByRole("region", { name: "Kubernetes" })).toBeInTheDocument();
+        expect(screen.getByText("v1.33.1+k3s1")).toBeInTheDocument();
     });
 
-    it("is framed by the admin console with Diagnostics highlighted", async () => {
+    it("shows the console's own answer when the administrator is not allowed in", async () => {
+        vi.mocked(ensureElevated).mockRejectedValue(new ApiRequestError("No.", 403, "api-103"));
+        const fetchMock = mockApi();
         render(<DiagnosticsPage userUid="admin-1" />);
-        await screen.findByText("auth-server 1.0.0-beta.24");
-        expect(screen.getByRole("link", { name: "Diagnostics" })).toHaveAttribute("aria-current", "page");
+        expect(await screen.findByText("You do not have administrator access.")).toBeInTheDocument();
+        expect(screen.queryByRole("heading", { name: "Diagnostics" })).not.toBeInTheDocument();
+        expect(fetchMock.mock.calls.some((call) => String(call[0]).startsWith("/api/admin/diagnostics"))).toBe(false);
+    });
+
+    it("reads nothing, and sends the visitor to sign in, without a signed-in user", async () => {
+        const location = mockLocation();
+        const fetchMock = mockApi();
+        render(<DiagnosticsPage />);
+        await waitFor(() => expect(location.replace).toHaveBeenCalledWith("/auth/signin"));
+        expect(screen.queryByRole("heading", { name: "Diagnostics" })).not.toBeInTheDocument();
+        expect(fetchMock.mock.calls.some((call) => String(call[0]).startsWith("/api/admin/diagnostics"))).toBe(false);
     });
 });

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Changed
+
+- **The admin console's Diagnostics page is now the RapidMX server's Diagnostics page.** The server's is the better engine, so the auth-server has taken it over rather than keep a second one, and the page looks and works the same. It has four tabs, and a **Refresh** button and a **Download diagnostics report** button (the versions, the Kubernetes runtime and the latest usage sample as one JSON file, no logs):
+  - **Versions**: the deployed package, Node.js and V8, the host and the uptime; the other containers (MongoDB, PostgreSQL, Redis) with their status, image tag, digest, restarts and node, and their pods; and every installed package, filterable, with the direct dependencies marked.
+  - **Runtime**: the Kubernetes version and distribution (k3s, RKE2, EKS, GKE, AKS), the namespace, and the nodes the pods run on.
+  - **System**: sampled every 5 seconds while the tab is open and the page visible (pausable, and stopped if the server refuses the request), the last five minutes drawn as sparklines: the node the server runs on (CPU, memory, load, disks), this server process, the namespace's pods with their CPU and memory from metrics-server, and the persistent volumes.
+  - **Logs**: the live tail of `/api/admin/logs` with a level filter and a search, a capture (up to 50,000 lines, whatever the filters show) and downloads of the buffer or the capture as `.log` or `.ndjson`.
+- **The Diagnostics API moved to `/api/admin/diagnostics/versions`, `/runtime` and `/metrics`** (it was `/api/diagnostics/versions`, `/runtime` and `/system`), beside the `/api/admin/logs` the Logs tab uses, and the answers have a new shape. They still need the `admin` trusted role and a fresh elevation. Only the admin console reads them, so nothing needs doing unless you called the old paths yourself. `config.mongo.ts` and `config.sql.ts` list the new `diagnostics:namespace` and `diagnostics:timeout_ms` settings.
+- **What the page reads has changed with it.** A container's version is now its image tag, and its health is what its pod reports. The figures the server used to read over its own connection to each datastore (MongoDB's storage, PostgreSQL's database size, Redis's memory, and the version each one reported) are gone, and so are the pods' requests and limits; in their place come the node's disks, and the usage of the persistent volumes this pod has mounted, measured from inside the container (Kubernetes can't be asked for the others, so those show their size only). A database that runs outside the cluster shows as not found. The Helm chart's Role is unchanged: it already covered what the new page reads. Not run against a live cluster yet.
+
 ## v1.0.0-beta.25
 
 ### Added
