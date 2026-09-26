@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockLocation } from "./testUtils.js";
 import { FALLBACK_PASSWORD_REQUIREMENTS } from "../../apps/shared/lib/passwordCriteria.js";
+import { getRememberedPasskey, rememberPasskey } from "../../apps/shared/lib/passkeyHint.js";
 
 vi.mock("@simplewebauthn/browser", () => ({
     startRegistration: vi.fn(),
@@ -185,6 +186,8 @@ function secretsCard(): HTMLElement {
 }
 
 beforeEach(() => {
+    // A passkey remembered by one test must not be there for the next.
+    localStorage.clear();
     mockedGetAccount.mockResolvedValue(accountData());
     mockedGetPasswordRequirements.mockResolvedValue(FALLBACK_PASSWORD_REQUIREMENTS);
     mockedVerifyTotpCode.mockReturnValue(true);
@@ -1906,12 +1909,38 @@ describe("AccountPage — passkey", () => {
         await user.click(screen.getByRole("button", { name: "Passkey" }));
     }
 
+    it("remembers the newest passkey created here, replacing whichever was remembered before", async () => {
+        rememberPasskey({ id: "older", transports: ["usb"] });
+        const user = userEvent.setup();
+        await goToPasskey(user);
+        mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({});
+        mockedStartRegistration.mockResolvedValueOnce({ id: "newer", response: {} } as any);
+        mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "newer", type: "passkey" }));
+
+        await user.click(screen.getByRole("button", { name: "Add passkey" }));
+
+        await screen.findByText("Passkey added.");
+        expect(getRememberedPasskey()).toEqual({ id: "newer" });
+    });
+
+    it("doesn't remember a passkey that was never created", async () => {
+        const user = userEvent.setup();
+        await goToPasskey(user);
+        mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({});
+        mockedStartRegistration.mockRejectedValueOnce(Object.assign(new Error("cancelled"), { name: "NotAllowedError" }));
+
+        await user.click(screen.getByRole("button", { name: "Add passkey" }));
+
+        await screen.findByText("Passkey setup was cancelled.");
+        expect(getRememberedPasskey()).toBeNull();
+    });
+
     it("adds a passkey via WebAuthn registration immediately (no label field first)", async () => {
         const user = userEvent.setup();
         await goToPasskey(user);
         expect(screen.queryByLabelText("Label (optional)")).toBeNull();
         const options = { challenge: "c" };
-        const response = { id: "cred1" };
+        const response = { id: "cred1", response: { transports: ["internal"] } };
         mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce(options);
         mockedStartRegistration.mockResolvedValueOnce(response as any);
         mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey" }));
@@ -1921,6 +1950,8 @@ describe("AccountPage — passkey", () => {
         expect(await screen.findByText("Passkey added.")).toBeInTheDocument();
         expect(mockedStartRegistration).toHaveBeenCalledWith({ optionsJSON: options });
         expect(mockedRegisterPasskey).toHaveBeenCalledWith(response);
+        // The passkey just created here is the one the sign-in page should offer on arrival, however it's reached.
+        expect(getRememberedPasskey()).toEqual({ id: "cred1", transports: ["internal"] });
 
         // No label entered — Confirm just closes, with no update call.
         await user.click(screen.getByRole("button", { name: "Confirm" }));
@@ -1933,7 +1964,7 @@ describe("AccountPage — passkey", () => {
         const user = userEvent.setup();
         await goToPasskey(user);
         const options = { challenge: "c" };
-        const response = { id: "cred1" };
+        const response = { id: "cred1", response: { transports: ["internal"] } };
         mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce(options);
         mockedStartRegistration.mockResolvedValueOnce(response as any);
         mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 0 }));
@@ -1952,7 +1983,7 @@ describe("AccountPage — passkey", () => {
         const user = userEvent.setup();
         await goToPasskey(user);
         mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({ challenge: "c" });
-        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1", response: { transports: ["internal"] } } as any);
         mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 0 }));
         await user.click(screen.getByRole("button", { name: "Add passkey" }));
         await screen.findByText("Passkey added.");
@@ -1968,7 +1999,7 @@ describe("AccountPage — passkey", () => {
         const user = userEvent.setup();
         await goToPasskey(user);
         mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({ challenge: "c" });
-        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1", response: { transports: ["internal"] } } as any);
         mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 0 }));
         await user.click(screen.getByRole("button", { name: "Add passkey" }));
         await screen.findByText("Passkey added.");
@@ -1986,7 +2017,7 @@ describe("AccountPage — passkey", () => {
         mockedGetAccount.mockResolvedValueOnce(accountData({ secrets: [secret({ uid: "existing1", type: "password" })] }));
         await goToPasskey(user);
         mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({ challenge: "c" });
-        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1", response: { transports: ["internal"] } } as any);
         mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey", version: 0 }));
         await user.click(screen.getByRole("button", { name: "Add passkey" }));
         await screen.findByText("Passkey added.");
@@ -2598,7 +2629,7 @@ describe("AccountPage — state updaters fire while the initial account fetch is
         await user.click(within(secretsCard()).getByRole("button", { name: "+" }));
         await user.click(screen.getByRole("button", { name: "Passkey" }));
         mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({});
-        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1" } as any);
+        mockedStartRegistration.mockResolvedValueOnce({ id: "cred1", response: {} } as any);
         mockedRegisterPasskey.mockResolvedValueOnce(secret({ uid: "cred1", type: "passkey" }));
 
         await user.click(screen.getByRole("button", { name: "Add passkey" }));

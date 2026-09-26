@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { FormEvent, ReactNode } from "react";
+import { FiKey } from "react-icons/fi";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";
 import Alert from "../../feedback/Alert.js";
@@ -20,6 +21,13 @@ export interface IdentifierStepProps {
     oauthLoadingProvider: string | null;
     /** The ids of the OAuth providers to offer a button for. Absent means every built-in provider. */
     oauthProviders?: string[];
+    /**
+     * Offers "Sign in with a passkey", which asks the browser for one of its own passkeys without saying who's signing in.
+     * Omit where the browser can't do WebAuthn.
+     */
+    onPasskeySignIn?: () => void;
+    /** Whether a passkey sign-in is in flight — shows a spinner on that button and disables it. */
+    passkeyLoading?: boolean;
 }
 
 const OAUTH_PROVIDERS: Array<{ id: string; label: string; icon: ReactNode }> = [
@@ -38,6 +46,8 @@ export default function IdentifierStep({
     onOAuthSignIn,
     oauthLoadingProvider,
     oauthProviders,
+    onPasskeySignIn,
+    passkeyLoading = false,
 }: IdentifierStepProps) {
     const providers = oauthProviders ? OAUTH_PROVIDERS.filter(({ id }) => oauthProviders.includes(id)) : OAUTH_PROVIDERS;
 
@@ -61,6 +71,20 @@ export default function IdentifierStep({
             <Button type="submit" loading={discoverLoading} disabled={discoverLoading}>
                 Continue
             </Button>
+
+            {onPasskeySignIn && (
+                <Button
+                    variant="secondary"
+                    type="button"
+                    style={{ marginTop: "0.6rem" }}
+                    onClick={onPasskeySignIn}
+                    loading={passkeyLoading}
+                    disabled={passkeyLoading}
+                >
+                    <FiKey size={18} aria-hidden="true" />
+                    Sign in with a passkey
+                </Button>
+            )}
 
             {providers.length > 0 && <div className="rr-divider">or</div>}
 

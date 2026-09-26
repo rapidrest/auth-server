@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added automatic passkey sign-in: the sign-in page remembers the passkey most recently created or used on the device and asks the browser for exactly that one on arrival, without asking for a username first, falling back to the ordinary form when none is remembered, after signing out, on return from an OAuth provider, or without WebAuthn
+- Added a "Sign in with a passkey" button that signs in with one of the browser's passkeys without a username
+- Set `auth.passkey.residentKey` to `required` so new passkeys are discoverable
+
+### Fixed
+- Fixed passkey sign-in failing with "Cannot get schema for 'ECDSASigValue' target" by deduplicating the @peculiar/* packages in yarn.lock, which had been resolved at two versions and installed as separate copies
+- Fixed an automatic passkey attempt being turned away when it raced the page's other startup requests for the session holding its challenge, by asking once more with a fresh challenge
+
 ## [1.0.0-beta.23] - 2026-09-25
 
 ### Changed

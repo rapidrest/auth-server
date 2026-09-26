@@ -5,6 +5,7 @@
 import React, { Dispatch, FormEvent, SetStateAction, useState } from "react";
 import { startRegistration, type PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
 import { ApiRequestError, getPasskeyRegistrationOptions, registerPasskey, SecretSummary, updateSecret } from "../../../lib/api.js";
+import { rememberPasskey } from "../../../lib/passkeyHint.js";
 import Alert from "../../feedback/Alert.js";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";
@@ -29,6 +30,8 @@ export default function PasskeySecretForm({ setSecrets, onClose }: PasskeySecret
             const optionsJSON = (await getPasskeyRegistrationOptions()) as PublicKeyCredentialCreationOptionsJSON;
             const response = await startRegistration({ optionsJSON });
             const result = await registerPasskey(response);
+            // The newest passkey on this device is the one the sign-in page should offer on arrival (see `passkeyHint.ts`).
+            rememberPasskey({ id: response.id, transports: response.response.transports });
             setSecrets((prev) => [...(prev ?? []), result]);
             setCreated(result);
         } catch (err) {

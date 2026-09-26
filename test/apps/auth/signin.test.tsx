@@ -6,10 +6,11 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FiMail, FiMessageCircle, FiPhone } from "react-icons/fi";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockLocation } from "../testUtils.js";
 
 vi.mock("@simplewebauthn/browser", () => ({
+    browserSupportsWebAuthn: vi.fn(),
     startAuthentication: vi.fn(),
 }));
 
@@ -34,7 +35,8 @@ vi.mock("../../../apps/shared/lib/api.js", async (importOriginal) => {
     };
 });
 
-import { startAuthentication } from "@simplewebauthn/browser";
+import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
+import { getRememberedPasskey, rememberPasskey } from "../../../apps/shared/lib/passkeyHint.js";
 import {
     ApiRequestError,
     beginMfaChallenge,
@@ -58,6 +60,18 @@ import { otpHintKey } from "../../../apps/shared/components/sign-in/types.js";
 import SignInPage, { isSafeReturnTo, readReturnTo } from "../../../apps/www/auth/signin.js";
 
 const mockedStartAuthentication = vi.mocked(startAuthentication);
+const mockedBrowserSupportsWebAuthn = vi.mocked(browserSupportsWebAuthn);
+
+// Most of this file is about sign-in as it was before passkeys were offered on arrival, and a browser that can't do
+// WebAuthn is exactly that. The passkey-on-arrival tests below turn support on for themselves.
+beforeEach(() => {
+  mockedBrowserSupportsWebAuthn.mockReturnValue(false);
+});
+
+afterEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});
 const mockedBeginMfaChallenge = vi.mocked(beginMfaChallenge);
 const mockedCompleteOAuthSignIn = vi.mocked(completeOAuthSignIn);
 const mockedDiscoverAuthMethods = vi.mocked(discoverAuthMethods);
@@ -1136,6 +1150,8 @@ describe("SignInPage — passkey method", () => {
         expect(mockedGetPasskeyChallenge).toHaveBeenCalledWith("a@example.com");
         expect(mockedStartAuthentication).toHaveBeenCalledWith({ optionsJSON: options });
         expect(mockedVerifyPasskeySignIn).toHaveBeenCalledWith(response);
+        // The passkey that worked is the one to offer next time.
+        expect(getRememberedPasskey()).toEqual({ id: "cred1" });
     });
 
     it("shows a cancellation message on NotAllowedError", async () => {
@@ -1169,6 +1185,241 @@ describe("SignInPage — passkey method", () => {
         await user.click(screen.getByRole("button", { name: "Continue with passkey" }));
 
         expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+    });
+});
+
+describe("SignInPage — passkey without a username", () => {
+    const KNOWN = { id: "known-cred", transports: ["internal"] };
+    const cancelled = () => Object.assign(new Error("cancelled"), { name: "NotAllowedError" });
+
+    // These tests set standing behavior (`mockResolvedValue`, a replaced `window.location`) that `clearMocks` doesn't
+    // undo, and that would otherwise reach into whichever test runs next.
+    afterEach(() => {
+        mockedGetPasskeyChallenge.mockReset();
+        mockedStartAuthentication.mockReset();
+        mockedVerifyPasskeySignIn.mockReset();
+        Object.defineProperty(window, "location", { configurable: true, writable: true, value: { href: "", search: "" } });
+    });
+
+    function supported() {
+        mockedBrowserSupportsWebAuthn.mockReturnValue(true);
+    }
+
+    describe("the 'Sign in with a passkey' button", () => {
+        it("is offered when the browser supports WebAuthn", async () => {
+            supported();
+            render(<SignInPage />);
+
+            expect(await screen.findByRole("button", { name: "Sign in with a passkey" })).toBeInTheDocument();
+        });
+
+        it("isn't offered when it doesn't", () => {
+            render(<SignInPage />);
+
+            expect(screen.queryByRole("button", { name: "Sign in with a passkey" })).not.toBeInTheDocument();
+        });
+
+        it("asks the browser for any of its passkeys, with no account named, and signs in with the one chosen", async () => {
+            supported();
+            const location = mockLocation();
+            const user = userEvent.setup();
+            render(<SignInPage />);
+            const options = { challenge: "c" };
+            mockedGetPasskeyChallenge.mockResolvedValueOnce(options);
+            mockedStartAuthentication.mockResolvedValueOnce({ id: "chosen-cred" } as any);
+            mockedVerifyPasskeySignIn.mockResolvedValueOnce(AUTH_RESULT);
+
+            await user.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
+
+            await waitFor(() => expect(location.href).toBe("/account"));
+            // No account hint, and nothing narrowing which passkey the browser may offer.
+            expect(mockedGetPasskeyChallenge).toHaveBeenCalledWith();
+            expect(mockedStartAuthentication).toHaveBeenCalledWith({ optionsJSON: { challenge: "c" } });
+            expect(getRememberedPasskey()).toEqual({ id: "chosen-cred" });
+        });
+
+        it("says so when it's cancelled, and doesn't touch what's remembered", async () => {
+            supported();
+            rememberPasskey(KNOWN);
+            // Something remembered would prompt on arrival; suppress that so this is only about the click.
+            sessionStorage.setItem("rr_skip_passkey_prompt", "1");
+            const user = userEvent.setup();
+            render(<SignInPage />);
+            mockedGetPasskeyChallenge.mockResolvedValueOnce({});
+            mockedStartAuthentication.mockRejectedValueOnce(cancelled());
+
+            await user.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
+
+            expect(await screen.findByRole("alert")).toHaveTextContent("Passkey sign-in was cancelled.");
+            expect(getRememberedPasskey()).toEqual(KNOWN);
+        });
+
+        it("shows a fixed message when the server turns it away", async () => {
+            supported();
+            const user = userEvent.setup();
+            render(<SignInPage />);
+            mockedGetPasskeyChallenge.mockResolvedValueOnce({});
+            mockedStartAuthentication.mockResolvedValueOnce({ id: "x" } as any);
+            mockedVerifyPasskeySignIn.mockRejectedValueOnce(new ApiRequestError("nope", 401));
+
+            await user.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
+
+            expect(await screen.findByRole("alert")).toHaveTextContent("Passkey sign-in failed.");
+            expect(getRememberedPasskey()).toBeNull();
+        });
+
+        it("shows a generic message for anything else", async () => {
+            supported();
+            const user = userEvent.setup();
+            render(<SignInPage />);
+            mockedGetPasskeyChallenge.mockRejectedValueOnce(new TypeError("boom"));
+
+            await user.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
+
+            expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong. Please try again.");
+        });
+    });
+
+    describe("on arrival", () => {
+        it("asks for exactly the passkey last created or used on this device, and signs in with it", async () => {
+            supported();
+            rememberPasskey(KNOWN);
+            const location = mockLocation();
+            mockedGetPasskeyChallenge.mockResolvedValueOnce({ challenge: "c" });
+            mockedStartAuthentication.mockResolvedValueOnce({ id: "known-cred" } as any);
+            mockedVerifyPasskeySignIn.mockResolvedValueOnce(AUTH_RESULT);
+
+            render(<SignInPage />);
+
+            await waitFor(() => expect(location.href).toBe("/account"));
+            expect(mockedGetPasskeyChallenge).toHaveBeenCalledWith();
+            expect(mockedStartAuthentication).toHaveBeenCalledWith({
+                optionsJSON: {
+                    challenge: "c",
+                    allowCredentials: [{ id: "known-cred", type: "public-key", transports: ["internal"] }],
+                },
+            });
+            // Still the remembered one, with what's known about how to reach it.
+            expect(getRememberedPasskey()).toEqual(KNOWN);
+        });
+
+        it("remembers a different passkey if that's the one that ended up signing in", async () => {
+            supported();
+            rememberPasskey(KNOWN);
+            const location = mockLocation();
+            mockedGetPasskeyChallenge.mockResolvedValueOnce({});
+            mockedStartAuthentication.mockResolvedValueOnce({ id: "other-cred" } as any);
+            mockedVerifyPasskeySignIn.mockResolvedValueOnce(AUTH_RESULT);
+
+            render(<SignInPage />);
+
+            await waitFor(() => expect(location.href).toBe("/account"));
+            expect(getRememberedPasskey()).toEqual({ id: "other-cred" });
+        });
+
+        it("shows the ordinary form, with no error, when it's dismissed — and stops offering it", async () => {
+            supported();
+            rememberPasskey(KNOWN);
+            mockedGetPasskeyChallenge.mockResolvedValueOnce({});
+            mockedStartAuthentication.mockRejectedValueOnce(cancelled());
+
+            render(<SignInPage />);
+
+            await waitFor(() => expect(getRememberedPasskey()).toBeNull());
+            expect(screen.getByLabelText("Account ID, e-mail, or phone")).toBeInTheDocument();
+            expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        });
+
+        it("asks once more, with a fresh challenge, if the server turns the first answer away", async () => {
+            supported();
+            rememberPasskey(KNOWN);
+            const location = mockLocation();
+            mockedGetPasskeyChallenge.mockResolvedValue({});
+            mockedStartAuthentication.mockResolvedValue({ id: "known-cred" } as any);
+            mockedVerifyPasskeySignIn.mockRejectedValueOnce(new ApiRequestError("no ceremony", 401)).mockResolvedValueOnce(AUTH_RESULT);
+
+            render(<SignInPage />);
+
+            await waitFor(() => expect(location.href).toBe("/account"));
+            expect(mockedGetPasskeyChallenge).toHaveBeenCalledTimes(2);
+            expect(mockedStartAuthentication).toHaveBeenCalledTimes(2);
+            expect(getRememberedPasskey()).toEqual(KNOWN);
+        });
+
+        it("gives up quietly, and forgets the passkey, if the server turns it away twice", async () => {
+            supported();
+            rememberPasskey(KNOWN);
+            mockedGetPasskeyChallenge.mockResolvedValue({});
+            mockedStartAuthentication.mockResolvedValue({ id: "known-cred" } as any);
+            mockedVerifyPasskeySignIn.mockRejectedValue(new ApiRequestError("nope", 401));
+
+            render(<SignInPage />);
+
+            await waitFor(() => expect(getRememberedPasskey()).toBeNull());
+            expect(mockedGetPasskeyChallenge).toHaveBeenCalledTimes(2);
+            expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        });
+
+        it("doesn't ask a second time when the person dismissed the prompt", async () => {
+            supported();
+            rememberPasskey(KNOWN);
+            mockedGetPasskeyChallenge.mockResolvedValue({});
+            mockedStartAuthentication.mockRejectedValue(cancelled());
+
+            render(<SignInPage />);
+
+            await waitFor(() => expect(getRememberedPasskey()).toBeNull());
+            expect(mockedStartAuthentication).toHaveBeenCalledTimes(1);
+        });
+
+        it("does nothing when no passkey is known on this device: the ordinary form is all there is", async () => {
+            supported();
+
+            render(<SignInPage />);
+
+            expect(await screen.findByLabelText("Account ID, e-mail, or phone")).toBeInTheDocument();
+            expect(mockedGetPasskeyChallenge).not.toHaveBeenCalled();
+        });
+
+        it("does nothing when the browser can't do WebAuthn, whatever is remembered", () => {
+            rememberPasskey(KNOWN);
+
+            render(<SignInPage />);
+
+            expect(mockedGetPasskeyChallenge).not.toHaveBeenCalled();
+            expect(getRememberedPasskey()).toEqual(KNOWN);
+        });
+
+        it("does nothing right after signing out, but only that once", async () => {
+            supported();
+            rememberPasskey(KNOWN);
+            sessionStorage.setItem("rr_skip_passkey_prompt", "1");
+            mockedGetPasskeyChallenge.mockResolvedValue({});
+            mockedStartAuthentication.mockRejectedValue(cancelled());
+
+            const first = render(<SignInPage />);
+            await screen.findByLabelText("Account ID, e-mail, or phone");
+            expect(mockedGetPasskeyChallenge).not.toHaveBeenCalled();
+            expect(getRememberedPasskey()).toEqual(KNOWN);
+            first.unmount();
+
+            render(<SignInPage />);
+            await waitFor(() => expect(mockedGetPasskeyChallenge).toHaveBeenCalledTimes(1));
+        });
+
+        it("leaves a return from an OAuth provider alone", async () => {
+            supported();
+            rememberPasskey(KNOWN);
+            const location = { href: "", search: "?error=access_denied" };
+            Object.defineProperty(window, "location", { configurable: true, writable: true, value: location });
+            const replaceState = vi.spyOn(window.history, "replaceState").mockImplementation(() => undefined);
+
+            render(<SignInPage />);
+
+            expect(await screen.findByText("Sign-in could not be completed. Please try again.")).toBeInTheDocument();
+            expect(mockedGetPasskeyChallenge).not.toHaveBeenCalled();
+            replaceState.mockRestore();
+        });
     });
 });
 

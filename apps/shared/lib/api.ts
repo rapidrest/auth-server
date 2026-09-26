@@ -17,6 +17,7 @@
 import { requestElevation } from "./elevation.js";
 import { hashPasswordOrFallback } from "./clientPasswordHash.js";
 import { forgetKnownUid, getKnownUid, rememberKnownUid } from "./knownAccounts.js";
+import { suppressNextPasskeyPrompt } from "./passkeyHint.js";
 
 export interface ApiUser {
     uid: string;
@@ -106,6 +107,8 @@ function readCsrfCookie(): string | undefined {
  */
 export async function logout(): Promise<void> {
     clearImpersonatingMarker();
+    // Someone signing out on purpose shouldn't be offered a passkey prompt on the sign-in page they land on.
+    suppressNextPasskeyPrompt();
     try {
         await apiFetch("/auth/logout", { method: "POST" });
     } catch {

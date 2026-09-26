@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+
+- **Passkeys are offered the moment the sign-in page opens, with no username asked for first.** The browser remembers the passkey most recently created or used *on that device*, and on arrival asks for exactly that one, so a returning user just confirms it (fingerprint, face, PIN). With several passkeys on an account, it's whichever was last created or used here; with none remembered, the ordinary sign-in form is shown. The prompt can be dismissed to carry on with the form, an attempt that fails is dropped quietly (and forgotten, so it doesn't repeat), and it isn't shown right after signing out, when returning from an OAuth provider, or in a browser without WebAuthn.
+- **A *Sign in with a passkey* button on the sign-in page**, for anyone with no passkey remembered on this device: the browser lists its passkeys for the site and signs in with the one chosen, again without a username.
+- **New passkeys are now created as discoverable ones** (`auth.passkey.residentKey: "required"` in `config.ts`), which is what lets a passkey be used without naming the account. Passkeys registered before this only work after typing the username, as before; add a new passkey to use it from the button.
+
+### Fixed
+
+- **Signing in with a passkey failed on MongoDB with `Cannot get schema for 'ECDSASigValue' target`.** The lockfile resolved `@peculiar/asn1-schema` and the packages built on it at two versions (2.8.0 and 2.9.4), so Yarn installed separate copies under `@simplewebauthn/server` and `@peculiar/asn1-ecc`. Two copies is two schema registries: `ECDSASigValue` registered itself with one, and the signature parser looked in the other. `yarn.lock` now resolves the `@peculiar/*` packages to a single version (`yarn dedupe "@peculiar/*"`); nothing else in it changed. Run `yarn install` to pick it up.
+- **An automatic passkey attempt could lose a race with the page's other startup requests** for the session the server keeps the passkey challenge in, and be turned away with "No passkey ceremony in progress for this session". It's now asked once more with a fresh challenge before giving up.
+
 ## v1.0.0-beta.23
 
 ## v1.0.0-beta.22

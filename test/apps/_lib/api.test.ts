@@ -65,6 +65,7 @@ import {
 } from "../../../apps/shared/lib/api.js";
 import { isElevationRequested, resolveElevation, subscribeElevation } from "../../../apps/shared/lib/elevation.js";
 import { getKnownUid, rememberKnownUid } from "../../../apps/shared/lib/knownAccounts.js";
+import { consumePasskeyPromptSuppression } from "../../../apps/shared/lib/passkeyHint.js";
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -91,6 +92,20 @@ describe("ApiRequestError", () => {
 });
 
 describe("logout", () => {
+    it("asks the next sign-in page not to pop up a passkey prompt by itself", async () => {
+        mockFetch(() => emptyResponse(200));
+        await logout();
+        expect(consumePasskeyPromptSuppression()).toBe(true);
+    });
+
+    it("does so even when the network call fails", async () => {
+        mockFetch(() => {
+            throw new TypeError("network down");
+        });
+        await logout();
+        expect(consumePasskeyPromptSuppression()).toBe(true);
+    });
+
     it("posts to /auth/logout, which clears the server-set jwt cookie", async () => {
         const fetchMock = mockFetch(() => emptyResponse(200));
         await logout();

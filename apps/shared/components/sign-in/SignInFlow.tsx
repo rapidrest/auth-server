@@ -3,7 +3,11 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { FormEvent, useEffect, useState } from "react";
-import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+import {
+    browserSupportsWebAuthn,
+    startAuthentication,
+    type PublicKeyCredentialRequestOptionsJSON,
+} from "@simplewebauthn/browser";
 import {
     ApiRequestError,
     AuthResult,
@@ -28,6 +32,13 @@ import {
 } from "../../lib/api.js";
 import { guessIdentifierType } from "../../lib/identifier.js";
 import { decodeOAuthState, encodeOAuthState } from "../../lib/oauthState.js";
+import {
+    consumePasskeyPromptSuppression,
+    forgetPasskey,
+    getRememberedPasskey,
+    RememberedPasskey,
+    rememberPasskey,
+} from "../../lib/passkeyHint.js";
 import IdentifierStep from "./steps/IdentifierStep.js";
 import MethodListStep from "./steps/MethodListStep.js";
 import ChallengeStep from "./steps/ChallengeStep.js";
@@ -87,11 +98,36 @@ export default function SignInFlow({ onSuccess, returnTo, oauthProviders }: Sign
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Whether this browser can do WebAuthn. Decided after mount rather than while rendering, so the server-rendered
+    // page (which has no browser to ask) and the first client render agree, and hydration doesn't mismatch.
+    const [passkeySupported, setPasskeySupported] = useState(false);
+
     // Which provider's "Continue with ..." button is mid-flight, if any — drives that one button's
     // own loading spinner and disables the rest, via IdentifierStep's oauthLoadingProvider prop.
     const [oauthLoadingProvider, setOauthLoadingProvider] = useState<string | null>(null);
 
     const methodItems = buildMethodList(discover);
+
+    // On arriving, offers a passkey straight away, without asking who's signing in first — the one most recently
+    // created or used from this device (see `passkeyHint.ts`), if there is one, the browser supports it, and this isn't
+    // a return from an OAuth provider or a visit right after signing out. With none known, the form below is simply
+    // what's shown. The person can dismiss the browser's prompt and carry on with it as usual; an attempt that doesn't
+    // work is dropped silently (and the hint with it, so it isn't repeated) rather than reported, since it was never
+    // asked for. Runs once, on mount, like the effect below.
+    useEffect(() => {
+        const supported = browserSupportsWebAuthn();
+        setPasskeySupported(supported);
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.has("code") || params.has("error") || consumePasskeyPromptSuppression()) {
+            return;
+        }
+        const remembered = getRememberedPasskey();
+        if (supported && remembered) {
+            void signInWithDiscoverablePasskey(remembered);
+        }
+        // Deliberately empty: see the effect below.
+    }, []);
 
     // Picks up where handleOAuthSignIn left off: a provider's "Continue with ..." button does a real
     // top-level navigation away to /api/auth/<provider> and back (see that function's own comment for
@@ -363,6 +399,49 @@ export default function SignInFlow({ onSuccess, returnTo, oauthProviders }: Sign
         }
     }
 
+    /**
+     * Signs in with a passkey, without saying who's signing in: the challenge is asked for with no account hint, and the
+     * server works out whose passkey it was from the one that answers. With `known` (the passkey last created or used
+     * from this device), the browser is asked for that one specifically, so nothing is offered to choose between — this
+     * is the attempt made on arrival, and it fails quietly. Without it the browser lists every passkey it has for this
+     * site, for the person to pick from (the "Sign in with a passkey" button).
+     */
+    async function signInWithDiscoverablePasskey(known?: RememberedPasskey) {
+        setError(null);
+        setLoading(true);
+        for (let attempt = 1; ; attempt++) {
+            try {
+                const optionsJSON = (await getPasskeyChallenge()) as PublicKeyCredentialRequestOptionsJSON;
+                if (known) {
+                    optionsJSON.allowCredentials = [{ id: known.id, type: "public-key", transports: known.transports }];
+                }
+                const response = await startAuthentication({ optionsJSON });
+                const result = await verifyPasskeySignIn(response);
+                // Only once the server has accepted it: a passkey it turns away isn't one to offer next time.
+                rememberPasskey({ id: response.id, transports: response.id === known?.id ? known.transports : undefined });
+                onSuccess(result);
+                return;
+            } catch (err) {
+                // The attempt made on arrival competes with the page's other startup requests for the session the server
+                // keeps the challenge in, and can lose: the challenge is gone by the time the answer is verified, and the
+                // server turns a perfectly good passkey away. Nothing was consumed by that, so it's asked once more, with a
+                // fresh challenge, before giving up. (A person clicking the button is never racing anything.)
+                if (known && err instanceof ApiRequestError && attempt === 1) {
+                    continue;
+                }
+                setLoading(false);
+                if (known) {
+                    forgetPasskey();
+                } else if (err instanceof Error && err.name === "NotAllowedError") {
+                    setError("Passkey sign-in was cancelled.");
+                } else {
+                    setError(err instanceof ApiRequestError ? "Passkey sign-in failed." : "Something went wrong. Please try again.");
+                }
+                return;
+            }
+        }
+    }
+
     async function handlePasskeySignIn() {
         setError(null);
         setLoading(true);
@@ -370,6 +449,7 @@ export default function SignInFlow({ onSuccess, returnTo, oauthProviders }: Sign
             const optionsJSON = (await getPasskeyChallenge(identifier.trim())) as PublicKeyCredentialRequestOptionsJSON;
             const response = await startAuthentication({ optionsJSON });
             const result = await verifyPasskeySignIn(response);
+            rememberPasskey({ id: response.id });
             onSuccess(result);
         } catch (err) {
             if (err instanceof Error && err.name === "NotAllowedError") {
@@ -413,6 +493,8 @@ export default function SignInFlow({ onSuccess, returnTo, oauthProviders }: Sign
                     onOAuthSignIn={handleOAuthSignIn}
                     oauthLoadingProvider={oauthLoadingProvider}
                     oauthProviders={oauthProviders}
+                    onPasskeySignIn={passkeySupported ? () => signInWithDiscoverablePasskey() : undefined}
+                    passkeyLoading={loading}
                 />
             )}
 

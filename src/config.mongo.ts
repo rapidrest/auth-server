@@ -181,6 +181,10 @@ conf.defaults({
             rpName: "rapidrest",
             rpID: "localhost",
             origin: "http://localhost:3000",
+            // Makes a new passkey "discoverable": stored on the authenticator together with which account it belongs to, so the
+            // sign-in page can ask the browser for one without first asking who's signing in. A passkey registered without
+            // this can only be used after typing the account name, which is what sends the browser its credential id.
+            residentKey: "required",
         },
         fido2: {
             rpName: "rapidrest",
