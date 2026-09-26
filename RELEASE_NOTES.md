@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- **A Diagnostics page in the admin console**, for working out what's wrong with a deployment without shelling into it. It has three tabs:
+  - **Versions** lists what's running: the deployed package and Node.js versions; every installed package, with a filter; the version MongoDB or PostgreSQL and Redis each report over the server's own connection to them; the image, readiness and restart count of every container in the Kubernetes namespace (the datastores' pods included); and the Kubernetes version, marked as k3s, EKS or GKE when its version string says so.
+  - **Live usage** polls every 2 to 30 seconds (pausable) and keeps the last minute or so as sparklines: this server's CPU, memory (measured against its container's limit when it has one) and disk, including any volumes mounted in the pod; the namespace's pods with their live CPU and memory beside their requests and limits; the namespace's persistent volume claims; and each datastore's own storage figures (the volume's use for MongoDB, the database's size for PostgreSQL, memory for Redis).
+  - **Service log** tails `/api/admin/logs`, which carries every replica's log, and filters by level and text. Pause freezes the view without stopping the capture; **Download capture** saves everything captured as a text file or as JSON Lines. There is no history to replay: a capture starts when the tab connects, and the browser keeps the latest 5,000 entries.
+
+  Like the rest of the console it needs the `admin` role and a fresh elevation. Outside Kubernetes (Docker Compose, a laptop) the Kubernetes parts say so and everything else still works.
+- **The Helm chart now grants the server read-only access to its own namespace**, which the Diagnostics page needs for pods, volume claims and pod metrics: a `Role` (get and list on `pods`, `persistentvolumeclaims` and `metrics.k8s.io` pods) and a `RoleBinding` to the chart's own ServiceAccount. It is a namespace-scoped Role, not a ClusterRole, and it is never bound to the namespace's shared `default` ServiceAccount, so nothing else in the namespace gains access. **What this leaves out:** live pod CPU and memory need metrics-server, which k3s ships and many other clusters install; without it the page still shows requests and limits and says so. Kubernetes reports only the size a volume claim was provisioned at, not how much of it is used, and node-level usage would need cluster-wide permissions, so neither is shown. **Upgrading:** nothing to do; the new Role is created on `helm upgrade`. To keep the server from reading the Kubernetes API at all, set `global.diagnostics.rbac.create: false` (the page then reports that Kubernetes refused the request), or `global.serviceAccount.create: false` with no name, in which case no binding is made.
+
 ## v1.0.0-beta.24
 
 ### Added

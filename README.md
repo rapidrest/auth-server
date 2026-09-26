@@ -39,6 +39,7 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 * E-mail, SMS and WhatsApp message templates — edit the wording of every one-time-code message with a live preview, stored in the database (no redeploy) and branded from the site branding by default — plus the SMTP server, the SMS provider (Twilio or Telnyx, one at a time), the WhatsApp credentials and the sender addresses they're sent with, seeded from config on first start and editable from then on
 * Admin impersonation of user accounts, with a persistent banner while impersonating
 * A durable, filterable **Audit Log** of security-relevant account activity — sign-ins (by method), registration, elevation, impersonation, account deletion, "log out everywhere", MFA changes, and app-password lifecycle — plus a **Recent activity** section on each account's own detail page; see [Audit logging](#audit-logging)
+* A **Diagnostics** page for troubleshooting a deployment — versions of the server, its packages, its datastores and the Kubernetes cluster, live CPU / memory / disk and volume-claim usage, and a live, downloadable tail of the service log; see [Diagnostics](#diagnostics)
 * Default account provisioning on startup via a configurable background job
 
 ### Data & Deployment
@@ -118,6 +119,22 @@ end to end, and nothing here registers a listener either) and was never meant to
 trail. Writing an entry never blocks the action that triggered it — a failure is logged loudly instead of
 silently dropped — and nothing is ever purged unless `audit_log:retention_days` is explicitly set (see the
 config table above). This needs a release of `@rapidrest/auth` that includes it.
+
+### Diagnostics
+
+The admin console's **Diagnostics** page (`/admin/diagnostics`, backed by `/api/diagnostics/*`) has three tabs:
+**Versions** (the deployed package, Node.js, every installed package, the version MongoDB/PostgreSQL and Redis each
+report, every container image in the Kubernetes namespace, and the Kubernetes/k3s version), **Live usage** (this
+server's CPU, memory and disk, the namespace's pods with live use beside their requests and limits, its volume
+claims, and each datastore's own storage figures, refreshed every few seconds), and **Service log** (a live tail of
+`/api/admin/logs` from every replica, filterable, with the captured entries downloadable as text or JSON Lines). It
+needs the `admin` role and a fresh elevation, like the rest of the console.
+
+The Kubernetes parts use the pod's own ServiceAccount to read the API, read-only and only inside its own
+namespace: the Helm chart adds a `Role` and `RoleBinding` for it (`global.diagnostics.rbac.create`, on by
+default). Live pod CPU and memory come from `metrics-server` (installed with k3s); without it the page still shows
+requests and limits. Outside Kubernetes those parts simply report that they aren't available. The live log needs the
+`logs` datastore (Redis) that `/api/admin/logs` itself needs, which the compose files and the chart both configure.
 
 ### WhatsApp one-time codes
 

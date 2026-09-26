@@ -1,0 +1,37 @@
+{{- if and $.Values.global.diagnostics.rbac.create (include "rrst.serviceAccountName" .) }}
+---
+# Lets the server's admin-console Diagnostics page read what it shows about this deployment from the Kubernetes API:
+# the pods (their images and status), the volume claims, and live pod CPU/memory from metrics-server. Read-only and
+# limited to the release's own namespace - a Role, not a ClusterRole, so it grants nothing about other namespaces or
+# nodes. (The cluster's version, at /version, is readable by every authenticated client and needs no rule here.)
+# Bound to the chart's own ServiceAccount only, never the namespace's "default" one, which every other pod uses too.
+# Turn it off with global.diagnostics.rbac.create=false: the page then reports that Kubernetes denied the request.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "rrst.fullname" . }}-diagnostics
+  labels:
+    {{- include "rrst.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "persistentvolumeclaims"]
+    verbs: ["get", "list"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "rrst.fullname" . }}-diagnostics
+  labels:
+    {{- include "rrst.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "rrst.fullname" . }}-diagnostics
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "rrst.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

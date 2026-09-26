@@ -53,6 +53,11 @@ global:
     existingSecret: ''
     cookies: ''
     sessions: ''
+  # The admin console's Diagnostics page reads the namespace's pods, volume claims and pod metrics from the Kubernetes
+  # API. rbac.create adds the read-only, namespace-scoped Role and RoleBinding that allows it to the ServiceAccount below.
+  diagnostics:
+    rbac:
+      create: true
   serviceAccount:
     create: true
     name: ''

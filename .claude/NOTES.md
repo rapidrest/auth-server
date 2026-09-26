@@ -158,6 +158,35 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-26 — Admin console Diagnostics page
+
+JP asked for a page for troubleshooting a deployment: versions (Node, deployed package, all packages, datastore pods),
+k8s/k3s version, live system/namespace CPU/RAM/disk and PVC usage, and the live service log. **Left uncommitted.**
+
+- **Decisions JP made (asked up front):** namespace-scoped RBAC only (no ClusterRole), and the log tab talks to the
+  existing `/api/admin/logs` WebSocket directly from the browser (no server-side ring buffer / download endpoint).
+- **Server:** `BaseDiagnosticsRoute` (`src/routes/`) + `DiagnosticsRoute` sql/mongo at `/api/diagnostics/{versions,runtime,system}`,
+  class-level `@RequiresElevation()` + `@RequiresTrustedRole()` like `BaseAdminRoute`. Logic lives in `src/diagnostics/`
+  (`PackageInventory`, `KubernetesInfo`, `SystemMetrics`, `DatastoreInfo`), each taking injected deps so it's testable.
+  No new npm dependency: the k8s client is `node:https` with the pod's ServiceAccount token/CA. The primary DB is
+  injected with `@DataSource("mongo"|"sql", false)` on the subclass, Redis with `@Redis("cache", false)`.
+- **Helm:** `templates/0_config/diagnostics-rbac.yaml` = `Role` (get/list `pods`, `persistentvolumeclaims`,
+  `metrics.k8s.io` `pods`) + `RoleBinding` to the chart's own ServiceAccount, gated by `global.diagnostics.rbac.create`
+  and by there being a dedicated SA at all — never binds the namespace `default` SA. The cluster version (`/version`)
+  needs no rule (`system:public-info-viewer`). Test: `test/HelmDiagnosticsRbac.test.ts` (skips without `helm`).
+- **What the page can't show, on purpose:** node-level CPU/RAM/disk (needs a ClusterRole) and used space of a PVC
+  (the k8s API only reports provisioned capacity; kubelet stats need `nodes/proxy`). Storage "used" comes from this pod's
+  own `statfs` of its mounts and from each datastore's own report (Mongo `dbStats` fs sizes, PG `pg_database_size`,
+  Redis `INFO`). Live pod CPU/RAM needs metrics-server (k3s ships it); the page degrades to requests/limits.
+- **UI:** `apps/admin/diagnostics.tsx` (three tabs; only the open tab is mounted, so the poll and the socket only run
+  while looked at), cards in `apps/shared/components/admin/diagnostics/`, `lib/diagnosticsApi.ts`, `lib/diagnostics.ts`
+  (formatters/download), `lib/logStream.ts` (the WebSocket client — first frame is `{type:"SUBSCRIBED"}`, every later
+  frame is a Winston entry; no history, so a capture starts at connect). A new `AdminSection` + nav entry in `AdminShell`.
+- **Verified:** full unit coverage of the new server and client code at 100%, real-server tests for both backends
+  (`DiagnosticsRoute.{sql,mongo}.test.ts`: mounted, gated, primary DB really injected), `tsc` for `.` and
+  `tsconfig.client.json`, eslint, and `vite build`. **Not exercised:** a real cluster (RBAC, metrics-server, the
+  in-cluster requester) and the browser socket against a real Redis — only faked. Worth a look on a k3s deployment.
+
 ### 2026-09-22 (later) — A proper, durable audit log (not EventUtils)
 
 Follow-up to the app-passwords entry below, same day. JP's explicit prompt: "The EventUtils system is for basic

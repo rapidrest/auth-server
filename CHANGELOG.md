@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added a **Diagnostics** page to the admin console for troubleshooting a deployment, in three tabs: Versions, Live usage and Service log
+- Added the Versions tab: the deployed package and Node.js versions, every installed package (filterable), the version each datastore (MongoDB or PostgreSQL, and Redis) reports over its own connection, the image and readiness of every container in the Kubernetes namespace including the datastores' pods, and the Kubernetes (or k3s) version
+- Added the Live usage tab, polled every 2 to 30 seconds and pausable, with recent history: this server's CPU, memory (against its container limit) and disk, the namespace's pods with live CPU and memory alongside their requests and limits, the namespace's persistent volume claims, and each datastore's own storage figures
+- Added the Service log tab, which tails `/api/admin/logs` live from every replica, filters by level and text, and downloads what it has captured as a text file or JSON Lines
+- Added `GET /api/diagnostics/versions`, `/runtime` and `/system` (`DiagnosticsRoute`, mongo and sql), each needing the `admin` trusted role and a fresh elevation
+- Added a namespace-scoped, read-only Role and RoleBinding to the Helm chart (`diagnostics-rbac.yaml`) that lets the server read its namespace's pods, volume claims and pod metrics, bound only to the chart's own ServiceAccount; turn it off with `global.diagnostics.rbac.create: false`
+
 ## [1.0.0-beta.24] - 2026-09-26
 
 ### Changed

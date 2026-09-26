@@ -95,6 +95,7 @@ describe("AdminShell", () => {
         expect(within(sidebar).getByRole("link", { name: "OAuth Clients" })).toHaveAttribute("href", "/admin/oauth-clients");
         expect(within(sidebar).getByRole("link", { name: "Messages" })).toHaveAttribute("href", "/admin/messages");
         expect(within(sidebar).getByRole("link", { name: "Audit Log" })).toHaveAttribute("href", "/admin/audit-log");
+        expect(within(sidebar).getByRole("link", { name: "Diagnostics" })).toHaveAttribute("href", "/admin/diagnostics");
         expect(within(sidebar).getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/admin/settings");
         expect(within(sidebar).getByRole("link", { name: "RapidREST Admin" })).toHaveAttribute("href", "/admin");
         expect(screen.getByRole("heading", { level: 1, name: "Users" })).toBeInTheDocument();
@@ -121,6 +122,7 @@ describe("AdminShell", () => {
         ["oauth-clients", "OAuth Clients"],
         ["messages", "Messages"],
         ["audit-log", "Audit Log"],
+        ["diagnostics", "Diagnostics"],
         ["settings", "Settings"],
     ] as const)("highlights only the %s sidebar entry and titles the top bar with it", async (section, label) => {
         mockFetch((url) => {

@@ -1107,3 +1107,133 @@ a {
         padding: 1.25rem;
     }
 }
+
+/* ---------------------------------------------------------------------- */
+/* Admin diagnostics                                                       */
+/* ---------------------------------------------------------------------- */
+
+.rr-diag-facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.4rem 1.5rem;
+    margin: 0 0 1rem;
+}
+
+.rr-diag-facts dt {
+    color: var(--rr-color-text-muted);
+}
+
+.rr-diag-facts dd {
+    margin: 0;
+}
+
+.rr-diag-mono,
+.rr-diag-log {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+}
+
+.rr-diag-error {
+    color: var(--rr-color-danger);
+}
+
+.rr-diag-scroll {
+    max-height: 24rem;
+    overflow: auto;
+    border: 1px solid var(--rr-color-border);
+    border-radius: var(--rr-radius-sm);
+}
+
+.rr-diag-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding-bottom: 0.6rem;
+    font-size: 0.9rem;
+}
+
+.rr-diag-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1rem;
+}
+
+.rr-diag-stat {
+    border: 1px solid var(--rr-color-border);
+    border-radius: var(--rr-radius-sm);
+    padding: 0.9rem 1rem;
+    background: var(--rr-color-surface-alt);
+}
+
+.rr-diag-stat__label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--rr-color-text-muted);
+}
+
+.rr-diag-stat__value {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.rr-meter {
+    height: 0.5rem;
+    margin-top: 0.5rem;
+    border-radius: var(--rr-radius-pill);
+    background: var(--rr-color-border);
+    overflow: hidden;
+}
+
+.rr-meter__bar {
+    height: 100%;
+    border-radius: var(--rr-radius-pill);
+    background: var(--rr-color-primary);
+}
+
+.rr-meter__bar--warn {
+    background: var(--rr-color-accent);
+}
+
+.rr-meter__bar--danger {
+    background: var(--rr-color-danger);
+}
+
+.rr-sparkline {
+    display: block;
+    width: 100%;
+    height: 1.75rem;
+    margin-top: 0.5rem;
+}
+
+.rr-sparkline polyline {
+    stroke: var(--rr-color-primary);
+}
+
+.rr-diag-log {
+    height: 28rem;
+    overflow: auto;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--rr-color-border);
+    border-radius: var(--rr-radius-sm);
+    background: var(--rr-color-surface-alt);
+}
+
+.rr-diag-log__line {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.rr-diag-log__line--error {
+    color: var(--rr-color-danger);
+}
+
+.rr-diag-log__line--warn {
+    color: var(--rr-color-accent-dark);
+}
+
+.rr-diag-log__line--debug,
+.rr-diag-log__line--silly,
+.rr-diag-log__line--verbose {
+    color: var(--rr-color-text-muted);
+}
