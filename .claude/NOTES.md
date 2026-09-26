@@ -191,6 +191,7 @@ decisions - namespace-scoped RBAC only, and the Logs tab talking to `/api/admin/
 - **Tests:** the server's `test/diagnostics/*` and the web-client's diagnostics tests, ported (backend in `test/diagnostics/`,
   UI in `test/apps/admin/_components/diagnostics/` and `test/apps/admin/diagnostics.test.tsx`); `DiagnosticsRoute.{mongo,sql}.test.ts`
   now check the new paths. **Not exercised:** a real cluster (RBAC, metrics-server) - only faked, as before.
+- **Later the same day - volume usage and balloon/pressure:** ported from the server (same engine files: `directorySize.ts`, `metrics.ts`, `types.ts`; UI `PvcTable`, `PressureTiles`). A local-path PVC is a directory of the node's disk, so `statfs` answered for the whole disk; the directory is now measured (`measuredBy: "directory"`). `host.balloon` (hypervisor memory balloon, from `/proc/vmstat`) and `host.pressure` (PSI) are new. Keep in step with the server; see its NOTES entry of the same date. `PressureTiles` uses `<React.Fragment key>` around a tile because the client tsconfig has no React types.
 
 ### 2026-09-26 — Admin console Diagnostics page
 

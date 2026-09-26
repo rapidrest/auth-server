@@ -7,25 +7,39 @@ import type { DiagnosticsPvcMetrics } from "./diagnosticsApi.js";
 import { formatBytes, NO_VALUE, percentOf } from "./format.js";
 import UsageMeter from "./UsageMeter.js";
 
-const HEADINGS = ["Volume", "Phase", "Storage class", "Size", "Usage"];
+const HEADINGS = ["Volume", "Phase", "Storage class", "Allocated", "Usage"];
 
 function Usage({ pvc }: { pvc: DiagnosticsPvcMetrics }) {
     if (!pvc.mountedByServer) {
         return <span className="rr-diag-muted">Usage not available: not mounted in the server pod.</span>;
     }
-    const percent = percentOf(pvc.usedBytes, pvc.capacityBytes);
+    // On the node's disk the filesystem's figures are the disk's, so only a measured directory says what the volume holds (an
+    // older server sent the disk's figures without saying so).
+    const own = pvc.sharesNodeDisk && pvc.measuredBy !== "directory" ? undefined : pvc.usedBytes;
+    const percent = percentOf(own, pvc.capacityBytes);
     if (percent === undefined) {
-        return <span className="rr-diag-muted">The server has no usage figures for this volume.</span>;
+        return (
+            <span className="rr-diag-muted">
+                {pvc.sharesNodeDisk
+                    ? "Shares the node’s disk, and what the volume holds could not be measured."
+                    : "The server has no usage figures for this volume."}
+            </span>
+        );
     }
     return (
         <div>
             <UsageMeter
                 label={`Usage of volume ${pvc.name}`}
                 percent={percent}
-                detail={`${formatBytes(pvc.usedBytes)} of ${formatBytes(pvc.capacityBytes)}`}
-                flag={!pvc.sharesNodeDisk}
+                detail={`${pvc.usedPartial ? "At least " : ""}${formatBytes(own)} of ${formatBytes(pvc.capacityBytes)} allocated`}
             />
-            {pvc.sharesNodeDisk && <p className="rr-diag-status">Shares the node&rsquo;s disk; the volume&rsquo;s size is not enforced.</p>}
+            {pvc.usedPartial && <p className="rr-diag-status">The volume is too large to measure completely, so this is a lower bound.</p>}
+            {pvc.sharesNodeDisk && (
+                <p className="rr-diag-status">
+                    Measured from the volume&rsquo;s directory. It shares the node&rsquo;s disk, which has {formatBytes(pvc.availableBytes)} free; the
+                    volume&rsquo;s allocation is not enforced.
+                </p>
+            )}
         </div>
     );
 }

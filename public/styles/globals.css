@@ -1667,3 +1667,9 @@ a {
 .rr-diag-log__level--http {
     background: color-mix(in srgb, var(--rr-color-accent) 20%, transparent);
 }
+
+.rr-diag-tile__note {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--rr-color-text-muted);
+}
