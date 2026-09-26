@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added automatic passkey sign-in: the sign-in page remembers the passkey most recently created or used on the device and asks the browser for exactly that one on arrival, without asking for a username first, falling back to the ordinary form when none is remembered, after signing out, on return from an OAuth provider, or without WebAuthn
 - Added a "Sign in with a passkey" button that signs in with one of the browser's passkeys without a username
 - Set `auth.passkey.residentKey` to `required` so new passkeys are discoverable
+- Added client-side navigation to the sign-in, account and admin apps: moving between their pages no longer loads a new document, while every URL is still rendered on the server in full, by turning on `router` in both `ReactRoute`s (`wwwRoute`, `AdminConsoleRoute`) and in the Vite config
+
+### Changed
+- Upgraded @rapidrest/react to 2.0.0, and require `^2.0.0` in package.json
+- Expect a router entry for each app in the Vite hydration entries test
 
 ### Fixed
 - Fixed passkey sign-in failing with "Cannot get schema for 'ECDSASigValue' target" by deduplicating the @peculiar/* packages in yarn.lock, which had been resolved at two versions and installed as separate copies

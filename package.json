@@ -36,7 +36,7 @@
     "@noble/hashes": "^2.4.0",
     "@rapidrest/auth": "^2.0.0-beta.14",
     "@rapidrest/core": "^6.0.0",
-    "@rapidrest/react": "^2.0.0-beta.3",
+    "@rapidrest/react": "^2.0.0",
     "@rapidrest/service-core": "^2.3.0",
     "@simplewebauthn/browser": "^14.0.0",
     "@simplewebauthn/server": "^14.0.1",

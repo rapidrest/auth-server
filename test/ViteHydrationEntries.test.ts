@@ -43,8 +43,15 @@ describe("Vite client build hydration entries", () => {
         return Object.keys(plugin.options({}).input);
     }
 
-    it("has an entry for every page under apps/www and apps/admin, including nested non-index and dynamic-segment pages", async () => {
-        const expected: string[] = [...pageFiles("apps/www"), ...pageFiles("apps/admin")];
+    it("has an entry for every page under apps/www and apps/admin, including nested non-index and dynamic-segment pages, and a router entry for each app", async () => {
+        // The pages' entries stay under the client router: they aren't loaded, but the manifest records name the
+        // stylesheets and chunks each page needs, which is how the server knows what to put in the page's HTML.
+        const expected: string[] = [
+            ...pageFiles("apps/www"),
+            ...pageFiles("apps/admin"),
+            "apps/www/__router",
+            "apps/admin/__router",
+        ];
         const actual: string[] = await entries();
 
         expect(actual.sort()).toEqual(expected.sort());

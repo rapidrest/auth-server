@@ -18,6 +18,7 @@ const { Config, Inject } = ObjectDecorators;
 export class AppRoute extends ReactRoute {
     protected readonly appDir: string = "apps/www";
     protected readonly hydrate: boolean = true;
+    protected readonly router: boolean = true;
 
     @Inject(ObjectFactory)
     protected siteSettingsObjectFactory!: ObjectFactory;
