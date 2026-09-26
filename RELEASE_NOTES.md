@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.24
+
 ### Added
 
 - **Passkeys are offered the moment the sign-in page opens, with no username asked for first.** The browser remembers the passkey most recently created or used *on that device*, and on arrival asks for exactly that one, so a returning user just confirms it (fingerprint, face, PIN). With several passkeys on an account, it's whichever was last created or used here; with none remembered, the ordinary sign-in form is shown. The prompt can be dismissed to carry on with the form, an attempt that fails is dropped quietly (and forgotten, so it doesn't repeat), and it isn't shown right after signing out, when returning from an OAuth provider, or in a browser without WebAuthn.

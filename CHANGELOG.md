@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.24] - 2026-09-26
+
+### Changed
+- Offer the passkey last created or used on this device the moment the sign-in page opens, without asking for a username first: remember its credential id (and transports) in localStorage, ask the browser for exactly that credential on arrival, and fall back to the ordinary form when none is remembered, after signing out, on return from an OAuth provider, without WebAuthn, or when the prompt is dismissed or fails, in which case the hint is dropped so it doesn't repeat Retry an automatic attempt once with a fresh challenge when the server turns it away, since it races the page's other startup requests for the session holding the challenge Add a "Sign in with a passkey" button that asks the browser for any of its passkeys with no username, and remember the passkey after registering one Set auth.passkey.residentKey to required in both configs so new passkeys are discoverable, which signing in without a username needs Fix passkey sign-in failing with "Cannot get schema for 'ECDSASigValue' target" by deduplicating the @peculiar/* packages in yarn.lock, which resolved them at two versions and so installed separate copies of the ASN.1 library whose schema registries didn't match; nothing else in the lockfile changed Add tests for each and document the changes in the changelog and release notes
+- Upgrade @rapidrest/react to 2.0.0, requiring ^2.0.0 in package.json, and use its client-side router in the sign-in, account and admin apps, so moving between their pages swaps the page in place instead of loading a new document while every URL is still rendered on the server in full, by setting router on wwwRoute and AdminConsoleRoute (mongo and sql) and in the Vite config, which builds a router entry for each app alongside the pages' entries Expect those router entries in the Vite hydration entries test and document the change, and what 2.0.0 changes for a deployment, in the changelog and release notes
+
 ### Added
 - Added automatic passkey sign-in: the sign-in page remembers the passkey most recently created or used on the device and asks the browser for exactly that one on arrival, without asking for a username first, falling back to the ordinary form when none is remembered, after signing out, on return from an OAuth provider, or without WebAuthn
 - Added a "Sign in with a passkey" button that signs in with one of the browser's passkeys without a username
@@ -626,7 +632,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.23...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.24...HEAD
+[1.0.0-beta.24]: github/auth-server/compare/v1.0.0-beta.23...v1.0.0-beta.24
 [1.0.0-beta.23]: github/auth-server/compare/v1.0.0-beta.22...v1.0.0-beta.23
 [1.0.0-beta.22]: github/auth-server/compare/v1.0.0-beta.21...v1.0.0-beta.22
 [1.0.0-beta.21]: github/auth-server/compare/v1.0.0-beta.20...v1.0.0-beta.21
