@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.25
+
 ### Added
 
 - **A Diagnostics page in the admin console**, for working out what's wrong with a deployment without shelling into it. It has three tabs:

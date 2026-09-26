@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.25] - 2026-09-26
+
+### Added
+- Added a Diagnostics page to the admin console for troubleshooting a deployment, with a Versions tab, a Live usage tab and a Service log tab
+- Added the Versions tab: the deployed package and Node.js versions, every installed package, the version each datastore reports over its own connection, the image and readiness of every container in the Kubernetes namespace, and the Kubernetes or k3s version
+- Added the Live usage tab, polled and pausable with recent history: this server's CPU, memory and disk, the namespace's pods with live CPU and memory beside their requests and limits, its persistent volume claims, and each datastore's own storage figures
+- Added the Service log tab, which tails /api/admin/logs live, filters by level and text, and downloads what it has captured as text or JSON Lines
+- Added GET /api/diagnostics/versions, /runtime and /system (DiagnosticsRoute, mongo and sql), each needing the admin trusted role and a fresh elevation, reading the Kubernetes API with the pod's own ServiceAccount and no new dependency
+- Added a namespace-scoped, read-only Role and RoleBinding to the Helm chart, bound only to the chart's own ServiceAccount, and global.diagnostics.rbac.create to turn it off
+- Added tests for each, including real-server tests for both backends and a Helm render test, and document the change in the changelog, release notes, README and NOTES
+
 ### Added
 - Added a **Diagnostics** page to the admin console for troubleshooting a deployment, in three tabs: Versions, Live usage and Service log
 - Added the Versions tab: the deployed package and Node.js versions, every installed package (filterable), the version each datastore (MongoDB or PostgreSQL, and Redis) reports over its own connection, the image and readiness of every container in the Kubernetes namespace including the datastores' pods, and the Kubernetes (or k3s) version
@@ -640,7 +651,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.24...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.25...HEAD
+[1.0.0-beta.25]: github/auth-server/compare/v1.0.0-beta.24...v1.0.0-beta.25
 [1.0.0-beta.24]: github/auth-server/compare/v1.0.0-beta.23...v1.0.0-beta.24
 [1.0.0-beta.23]: github/auth-server/compare/v1.0.0-beta.22...v1.0.0-beta.23
 [1.0.0-beta.22]: github/auth-server/compare/v1.0.0-beta.21...v1.0.0-beta.22
