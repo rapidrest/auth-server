@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.26
+
 ### Changed
 
 - **The admin console's Diagnostics page is now the RapidMX server's Diagnostics page.** The server's is the better engine, so the auth-server has taken it over rather than keep a second one, and the page looks and works the same. It has four tabs, and a **Refresh** button and a **Download diagnostics report** button (the versions, the Kubernetes runtime and the latest usage sample as one JSON file, no logs):

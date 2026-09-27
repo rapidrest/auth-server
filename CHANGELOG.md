@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.26] - 2026-09-27
+
+### Added
+- Added diagnostics:namespace and diagnostics:timeout_ms to config.mongo.ts and config.sql.ts
+- Added a bounded, cached directory walk (measureDirectory and DirectorySizer) counted like du, and report how each volume's usage was found (measuredBy) and whether it is a lower bound (usedPartial)
+- Added the memory balloon the hypervisor holds and the memory, I/O and CPU pressure to the node's card, from /proc/vmstat and /proc/pressure, with Low, Elevated and High in words
+
+### Changed
+- Replace the admin console's Diagnostics engine and page with the RapidMX server's, so they look and work the same
+- Port the server's DiagnosticsCollector, KubeClient, kubernetesInfo, metrics, serverInfo, quantity and components to src/diagnostics, listing mongodb, postgresql and redis as the other containers
+- Move the Diagnostics API to GET /api/admin/diagnostics/versions, /runtime and /metrics (was /api/diagnostics/versions, /runtime and /system) with the server's response shapes, still needing the admin trusted role and a fresh elevation
+- Replace the Diagnostics page's cards with the server's Versions, Runtime, System and Logs tabs, Refresh and Download diagnostics report, ported from the web-client's components and styled with rr-diag classes in globals.css
+- Style icons from their parent's CSS and render rows through helpers, since the client type check has no @types/react to accept className on an icon or key on a component
+- Document the new page, the moved API and what it no longer shows in the release notes, the README and NOTES
+- Measure the directory of a volume that shares the node's disk in the Diagnostics System tab, so its usage is what the volume holds and not what the whole disk holds
+- Show a volume's usage against its allocation, with the room the node's disk has left, and rename the Size column to Allocated
+- Test each, and document the change in the release notes and NOTES
+- Updated service-core dep
+
+### Removed
+- Removed the datastore probes, the pod requests and limits and the nested package scan, which the server's engine does not have
+
 ## [1.0.0-beta.25] - 2026-09-26
 
 ### Added
@@ -651,7 +673,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.25...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.26...HEAD
+[1.0.0-beta.26]: github/auth-server/compare/v1.0.0-beta.25...v1.0.0-beta.26
 [1.0.0-beta.25]: github/auth-server/compare/v1.0.0-beta.24...v1.0.0-beta.25
 [1.0.0-beta.24]: github/auth-server/compare/v1.0.0-beta.23...v1.0.0-beta.24
 [1.0.0-beta.23]: github/auth-server/compare/v1.0.0-beta.22...v1.0.0-beta.23
