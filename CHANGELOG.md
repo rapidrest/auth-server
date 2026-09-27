@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.28] - 2026-09-27
+
+### Changed
+- Cover the platform-dependent branches of the Diagnostics engine on every platform, so the coverage gate holds on Linux as well as Windows
+- Export allocatedBytes and test it with and without a block count, since Windows reports none and a Linux file system reports none for an empty file
+- Test readProcFile with a file that is there and one that is not, since every file it reads from /proc exists on Linux and none does on Windows
+- Cover the case of no readable cgroup memory file in readCgroupMemoryUsage on every host, so the coverage gate holds inside a container as well as outside one
+- Test it with files that cannot be read and files that hold no number, since a container has real cgroup files and returns a value where a laptop returns nothing
+
 ## [1.0.0-beta.27] - 2026-09-27
 
 ### Changed
@@ -678,7 +687,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.27...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.28...HEAD
+[1.0.0-beta.28]: github/auth-server/compare/v1.0.0-beta.27...v1.0.0-beta.28
 [1.0.0-beta.27]: github/auth-server/compare/v1.0.0-beta.26...v1.0.0-beta.27
 [1.0.0-beta.26]: github/auth-server/compare/v1.0.0-beta.25...v1.0.0-beta.26
 [1.0.0-beta.25]: github/auth-server/compare/v1.0.0-beta.24...v1.0.0-beta.25
