@@ -69,6 +69,18 @@ describe("readCgroupMemoryUsage", () => {
         expect(readCgroupMemoryUsage()).toBe(910);
     });
 
+    // A host inside a container has cgroup files and one outside does not, so what the real files give is not the same everywhere:
+    // the case of no file giving a number is made here rather than left to whatever the tests run on.
+    it("says nothing when neither cgroup file can be read or holds a number", () => {
+        fsFake.read = () => {
+            throw new Error("ENOENT");
+        };
+        expect(readCgroupMemoryUsage()).toBeUndefined();
+
+        fsFake.read = () => "max";
+        expect(readCgroupMemoryUsage()).toBeUndefined();
+    });
+
     it("returns a number or nothing, never throws", () => {
         const value = readCgroupMemoryUsage();
         expect(value === undefined || Number.isFinite(value)).toBe(true);
