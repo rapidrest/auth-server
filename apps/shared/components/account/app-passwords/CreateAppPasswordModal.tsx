@@ -43,6 +43,19 @@ function CreateAppPasswordForm({ onClose, setSecrets }: CreateAppPasswordFormPro
     // The freshly created secret, plaintext and all, while it's still on screen. Never handed to `setSecrets`
     // until "Done" — see the module doc comment on `CreateAppPasswordModal` below for why.
     const [created, setCreated] = useState<CreatedAppPasswordSecret | null>(null);
+    const [copied, setCopied] = useState(false);
+
+    async function handleCopy() {
+        if (!created) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(created.password);
+            setCopied(true);
+        } catch {
+            // Clipboard unavailable or denied — the password is still on screen, so it can be copied by hand.
+        }
+    }
 
     async function handleCreate(e: FormEvent) {
         e.preventDefault();
@@ -77,9 +90,14 @@ function CreateAppPasswordForm({ onClose, setSecrets }: CreateAppPasswordFormPro
                 <code style={{ display: "block", fontSize: "0.85rem", wordBreak: "break-all", marginBottom: "1rem" }}>
                     {created.password}
                 </code>
-                <Button type="button" style={{ width: "auto" }} onClick={handleDone}>
-                    Done
-                </Button>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={handleCopy}>
+                        {copied ? "Copied" : "Copy"}
+                    </Button>
+                    <Button type="button" style={{ width: "auto" }} onClick={handleDone}>
+                        Done
+                    </Button>
+                </div>
             </div>
         );
     }
@@ -114,7 +132,8 @@ function CreateAppPasswordForm({ onClose, setSecrets }: CreateAppPasswordFormPro
  * server-generated random value, good the instant it's created — so the flow is simpler than
  * `TotpSecretForm`/`PasskeySecretForm`: collect the (required) label first, since the server won't create one
  * without it, then show the generated plaintext exactly once, the same "shown once, plain selectable `<code>`
- * text, no copy-to-clipboard" contract `RevealSecretModal` documents.
+ * text" contract `RevealSecretModal` documents — plus a Copy button, since unlike a client secret this value
+ * is meant to be pasted straight into another app's password field, the same `PasswordFieldset` precedent.
  *
  * The new secret's summary is only added to the shared `secrets` list once "Done" is clicked — not the moment
  * it's created — so the plaintext step has already been shown before the row appears in `AppPasswordsCard`'s

@@ -2397,6 +2397,45 @@ describe("AccountPage — app passwords", () => {
             expect(screen.queryByText("generated-pw-1")).not.toBeInTheDocument();
         });
 
+        it("copies the generated password to the clipboard, and says so until Done is clicked", async () => {
+            const user = userEvent.setup();
+            const writeText = vi.fn().mockResolvedValue(undefined);
+            Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+            await openCreateModal(user);
+            await user.type(screen.getByLabelText("Label"), "Mail client");
+            mockedCreateAppPasswordSecret.mockResolvedValueOnce({
+                ...secret({ uid: "ap1", type: "app-password", hint: "Mail client" }),
+                password: "generated-pw-1",
+            });
+            await user.click(screen.getByRole("button", { name: "Create" }));
+            await screen.findByText("generated-pw-1");
+
+            await user.click(screen.getByRole("button", { name: "Copy" }));
+
+            expect(writeText).toHaveBeenCalledWith("generated-pw-1");
+            expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+        });
+
+        it("doesn't fail to create when the clipboard is unavailable", async () => {
+            const user = userEvent.setup();
+            Object.defineProperty(navigator, "clipboard", {
+                configurable: true,
+                value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+            });
+            await openCreateModal(user);
+            await user.type(screen.getByLabelText("Label"), "Mail client");
+            mockedCreateAppPasswordSecret.mockResolvedValueOnce({
+                ...secret({ uid: "ap1", type: "app-password", hint: "Mail client" }),
+                password: "generated-pw-1",
+            });
+            await user.click(screen.getByRole("button", { name: "Create" }));
+            await screen.findByText("generated-pw-1");
+
+            await user.click(screen.getByRole("button", { name: "Copy" }));
+
+            expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+        });
+
         it("shows a different mocked plaintext correctly on a second, separate create", async () => {
             const user = userEvent.setup();
             await openCreateModal(user);
