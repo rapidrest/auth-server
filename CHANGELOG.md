@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.27] - 2026-09-27
+
+### Changed
+- Rename src/diagnostics/KubernetesInfo.ts to kubernetesInfo.ts, which its imports already use, so the build works on case-sensitive file systems
+
 ## [1.0.0-beta.26] - 2026-09-27
 
 ### Added
@@ -673,7 +678,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.26...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.27...HEAD
+[1.0.0-beta.27]: github/auth-server/compare/v1.0.0-beta.26...v1.0.0-beta.27
 [1.0.0-beta.26]: github/auth-server/compare/v1.0.0-beta.25...v1.0.0-beta.26
 [1.0.0-beta.25]: github/auth-server/compare/v1.0.0-beta.24...v1.0.0-beta.25
 [1.0.0-beta.24]: github/auth-server/compare/v1.0.0-beta.23...v1.0.0-beta.24
