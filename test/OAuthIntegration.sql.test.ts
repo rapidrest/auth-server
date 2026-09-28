@@ -5,10 +5,12 @@
 // actually works together against a real (if lightweight) running server — not just the isolated
 // unit tests and jsdom-mocked frontend tests elsewhere in this repo. Exercises: client registration
 // (Phase A/B), `/authorize` + consent (Phase B/D), the `authorization_code` token exchange with PKCE,
-// JWKS signature verification, `/userinfo`, and refresh token rotation. This is the same manual
-// checklist the original cross-repo OAuth wiring plan called for, automated against this app's own
-// sqlite/fake-redis test harness (see `Server.sql.test.ts`/`DefaultAccounts.sql.test.ts` for the same
-// bootstrap pattern).
+// JWKS signature verification, `/userinfo`, the `/oauth/session-token` exchange (proving this app's own
+// `/api/...` routes reject a raw OAuth access token but accept the session JWT traded for it — the whole
+// reason that endpoint exists, see `@rapidrest/auth`'s `BaseOAuthSessionTokenRoute` doc comment), and
+// refresh token rotation. This is the same manual checklist the original cross-repo OAuth wiring plan
+// called for, automated against this app's own sqlite/fake-redis test harness (see
+// `Server.sql.test.ts`/`DefaultAccounts.sql.test.ts` for the same bootstrap pattern).
 //
 // Revocation/introspection and the `client_credentials` grant are deliberately not re-exercised here
 // — they're already covered end-to-end by `@rapidrest/auth`'s own test suite (100% coverage there);
@@ -119,7 +121,8 @@ describe("OAuth 2.0 / OIDC end-to-end integration (sql)", () => {
 
     it(
         "registers a client, drives it through consent, exchanges the code with PKCE, verifies the " +
-            "access token against JWKS, reads /userinfo, and rotates the refresh token",
+            "access token against JWKS, reads /userinfo, exchanges it for a session JWT via " +
+                "/oauth/session-token, and rotates the refresh token",
         async () => {
             const issuer = config.get("auth:oauth_server:issuer");
             const redirectUri = "https://client.example.com/callback";
@@ -269,6 +272,30 @@ describe("OAuth 2.0 / OIDC end-to-end integration (sql)", () => {
             expect(userInfoRes.body.family_name).toBe("Lovelace");
             expect(userInfoRes.body.email).toBe("ada@example.com");
             expect(userInfoRes.body.email_verified).toBe(true);
+
+            // --- this app's own /api/... routes reject the raw OAuth access token: they only ever accept
+            // the plain session `jwt` (see JWTStrategy), never an OAuth bearer token directly ---
+            const apiWithOAuthTokenRes = await request(server)
+                .get(`/api/profiles/${resourceOwnerUid}`)
+                .set("Authorization", `Bearer ${accessToken}`);
+            expect(apiWithOAuthTokenRes.status).toBe(401);
+
+            // --- /oauth/session-token trades that same OAuth access token for an ordinary session JWT ---
+            const sessionTokenRes = await request(server)
+                .post("/oauth/session-token")
+                .set("Authorization", `Bearer ${accessToken}`);
+            expect(sessionTokenRes.status).toBe(200);
+            expect(Object.keys(sessionTokenRes.body)).toEqual(["token"]);
+            const sessionToken: string = sessionTokenRes.body.token;
+            expect(sessionToken).toBeTruthy();
+
+            // --- and that session JWT — unlike the raw OAuth access token — is accepted by this app's own
+            // ordinary /api/... routes, which is the entire point of this exchange ---
+            const apiWithSessionTokenRes = await request(server)
+                .get(`/api/profiles/${resourceOwnerUid}`)
+                .set("Authorization", `Bearer ${sessionToken}`);
+            expect(apiWithSessionTokenRes.status).toBe(200);
+            expect(apiWithSessionTokenRes.body.uid).toBe(resourceOwnerUid);
 
             // --- refresh token rotation: redeeming it issues a new pair and retires the old one ---
             const refreshRes = await request(server).post("/oauth/token").send({

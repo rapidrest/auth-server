@@ -21,6 +21,7 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 * OIDC discovery, JWKS and UserInfo endpoints
 * Hosted consent/authorize screen for third-party clients
 * Admin-managed client registration — confidential and public clients, with secret regeneration/reveal
+* `POST /oauth/session-token` — lets a native app that already holds an OAuth access token (from this server's own `/oauth/authorize` + `/oauth/token`, e.g. a `PUBLIC` client with no secret) trade it for an ordinary session JWT, so it can also call this app's own session-authenticated `/api/...` routes without those routes needing to understand OAuth bearer tokens
 
 ### Account Management
 

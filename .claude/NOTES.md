@@ -158,6 +158,96 @@ Keep entries terse — this is a reference, not a transcript.
 
 ## Session Log
 
+### 2026-09-27 — `POST /oauth/session-token` for the new `tauri-client` native app; sibling `auth` repo also touched
+
+Building the native Tauri client (`tauri-client`), which signs in entirely through this server's existing,
+unmodified OAuth 2.0 + PKCE flow (`/oauth/authorize`, `/oauth/token`, already supporting a `PUBLIC` client with no
+secret and an unrestricted `redirect_uri` scheme, so `rapidmx://auth/callback` needs only a client registration,
+no code change). The one real gap: the resulting OAuth access token isn't accepted by any ordinary
+`JWTStrategy`-protected `/api/...` route — in this repo or in the separate `restapi`/`rapidmx/server` repos that
+share this server's session-cookie/JWT scheme across the RapidMX product — because those only ever read the plain
+session `jwt` (cookie or `Authorization` header), never an OAuth bearer token. **Left uncommitted in both repos
+pending review.**
+
+- **Rejected approach, and why:** widening every `/api/...` route to accept `oauth_bearer` directly. Two solid
+  reasons: (1) an OAuth access token carries no `roles` claim at all (`OAuthBearerStrategy.authenticate()` always
+  mints `{ roles: [] }`) — accepting it straight onto a role-gated route would silently authorize as "no roles"
+  rather than fail loudly, a real security footgun; (2) that acceptance logic lives in `service-core`, shared far
+  beyond RapidMX, and `restapi` doesn't depend on `@rapidrest/auth` today — wiring `oauth_bearer` in there would
+  mean a new cross-repo dependency and blast radius neither package should take on for this one native-app need.
+- **Chosen approach:** a single small exchange endpoint. It authenticates via the *existing* `OAuthBearerStrategy`
+  (already built, already protects `/oauth/userinfo`), looks up the real `User` behind the token's `sub`, and
+  calls the *existing* `TokenUtils.createAuthResult()` — the exact chokepoint every other sign-in route already
+  goes through — to mint a normal session `jwt` carrying that user's real `roles`. The native app then uses that
+  session token exactly like a browser's cookie: on this server's own `/api/...` routes now, and on the sibling
+  `restapi`/`rapidmx/server` routes once those are pointed at it (no code change needed there either — it's the
+  same session JWT shape they already accept).
+- **Response is `{ token }` only — `refresh` is deliberately dropped.** The native app's long-term credential
+  remains its own OAuth refresh token (`/oauth/token`'s unmodified `refresh_token` grant); this session-refresh
+  token would just be a second, redundant long-lived credential to secure and revoke.
+- **No cookies, ever, from this route.** `createAuthResult()` only appends `Set-Cookie` when it's handed a `res` —
+  this route simply never passes one, structurally guaranteeing no cookie is written regardless of this
+  deployment's `auth:cookie:enabled` setting. Confirmed by a dedicated test that flips cookies on server-wide and
+  still asserts nothing was appended.
+- **No `authMethod` either, so no spurious `SIGNED_IN` audit entry.** This exchange verifies no new credential of
+  its own — the real credential check already happened during the interactive `/oauth/authorize` sign-in that
+  originally minted the access token — so it's treated exactly like `BaseAuthRefreshRoute`'s routine refresh
+  (also authMethod-less), not a fresh sign-in.
+- **Had to touch the sibling `auth` repo, not just `auth-server` — investigated first, not assumed.** `TokenUtils`
+  (needed for `createAuthResult()`) and `OAuthBearerStrategy`/`OAuthTokenUtils`/`AccessTokenDenylist` (needed to
+  authenticate via `oauth_bearer`) are **not exported** from `@rapidrest/auth`'s public entry points — confirmed
+  by grepping `src/auth/index.ts` and `src/index.ts` there, and by `OAuthBearerStrategy`'s own doc comment calling
+  this out explicitly. They're usable only from *within* a route class that lives inside the `auth` package
+  itself (see `BaseOAuthUserInfoRoute`, `BaseAuthRefreshRoute`, `BaseAuthBasicRoute` — every one of them is built
+  this way). So the actual logic is `@rapidrest/auth`'s new `BaseOAuthSessionTokenRoute` (+ `Mongo`/`SQL`
+  subclasses, registering under the `auth`-repo package's existing `models`/`routes` mongo/sql-split convention),
+  and `auth-server` only adds the usual one-line `@Route("/oauth/session-token") class OAuthSessionTokenRoute
+  extends BaseOAuthSessionTokenRouteMongo {}` wiring (mongo + sql) — exactly the existing `/oauth/userinfo`
+  pattern. This matches the repo's own standing decision above ("this is a monorepo checkout... fix it at the
+  source in the sibling repo").
+- **Tested the sibling-repo change for real, without bumping any version.** Per the existing `yarn patch` standing
+  decision (originally written for `@rapidrest/react`/`@rapidrest/service-core`): built `auth`'s `dist/` locally,
+  then `yarn patch @rapidrest/auth`, copied the new compiled files + updated the `dist` barrel `index.js`/`.d.ts`
+  files into the patch's extracted copy, `yarn patch-commit -s <path>`, `yarn install`. This is what actually let
+  `auth-server`'s own `OAuthIntegration.{mongo,sql}.test.ts` exercise the real new route end-to-end ahead of a
+  real `@rapidrest/auth` publish — same stopgap-until-republished caveat as the existing `.yarn/patches/` entry.
+- **Tests:** `auth` repo — unit tests (`test/routes/BaseOAuthSessionTokenRoute.test.ts`, mirroring
+  `BaseAuthRefreshRoute.test.ts`/`BaseOAuthUserInfoRoute.test.ts`'s conventions: real `TokenUtils`/`JWTUtils`
+  round-trips, not just mocks) plus full HTTP-level tests per datastore
+  (`test/routes/{mongo,sql}/OAuthSessionTokenRoute.test.ts`, mirroring `OAuthUserInfoAndDiscoveryRoute.test.ts`'s
+  real authorize→token→exchange harness) covering valid/expired/revoked/malformed/missing-header/deleted-account
+  cases. `auth-server` repo — extended the existing `OAuthIntegration.{mongo,sql}.test.ts` end-to-end flow to
+  exchange the access token and then prove the actual point: the raw OAuth access token 401s against
+  `/api/profiles/:uid`, and the exchanged session token 200s against that same route.
+  **Regression note for future sessions:** don't assert a minted session JWT preserves `"admin"` (or whatever
+  `trusted_roles` defaults to) — `TokenUtils.resolveTokenUser()` strips every configured trusted role from any
+  non-elevated token regardless of caller (see the earlier standing decision "A plain sign-in token never carries
+  trusted roles"); use an untrusted role like `"editor"` to test that real roles (not the OAuth token's always-
+  empty ones) survive. Also: this repo's/​`auth`'s test `config` is an nconf `Provider` (`config.get("auth")`),
+  not a plain object (`config.auth` silently reads `undefined` and blows up deep inside `JWTUtils`).
+- **Client registration is purely runtime/admin-driven here — no seed script or fixture exists for `Client`
+  records** (confirmed: no `*seed*` file in this repo references OAuth clients; `BaseOAuthClientRoute`/
+  `/api/oauth/clients` and the admin console's `apps/admin/oauth-clients/` pages are the only way one gets
+  created). So there is nothing to commit for this — **once this is deployed, JP needs to manually register the
+  `tauri-client` client**, either via the admin console (Admin → OAuth Clients → New) or `POST
+  /api/oauth/clients` (requires a signed-in, elevated admin — see `OAuthIntegration.*.test.ts` for the exact
+  elevate-then-create call shape) with:
+  - `clientName`: `"tauri-client"` (or any label)
+  - `clientType`: `"public"` (no secret is generated or needed)
+  - `redirectUris`: `["rapidmx://auth/callback"]`
+  - `grantTypes`: `["authorization_code", "refresh_token"]`
+  - `responseTypes`: `["code"]`
+  - `scope`: `"openid profile email offline_access"` (**`offline_access` is required** — `BaseOAuthTokenRoute`
+    only issues a refresh token for an OIDC (`openid`-scoped) flow when `offline_access` was also granted; leave
+    it out and the client silently never gets a refresh token)
+  - `tokenEndpointAuthMethod`: `"none"` (no client secret)
+  - `requirePkce`: `true`
+  - `firstParty`: `true` (skips the consent screen for RapidMX's own client — set `false` instead if it should
+    prompt for consent)
+  The client then calls `/oauth/authorize` + `/oauth/token` completely unmodified, and trades the resulting
+  access token for a session JWT at the new `POST /oauth/session-token` (`Authorization: Bearer <access_token>`,
+  no body) whenever it needs to call an ordinary `/api/...` route.
+
 ### 2026-09-26 (later) — Diagnostics replaced by the RapidMX server's page and engine
 
 JP: the RapidMX server's diagnostics engine/tools are better than this repo's, so make this repo's Diagnostics
