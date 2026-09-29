@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",
-    "@rapidrest/auth": "patch:@rapidrest/auth@npm%3A2.0.0-beta.14#~/.yarn/patches/@rapidrest-auth-npm-2.0.0-beta.14-3a414fe50f.patch",
+    "@rapidrest/auth": "^2.0.0-beta.15",
     "@rapidrest/core": "^6.0.0",
     "@rapidrest/react": "^2.0.0",
     "@rapidrest/service-core": "^2.4.0",

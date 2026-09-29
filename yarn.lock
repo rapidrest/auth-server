@@ -1521,9 +1521,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rapidrest/auth@npm:2.0.0-beta.14":
-  version: 2.0.0-beta.14
-  resolution: "@rapidrest/auth@npm:2.0.0-beta.14"
+"@rapidrest/auth@npm:^2.0.0-beta.15":
+  version: 2.0.0-beta.15
+  resolution: "@rapidrest/auth@npm:2.0.0-beta.15"
   dependencies:
     cross-spawn: "npm:^7.0.5"
     parse-duration: "npm:^2.1.8"
@@ -1545,35 +1545,7 @@ __metadata:
       optional: true
   bin:
     rapidreact: dist/cli/cli.js
-  checksum: 10c0/29ac56d1a6a0019da2ae148644dbc85a984e8dac6a507338acaca509510c3b151683a08836b1bcf82b437d26bdc7af40e47238b9f0cdd0714913b073cde48bcd
-  languageName: node
-  linkType: hard
-
-"@rapidrest/auth@patch:@rapidrest/auth@npm%3A2.0.0-beta.14#~/.yarn/patches/@rapidrest-auth-npm-2.0.0-beta.14-3a414fe50f.patch":
-  version: 2.0.0-beta.14
-  resolution: "@rapidrest/auth@patch:@rapidrest/auth@npm%3A2.0.0-beta.14#~/.yarn/patches/@rapidrest-auth-npm-2.0.0-beta.14-3a414fe50f.patch::version=2.0.0-beta.14&hash=79e191"
-  dependencies:
-    cross-spawn: "npm:^7.0.5"
-    parse-duration: "npm:^2.1.8"
-  peerDependencies:
-    "@rapidrest/core": 5.x
-    "@rapidrest/service-core": 2.x
-    "@simplewebauthn/server": ">=13.0.0"
-    argon2: 0.x
-    jwks-rsa: 4.x
-    otplib: ">=13.0.0"
-  peerDependenciesMeta:
-    "@simplewebauthn/server":
-      optional: true
-    argon2:
-      optional: true
-    jwks-rsa:
-      optional: true
-    otplib:
-      optional: true
-  bin:
-    rapidreact: dist/cli/cli.js
-  checksum: 10c0/54a816056688c20e54c2e736fc53db521b9f05c0845450d2f81a5c6dbc3a679b55a4426167632f8dad69cccb6faac7e35edf65fe63937a50f65981a4930617e0
+  checksum: 10c0/4451f948f94e75520b42d5ab52691cd39ede282b6231374b684fa08514812104e9348aa2b534d85fa0c4916fdf95232d62788d84c655ab4b1cc75aeaeef2c590
   languageName: node
   linkType: hard
 
@@ -3022,7 +2994,7 @@ __metadata:
   resolution: "auth-server@workspace:."
   dependencies:
     "@noble/hashes": "npm:^2.4.0"
-    "@rapidrest/auth": "patch:@rapidrest/auth@npm%3A2.0.0-beta.14#~/.yarn/patches/@rapidrest-auth-npm-2.0.0-beta.14-3a414fe50f.patch"
+    "@rapidrest/auth": "npm:^2.0.0-beta.15"
     "@rapidrest/cli": "npm:^2.1.0"
     "@rapidrest/core": "npm:^6.0.0"
     "@rapidrest/react": "npm:^2.0.0"

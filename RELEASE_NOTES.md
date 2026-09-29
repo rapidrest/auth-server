@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+
+* **Mounts `POST /oauth/session-token`** (`@rapidrest/auth`'s new `BaseOAuthSessionTokenRoute`) - exchanges a presented OAuth access token for an ordinary session JWT, for a native app (e.g. `tauri-client`) that signs in via `/oauth/authorize` + `/oauth/token` but also needs to call this server's own `/api/...` routes.
+
+### Changed
+
+* **The app password reveal-once screen now has a Copy button**, matching the Copy/Copied clipboard affordance `PasswordFieldset` already offers for generated account passwords, instead of requiring manual selection.
+
 ## v1.0.0-beta.28
 
 ## v1.0.0-beta.27
