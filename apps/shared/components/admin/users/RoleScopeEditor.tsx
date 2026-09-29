@@ -4,6 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 import React, { KeyboardEvent, useState } from "react";
 import FormField from "../../forms/FormField.js";
+import { FiPlus } from "react-icons/fi";
 import Button from "../../buttons/Button.js";
 
 export interface RoleScopeEditorProps {
@@ -71,8 +72,15 @@ export default function RoleScopeEditor({ id, label, values, onChange, placehold
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={handleKeyDown}
                     />
-                    <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={addValue}>
-                        Add
+                    <Button
+                        variant="secondary"
+                        type="button"
+                        style={{ width: "auto" }}
+                        aria-label="Add"
+                        title="Add"
+                        onClick={addValue}
+                    >
+                        <FiPlus aria-hidden="true" />
                     </Button>
                 </div>
             )}

@@ -47,7 +47,7 @@ describe("AvatarMenu", () => {
         expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     });
 
-    it("opens a panel with the avatar, the full display name, a theme toggle and a Sign Out item, focusing the first item", async () => {
+    it("opens a panel with the avatar, the full display name, a theme switcher and a Sign Out item, focusing the first item", async () => {
         const user = userEvent.setup();
         const longName = "Augusta Ada King, Countess of Lovelace and Honorary Member of Many Societies";
         render(<AvatarMenu displayName={longName} onSignOut={vi.fn()} />);
@@ -61,10 +61,15 @@ describe("AvatarMenu", () => {
         // Truncated visually via CSS; the full name stays available as a tooltip.
         expect(within(menu).getByText(longName)).toHaveAttribute("title", longName);
         expect(within(menu).getByRole("menuitem", { name: "Sign Out" })).toBeInTheDocument();
-        expect(within(menu).getByRole("menuitem", { name: "Dark theme" })).toHaveFocus();
+        expect(within(menu).getByRole("menuitemradio", { name: "System" })).toHaveFocus();
         // The Exit Admin Console item is only offered when the shell says where it leads.
         expect(within(menu).queryByRole("menuitem", { name: "Exit Admin Console" })).not.toBeInTheDocument();
-        expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Dark theme", "Sign Out"]);
+        expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Sign Out"]);
+        expect(within(menu).getAllByRole("menuitemradio").map((item) => item.getAttribute("aria-label"))).toEqual([
+            "System",
+            "Light",
+            "Dark",
+        ]);
     });
 
     it("toggles closed when the trigger is clicked again", async () => {
@@ -118,7 +123,9 @@ describe("AvatarMenu", () => {
         await user.tab();
         expect(screen.getByRole("button", { name: "Account menu for Ada" })).toHaveFocus();
         await user.keyboard("{Enter}");
-        expect(screen.getByRole("menuitem", { name: "Dark theme" })).toHaveFocus();
+        expect(screen.getByRole("menuitemradio", { name: "System" })).toHaveFocus();
+        await user.tab();
+        await user.tab();
         await user.tab();
         expect(screen.getByRole("menuitem", { name: "Sign Out" })).toHaveFocus();
         await user.keyboard("{Enter}");
@@ -147,49 +154,38 @@ describe("AvatarMenu", () => {
         expect(exit).toHaveFocus();
         expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
             "Exit Admin Console",
-            "Dark theme",
             "Sign Out",
         ]);
     });
 
-    describe("theme toggle", () => {
-        it("switches to the dark theme, applying and remembering it, and relabels itself to offer the light one", async () => {
-            vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    describe("theme switcher", () => {
+        it("applies and remembers a chosen scheme, marking it checked while the menu stays open", async () => {
             const user = userEvent.setup();
             render(<AvatarMenu displayName="Ada" onSignOut={vi.fn()} />);
             await user.click(screen.getByRole("button", { name: "Account menu for Ada" }));
+            expect(screen.getByRole("menuitemradio", { name: "System" })).toHaveAttribute("aria-checked", "true");
 
-            await user.click(screen.getByRole("menuitem", { name: "Dark theme" }));
-
+            await user.click(screen.getByRole("menuitemradio", { name: "Dark" }));
             expect(document.documentElement.dataset.theme).toBe("dark");
             expect(window.localStorage.getItem("rr-theme")).toBe("dark");
-            // The menu stays open and the (relabelled) item keeps focus, so it can be flipped straight back.
-            const item = screen.getByRole("menuitem", { name: "Light theme" });
-            expect(item).toHaveFocus();
+            expect(screen.getByRole("menuitemradio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
+            expect(screen.getByRole("menuitemradio", { name: "System" })).toHaveAttribute("aria-checked", "false");
 
-            await user.click(item);
+            await user.click(screen.getByRole("menuitemradio", { name: "Light" }));
             expect(document.documentElement.dataset.theme).toBe("light");
             expect(window.localStorage.getItem("rr-theme")).toBe("light");
-            expect(screen.getByRole("menuitem", { name: "Dark theme" })).toBeInTheDocument();
         });
 
-        it("starts from the OS preference when nothing is stored", async () => {
-            vi.stubGlobal("matchMedia", () => ({ matches: true }));
+        it("returns to following the OS when System is chosen", async () => {
+            window.localStorage.setItem("rr-theme", "dark");
             const user = userEvent.setup();
             render(<AvatarMenu displayName="Ada" onSignOut={vi.fn()} />);
             await user.click(screen.getByRole("button", { name: "Account menu for Ada" }));
+            expect(screen.getByRole("menuitemradio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
 
-            expect(screen.getByRole("menuitem", { name: "Light theme" })).toBeInTheDocument();
-        });
-
-        it("starts from the stored choice in preference to the OS preference", async () => {
-            vi.stubGlobal("matchMedia", () => ({ matches: true }));
-            window.localStorage.setItem("rr-theme", "light");
-            const user = userEvent.setup();
-            render(<AvatarMenu displayName="Ada" onSignOut={vi.fn()} />);
-            await user.click(screen.getByRole("button", { name: "Account menu for Ada" }));
-
-            expect(screen.getByRole("menuitem", { name: "Dark theme" })).toBeInTheDocument();
+            await user.click(screen.getByRole("menuitemradio", { name: "System" }));
+            expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+            expect(window.localStorage.getItem("rr-theme")).toBeNull();
         });
     });
 });

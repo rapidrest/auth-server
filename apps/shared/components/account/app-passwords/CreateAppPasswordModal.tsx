@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { Dispatch, FormEvent, SetStateAction, useState } from "react";
-import { FiCheck, FiCopy } from "react-icons/fi";
 import Modal from "../../../lib/Modal.js";
 import { ApiRequestError, CreatedAppPasswordSecret, createAppPasswordSecret, SecretSummary } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";
 import FormField from "../../forms/FormField.js";
 import Button from "../../buttons/Button.js";
+import CopyIconButton from "../../buttons/CopyIconButton.js";
 
 export interface CreateAppPasswordModalProps {
     open: boolean;
@@ -44,17 +44,6 @@ function CreateAppPasswordForm({ onClose, setSecrets }: CreateAppPasswordFormPro
     // The freshly created secret, plaintext and all, while it's still on screen. Never handed to `setSecrets`
     // until "Done" — see the module doc comment on `CreateAppPasswordModal` below for why.
     const [created, setCreated] = useState<CreatedAppPasswordSecret | null>(null);
-    const [copied, setCopied] = useState(false);
-
-    // Only reachable via the button below, which only renders once `created` exists - see `handleDone`'s identical note.
-    async function handleCopy() {
-        try {
-            await navigator.clipboard.writeText(created!.password);
-            setCopied(true);
-        } catch {
-            // Clipboard unavailable or denied — the password is still on screen, so it can be copied by hand.
-        }
-    }
 
     async function handleCreate(e: FormEvent) {
         e.preventDefault();
@@ -86,13 +75,11 @@ function CreateAppPasswordForm({ onClose, setSecrets }: CreateAppPasswordFormPro
                     Copy this password now. You won&rsquo;t be able to see it again — if it&rsquo;s lost, remove this
                     app password and create a new one.
                 </p>
-                <code style={{ display: "block", fontSize: "0.85rem", wordBreak: "break-all", marginBottom: "1rem" }}>
-                    {created.password}
-                </code>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                    <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={handleCopy} aria-label={copied ? "Copied" : "Copy"} title={copied ? "Copied" : "Copy"}>
-                        {copied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
-                    </Button>
+                <div className="rr-copy-row">
+                    <code>{created.password}</code>
+                    <CopyIconButton value={created.password} />
+                </div>
+                <div className="rr-modal__actions">
                     <Button type="button" style={{ width: "auto" }} onClick={handleDone}>
                         Done
                     </Button>
@@ -131,8 +118,8 @@ function CreateAppPasswordForm({ onClose, setSecrets }: CreateAppPasswordFormPro
  * server-generated random value, good the instant it's created — so the flow is simpler than
  * `TotpSecretForm`/`PasskeySecretForm`: collect the (required) label first, since the server won't create one
  * without it, then show the generated plaintext exactly once, the same "shown once, plain selectable `<code>`
- * text" contract `RevealSecretModal` documents — plus a Copy button, since unlike a client secret this value
- * is meant to be pasted straight into another app's password field, the same `PasswordFieldset` precedent.
+ * text" contract `RevealSecretModal` documents — with a copy icon button at the end of it, since this value
+ * is meant to be pasted straight into another app's password field.
  *
  * The new secret's summary is only added to the shared `secrets` list once "Done" is clicked — not the moment
  * it's created — so the plaintext step has already been shown before the row appears in `AppPasswordsCard`'s

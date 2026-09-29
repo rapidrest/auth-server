@@ -5,6 +5,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     applyTheme,
+    clearAppliedTheme,
+    clearStoredTheme,
     getStoredTheme,
     getSystemTheme,
     resolveTheme,
@@ -134,5 +136,29 @@ describe("THEME_INIT_SCRIPT", () => {
         });
         expect(() => new Function(THEME_INIT_SCRIPT)()).not.toThrow();
         vi.restoreAllMocks();
+    });
+});
+
+describe("clearStoredTheme()", () => {
+    it("forgets the remembered choice", () => {
+        storeTheme("dark");
+        clearStoredTheme();
+        expect(window.localStorage.getItem("rr-theme")).toBeNull();
+    });
+
+    it("does not throw when storage is unavailable", () => {
+        vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+            throw new Error("blocked");
+        });
+        expect(() => clearStoredTheme()).not.toThrow();
+        vi.restoreAllMocks();
+    });
+});
+
+describe("clearAppliedTheme()", () => {
+    it("removes data-theme from the document element", () => {
+        applyTheme("dark");
+        clearAppliedTheme();
+        expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
     });
 });

@@ -3,22 +3,26 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import { useState } from "react";
-import { applyTheme, resolveTheme, storeTheme, Theme } from "./theme.js";
+import { applyTheme, clearAppliedTheme, clearStoredTheme, getStoredTheme, storeTheme, ThemePreference } from "./theme.js";
 
 /**
- * The active color scheme and a function to flip it. The initial value follows the visitor's stored choice,
- * else the OS preference (see `resolveTheme()`); flipping applies the other scheme to the document straight
- * away and remembers it for next time (see `theme.ts`).
+ * The visitor's theme preference (`system`, `light` or `dark`) and a function to change it. The initial value is
+ * the stored explicit choice, else `system`; choosing a scheme applies it to the document straight away and
+ * remembers it, while choosing `system` forgets any choice so the OS preference applies again (see `theme.ts`).
  */
-export function useTheme(): { theme: Theme; toggleTheme: () => void } {
-    const [theme, setTheme] = useState<Theme>(resolveTheme);
+export function useTheme(): { preference: ThemePreference; setPreference: (preference: ThemePreference) => void } {
+    const [preference, setPreferenceState] = useState<ThemePreference>(() => getStoredTheme() ?? "system");
 
-    function toggleTheme() {
-        const next: Theme = theme === "dark" ? "light" : "dark";
-        applyTheme(next);
-        storeTheme(next);
-        setTheme(next);
+    function setPreference(next: ThemePreference) {
+        if (next === "system") {
+            clearAppliedTheme();
+            clearStoredTheme();
+        } else {
+            applyTheme(next);
+            storeTheme(next);
+        }
+        setPreferenceState(next);
     }
 
-    return { theme, toggleTheme };
+    return { preference, setPreference };
 }

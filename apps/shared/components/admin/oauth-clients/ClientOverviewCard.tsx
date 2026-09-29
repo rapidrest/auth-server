@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useState } from "react";
-import { FiCheck, FiCopy } from "react-icons/fi";
 import { ApiRequestError } from "../../../lib/api.js";
 import { AdminClient, updateClient } from "../../../lib/adminApi.js";
 import Alert from "../../feedback/Alert.js";
 import Button from "../../buttons/Button.js";
+import CopyIconButton from "../../buttons/CopyIconButton.js";
 import RoleScopeEditor from "../users/RoleScopeEditor.js";
 
 export interface ClientOverviewCardProps {
@@ -35,16 +35,6 @@ export default function ClientOverviewCard({ client, onUpdated }: ClientOverview
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
-    const [copied, setCopied] = useState(false);
-
-    async function handleCopyClientId() {
-        try {
-            await navigator.clipboard.writeText(client.uid);
-            setCopied(true);
-        } catch {
-            // Clipboard unavailable or denied — the ID is still on screen, so it can be copied by hand.
-        }
-    }
 
     // Reseed only when a *different* client is loaded, matching UserOverviewCard's own convention.
     useEffect(() => {
@@ -56,8 +46,7 @@ export default function ClientOverviewCard({ client, onUpdated }: ClientOverview
         setFirstParty(!!client.firstParty);
         setDisabled(!!client.disabled);
         setSaved(false);
-        setCopied(false);
-    }, [client.uid]);
+    },[client.uid]);
 
     async function handleSave() {
         setError(null);
@@ -92,11 +81,9 @@ export default function ClientOverviewCard({ client, onUpdated }: ClientOverview
 
             <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "0.25rem 1rem", marginBottom: "1rem" }}>
                 <dt className="rr-hint">Client ID</dt>
-                <dd style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <dd style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
                     <span style={{ fontFamily: "monospace" }}>{client.uid}</span>
-                    <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={handleCopyClientId} aria-label={copied ? "Copied" : "Copy"} title={copied ? "Copied" : "Copy"}>
-                        {copied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
-                    </Button>
+                    <CopyIconButton value={client.uid} />
                 </dd>
                 <dt className="rr-hint">Type</dt>
                 <dd>{client.clientType === "confidential" ? "Confidential" : "Public"}</dd>

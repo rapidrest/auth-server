@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useEffect, useRef, useState } from "react";
-import { FiArrowLeft, FiChevronDown, FiLogOut, FiMoon, FiSun } from "react-icons/fi";
+import { FiArrowLeft, FiChevronDown, FiLogOut, FiMonitor, FiMoon, FiSun } from "react-icons/fi";
+import type { IconType } from "react-icons";
+import type { ThemePreference } from "../../../lib/theme.js";
 import { useTheme } from "../../../lib/useTheme.js";
 
 export interface AvatarProps {
@@ -36,6 +38,12 @@ export function Avatar({ name, src, size = 32 }: AvatarProps) {
     );
 }
 
+const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: IconType }[] = [
+    { value: "system", label: "System", Icon: FiMonitor },
+    { value: "light", label: "Light", Icon: FiSun },
+    { value: "dark", label: "Dark", Icon: FiMoon },
+];
+
 export interface AvatarMenuProps {
     /** Shown in the dropdown header, and used for the avatar's initial and the trigger's accessible name. */
     displayName: string;
@@ -50,16 +58,15 @@ export interface AvatarMenuProps {
 
 /**
  * The top bar's account button and its dropdown (the signed-in user's avatar/name, then an optional "Exit
- * Admin Console" link, a dark/light theme toggle and "Sign Out"). The theme toggle flips the whole page
- * between the two schemes and remembers the choice (see `useTheme()`); it labels the scheme it switches *to*
- * and leaves the menu open, so the change is visible and can be flipped back.
+ * Admin Console" link, a System/Light/Dark theme switcher and "Sign Out"). Picking a theme applies it to the whole page and
+ * remembers the choice (see `useTheme()`); System follows the OS. The menu stays open, so the change is visible.
  * Follows the ARIA menu-button pattern: the trigger carries `aria-haspopup`/`aria-expanded`, opening
  * moves focus to the first item, and Escape (or a click anywhere outside) closes it again — Escape also
  * returns focus to the trigger so keyboard users aren't dropped at the top of the document.
  */
 export default function AvatarMenu({ displayName, avatarUrl, onSignOut, exitHref }: AvatarMenuProps) {
     const [open, setOpen] = useState(false);
-    const { theme, toggleTheme } = useTheme();
+    const { preference, setPreference } = useTheme();
     const containerRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
@@ -71,7 +78,7 @@ export default function AvatarMenu({ displayName, avatarUrl, onSignOut, exitHref
 
         // All three refs are always attached while the menu is open — the panel (and its items) only render then,
         // and the theme toggle is always among them. The first item is a link or a button depending on the props.
-        (panelRef.current as HTMLDivElement).querySelector<HTMLElement>('[role="menuitem"]')!.focus();
+        (panelRef.current as HTMLDivElement).querySelector<HTMLElement>('[role="menuitem"], [role="menuitemradio"]')!.focus();
 
         function handlePointerDown(e: MouseEvent) {
             if (!(containerRef.current as HTMLDivElement).contains(e.target as Node)) {
@@ -131,10 +138,25 @@ export default function AvatarMenu({ displayName, avatarUrl, onSignOut, exitHref
                             Exit Admin Console
                         </a>
                     )}
-                    <button type="button" role="menuitem" className="rr-avatar-menu__item" onClick={toggleTheme}>
-                        {theme === "dark" ? <FiSun aria-hidden="true" /> : <FiMoon aria-hidden="true" />}
-                        {theme === "dark" ? "Light theme" : "Dark theme"}
-                    </button>
+                    <div className="rr-avatar-menu__theme">
+                        <span id="rr-avatar-menu-theme-label">Theme</span>
+                        <div className="rr-theme-switch" role="group" aria-labelledby="rr-avatar-menu-theme-label">
+                            {THEME_OPTIONS.map(({ value, label, Icon }) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    role="menuitemradio"
+                                    aria-checked={preference === value}
+                                    aria-label={label}
+                                    title={label}
+                                    className="rr-theme-switch__option"
+                                    onClick={() => setPreference(value)}
+                                >
+                                    <Icon aria-hidden="true" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <button
                         type="button"
                         role="menuitem"

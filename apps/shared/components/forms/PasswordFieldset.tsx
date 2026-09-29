@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useState } from "react";
-import { FiCheck, FiCopy } from "react-icons/fi";
+import { FiEye, FiEyeOff, FiRefreshCw } from "react-icons/fi";
 import { isPasswordValid, PasswordCriteriaList, type PasswordCriterion } from "../../lib/passwordCriteria.js";
-import Button from "../buttons/Button.js";
+import CopyIconButton from "../buttons/CopyIconButton.js";
 
 export interface PasswordFieldsetProps {
     id: string;
@@ -51,61 +51,52 @@ export default function PasswordFieldset({
 }: PasswordFieldsetProps) {
     const mismatch = confirmValue.length > 0 && confirmValue !== value;
     const [revealed, setRevealed] = useState(false);
-    const [copied, setCopied] = useState(false);
     const inputType = revealed ? "text" : "password";
 
     function handleGenerate() {
         onGenerate?.();
         setRevealed(true);
-        setCopied(false);
-    }
-
-    async function handleCopy() {
-        try {
-            await navigator.clipboard.writeText(value);
-            setCopied(true);
-        } catch {
-            // Clipboard unavailable or denied — the password is on screen (Show), so it can still be copied by hand.
-        }
     }
 
     return (
         <>
             <div className="rr-field">
                 <label htmlFor={id}>{label}</label>
-                <input
-                    id={id}
-                    className="rr-input"
-                    type={inputType}
-                    autoComplete="new-password"
-                    aria-invalid={value.length > 0 && !isPasswordValid(value, criteria)}
-                    value={value}
-                    onChange={(e) => {
-                        setCopied(false);
-                        onChange(e.target.value);
-                    }}
-                />
-                {onGenerate && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.5rem" }}>
-                        <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={handleGenerate}>
-                            Generate
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            type="button"
-                            style={{ width: "auto" }}
-                            aria-pressed={revealed}
-                            onClick={() => setRevealed((r) => !r)}
-                        >
-                            {revealed ? "Hide" : "Show"}
-                        </Button>
-                        {value.length > 0 && (
-                            <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={handleCopy} aria-label={copied ? "Copied" : "Copy"} title={copied ? "Copied" : "Copy"}>
-                                {copied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
-                            </Button>
-                        )}
-                    </div>
-                )}
+                <div className={onGenerate ? "rr-input-group" : undefined}>
+                    <input
+                        id={id}
+                        className="rr-input"
+                        type={inputType}
+                        autoComplete="new-password"
+                        aria-invalid={value.length > 0 && !isPasswordValid(value, criteria)}
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                    />
+                    {onGenerate && (
+                        <div className="rr-input-group__actions">
+                            {value.length > 0 && <CopyIconButton value={value} />}
+                            <button
+                                type="button"
+                                className="rr-icon-button"
+                                aria-label="Generate"
+                                title="Generate"
+                                onClick={handleGenerate}
+                            >
+                                <FiRefreshCw aria-hidden="true" />
+                            </button>
+                            <button
+                                type="button"
+                                className="rr-icon-button"
+                                aria-label={revealed ? "Hide" : "Show"}
+                                title={revealed ? "Hide" : "Show"}
+                                aria-pressed={revealed}
+                                onClick={() => setRevealed((r) => !r)}
+                            >
+                                {revealed ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}
+                            </button>
+                        </div>
+                    )}
+                </div>
                 {value.length > 0 ? (
                     <PasswordCriteriaList password={value} criteria={criteria} />
                 ) : (

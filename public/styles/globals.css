@@ -254,6 +254,66 @@ a {
     color: var(--rr-color-bg);
 }
 
+/* Borderless icon-only button (copy, generate, show/hide), sized to sit inline with text or inside an input. */
+.rr-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    border-radius: var(--rr-radius-sm);
+    color: var(--rr-color-text-muted);
+    cursor: pointer;
+    flex: none;
+    font-size: 1rem;
+    padding: 0.25rem;
+}
+
+.rr-icon-button:hover:not(:disabled) {
+    color: var(--rr-color-primary);
+}
+
+/* A value followed by its copy button, kept on one line where it fits. */
+.rr-copy-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+}
+
+.rr-copy-row code {
+    flex: 0 1 auto;
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+/* Right-aligned footer for a modal's primary action. */
+.rr-modal__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+/* An input with icon buttons overlaid at its trailing end. */
+.rr-input-group {
+    position: relative;
+}
+
+.rr-input-group .rr-input {
+    padding-right: 6.5rem;
+}
+
+.rr-input-group__actions {
+    position: absolute;
+    top: 50%;
+    right: 0.5rem;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+}
+
 .rr-section-title {
     font-size: 1rem;
     font-weight: 700;
@@ -1107,6 +1167,47 @@ a {
 .rr-avatar-menu__item:focus-visible {
     background: var(--rr-color-surface-alt);
     outline: none;
+}
+
+.rr-avatar-menu__theme {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.925rem;
+}
+
+.rr-theme-switch {
+    display: inline-flex;
+    padding: 0.125rem;
+    gap: 0.125rem;
+    background: var(--rr-color-surface-alt);
+    border: 1px solid var(--rr-color-border);
+    border-radius: var(--rr-radius-sm);
+}
+
+.rr-theme-switch__option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem 0.45rem;
+    border: none;
+    border-radius: var(--rr-radius-sm);
+    background: transparent;
+    color: var(--rr-color-text-muted);
+    cursor: pointer;
+}
+
+.rr-theme-switch__option:hover,
+.rr-theme-switch__option:focus-visible {
+    color: var(--rr-color-text);
+    outline: none;
+}
+
+.rr-theme-switch__option[aria-checked="true"] {
+    background: var(--rr-color-border);
+    color: var(--rr-color-primary);
 }
 
 /* A menu item that is a link (e.g. "Exit Admin Console") should look like its button siblings, not like body text links. */

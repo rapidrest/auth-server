@@ -62,3 +62,20 @@ export function resolveTheme(): Theme {
 export function applyTheme(theme: Theme): void {
     document.documentElement.dataset.theme = theme;
 }
+
+/** What the visitor picked in the theme switcher: one of the two schemes, or `system` to follow the OS. */
+export type ThemePreference = Theme | "system";
+
+/** Forgets any explicit choice, so the theme follows the system preference again. Best-effort like `storeTheme()`. */
+export function clearStoredTheme(): void {
+    try {
+        window.localStorage.removeItem(THEME_STORAGE_KEY);
+    } catch {
+        // Storage blocked — the choice still applies to this page view.
+    }
+}
+
+/** Removes `<html data-theme>`, handing control back to `globals.css`'s `prefers-color-scheme` rules. */
+export function clearAppliedTheme(): void {
+    delete document.documentElement.dataset.theme;
+}

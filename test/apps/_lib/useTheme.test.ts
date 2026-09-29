@@ -3,7 +3,7 @@
 // Copyright (C) 2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { useTheme } from "../../../apps/shared/lib/useTheme.js";
 
 beforeEach(() => {
@@ -11,37 +11,38 @@ beforeEach(() => {
     delete document.documentElement.dataset.theme;
 });
 
-afterEach(() => {
-    vi.unstubAllGlobals();
-});
-
 describe("useTheme()", () => {
-    it("starts from the system preference when nothing is stored, and toggling applies and remembers the other scheme", () => {
-        vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    it("starts on system when nothing is stored", () => {
         const { result } = renderHook(() => useTheme());
-        expect(result.current.theme).toBe("light");
+        expect(result.current.preference).toBe("system");
+    });
 
-        act(() => result.current.toggleTheme());
-        expect(result.current.theme).toBe("dark");
+    it("starts from the stored choice", () => {
+        window.localStorage.setItem("rr-theme", "light");
+        const { result } = renderHook(() => useTheme());
+        expect(result.current.preference).toBe("light");
+    });
+
+    it("applies and remembers an explicit scheme", () => {
+        const { result } = renderHook(() => useTheme());
+
+        act(() => result.current.setPreference("dark"));
+        expect(result.current.preference).toBe("dark");
         expect(document.documentElement.dataset.theme).toBe("dark");
         expect(window.localStorage.getItem("rr-theme")).toBe("dark");
 
-        act(() => result.current.toggleTheme());
-        expect(result.current.theme).toBe("light");
+        act(() => result.current.setPreference("light"));
         expect(document.documentElement.dataset.theme).toBe("light");
         expect(window.localStorage.getItem("rr-theme")).toBe("light");
     });
 
-    it("starts from the stored choice in preference to the system preference", () => {
-        vi.stubGlobal("matchMedia", () => ({ matches: true }));
-        window.localStorage.setItem("rr-theme", "light");
+    it("forgets the choice and the applied scheme when set back to system", () => {
         const { result } = renderHook(() => useTheme());
-        expect(result.current.theme).toBe("light");
-    });
+        act(() => result.current.setPreference("dark"));
 
-    it("starts dark when the system prefers dark and nothing is stored", () => {
-        vi.stubGlobal("matchMedia", () => ({ matches: true }));
-        const { result } = renderHook(() => useTheme());
-        expect(result.current.theme).toBe("dark");
+        act(() => result.current.setPreference("system"));
+        expect(result.current.preference).toBe("system");
+        expect(document.documentElement.dataset.theme).toBeUndefined();
+        expect(window.localStorage.getItem("rr-theme")).toBeNull();
     });
 });
