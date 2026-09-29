@@ -45,12 +45,10 @@ function CreateAppPasswordForm({ onClose, setSecrets }: CreateAppPasswordFormPro
     const [created, setCreated] = useState<CreatedAppPasswordSecret | null>(null);
     const [copied, setCopied] = useState(false);
 
+    // Only reachable via the button below, which only renders once `created` exists - see `handleDone`'s identical note.
     async function handleCopy() {
-        if (!created) {
-            return;
-        }
         try {
-            await navigator.clipboard.writeText(created.password);
+            await navigator.clipboard.writeText(created!.password);
             setCopied(true);
         } catch {
             // Clipboard unavailable or denied — the password is still on screen, so it can be copied by hand.
