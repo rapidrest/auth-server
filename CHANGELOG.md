@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.29] - 2026-09-29
+
+### Added
+- Added a Copy button to the app password reveal-once screen
+- Added the missing "Enable corepack" step to the validate job - every other job already has it, and without it yarn runs the container's stock Yarn 1 instead of the packageManager-pinned version, which refuses to run at all against a packageManager field, so validate's yarn npm audit never actually ran regardless of real findings. Confirmed via a real CI failure on rapidmx/server and rapidrest/auth-server; same latent gap across the whole org's shared workflow template
+- Added a copy-to-clipboard button to the Client ID on the OAuth client overview, and switch every copy button (client ID, app password reveal, generated password) to the FiCopy/FiCheck icons with aria-labels instead of text labels
+
+### Changed
+- Pasting a generated app password into another app's password field is the whole point of the value, so give it the same Copy/Copied clipboard affordance PasswordFieldset already offers for generated account passwords, rather than requiring manual selection.
+- Mount /oauth/session-token and extend the OAuth integration test to prove a raw access token 401s against an ordinary API route while a session-token exchange succeeds
+- Patch @rapidrest/auth locally with its new OAuthSessionTokenRoute classes via yarn patch, so these tests exercise the real thing ahead of its next publish
+- Document the new endpoint in the README, and the PUBLIC client-registration steps a native app needs, in NOTES
+- Drop the local yarn patch for @rapidrest/auth's session-token route now that 2.0.0-beta.15 is actually published - point the dependency at the real version and remove the now-unused patch file
+- Document the new POST /oauth/session-token mount and the app-password Copy button in RELEASE_NOTES
+- Pin brace-expansion (1.x, 2.x and 5.x lines, via minimatch's various majors), tar (via node-gyp/sqlite3), undici and ip-address (via socks) and js-yaml (via coveralls) to fixed versions in resolutions - this CI run's validate job failed yarn npm audit on real high-severity CVEs in each, pulled in through several different transitive dev-only chains (npm CLI machinery, node-gyp, the deprecated coveralls/request/socks packages)
+- Propagate the Client.clientId removal to the admin UX - drop clientId from AdminClient and show the record uid as the client ID in ClientTable, DeleteClientModal and ClientOverviewCard, updating the admin test fixtures to match
+- Tint the "Danger zone" cards red and the user "Impersonate" card yellow via new rr-card--danger / rr-card--warning styles
+- Rework the copy/generate/show controls as borderless icon buttons - add a shared CopyIconButton and place it at the end of the app password and client secret reveals (Done moved to the bottom right), beside the Client ID on the OAuth client card, and inside the password input alongside new rotate (generate) and eye (show/hide) icons
+- Replace the user menu's dark/light toggle with a System/Light/Dark theme switcher (System clears the stored choice), and swap the chip editor's Add button for a + icon
+- Upgraded react dep
+
+### Removed
+- Removed dead/unreachable code
+
 ## [1.0.0-beta.28] - 2026-09-27
 
 ### Changed
@@ -687,7 +711,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.28...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.29...HEAD
+[1.0.0-beta.29]: github/auth-server/compare/v1.0.0-beta.28...v1.0.0-beta.29
 [1.0.0-beta.28]: github/auth-server/compare/v1.0.0-beta.27...v1.0.0-beta.28
 [1.0.0-beta.27]: github/auth-server/compare/v1.0.0-beta.26...v1.0.0-beta.27
 [1.0.0-beta.26]: github/auth-server/compare/v1.0.0-beta.25...v1.0.0-beta.26

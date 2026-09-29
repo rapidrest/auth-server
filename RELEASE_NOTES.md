@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.0.0-beta.29
+
 ### Added
 
 * **Mounts `POST /oauth/session-token`** (`@rapidrest/auth`'s new `BaseOAuthSessionTokenRoute`) - exchanges a presented OAuth access token for an ordinary session JWT, for a native app (e.g. `tauri-client`) that signs in via `/oauth/authorize` + `/oauth/token` but also needs to call this server's own `/api/...` routes.
