@@ -29,7 +29,7 @@ export default function DeleteClientModal({ open, onClose, client, onConfirm, de
             {error && <Alert>{error}</Alert>}
             <p>
                 Are you sure you want to delete <strong>{client.clientName}</strong> (
-                <span style={{ fontFamily: "monospace" }}>{client.clientId}</span>)? Any tokens it has already
+                <span style={{ fontFamily: "monospace" }}>{client.uid}</span>)? Any tokens it has already
                 issued will stop working once they expire.
             </p>
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>

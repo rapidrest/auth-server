@@ -14,7 +14,6 @@ const testClient: AdminClient = {
     version: 0,
     dateCreated: "",
     dateModified: "",
-    clientId: "client-abc",
     clientType: "confidential",
     clientName: "Test App",
     redirectUris: [],
@@ -37,7 +36,7 @@ describe("DeleteClientModal", () => {
         const onConfirm = vi.fn();
         render(<DeleteClientModal open={true} onClose={vi.fn()} client={testClient} onConfirm={onConfirm} />);
         expect(screen.getByText("Test App")).toBeInTheDocument();
-        expect(screen.getByText("client-abc")).toBeInTheDocument();
+        expect(screen.getByText("c1")).toBeInTheDocument();
         await user.click(screen.getByRole("button", { name: "Delete" }));
         expect(onConfirm).toHaveBeenCalledWith(false);
     });

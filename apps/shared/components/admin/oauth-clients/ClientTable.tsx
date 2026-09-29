@@ -59,7 +59,7 @@ export default function ClientTable({ clients, onDelete }: ClientTableProps) {
                             <td>
                                 <div>{client.clientName}</div>
                                 <div className="rr-hint" style={{ fontFamily: "monospace" }}>
-                                    {client.clientId}
+                                    {client.uid}
                                 </div>
                             </td>
                             <td>

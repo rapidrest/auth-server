@@ -23,7 +23,6 @@ const confidentialClient: AdminClient = {
     version: 0,
     dateCreated: "",
     dateModified: "",
-    clientId: "client-abc",
     clientType: "confidential",
     clientName: "Test App",
     redirectUris: [],

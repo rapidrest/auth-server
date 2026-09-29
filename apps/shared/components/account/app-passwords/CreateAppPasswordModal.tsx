@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { Dispatch, FormEvent, SetStateAction, useState } from "react";
+import { FiCheck, FiCopy } from "react-icons/fi";
 import Modal from "../../../lib/Modal.js";
 import { ApiRequestError, CreatedAppPasswordSecret, createAppPasswordSecret, SecretSummary } from "../../../lib/api.js";
 import Alert from "../../feedback/Alert.js";
@@ -89,8 +90,8 @@ function CreateAppPasswordForm({ onClose, setSecrets }: CreateAppPasswordFormPro
                     {created.password}
                 </code>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                    <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={handleCopy}>
-                        {copied ? "Copied" : "Copy"}
+                    <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={handleCopy} aria-label={copied ? "Copied" : "Copy"} title={copied ? "Copied" : "Copy"}>
+                        {copied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
                     </Button>
                     <Button type="button" style={{ width: "auto" }} onClick={handleDone}>
                         Done

@@ -213,6 +213,47 @@ a {
     margin-top: 1.5rem;
 }
 
+/* Tinted cards for destructive (danger) and cautionary (warning) sections. */
+.rr-card--danger {
+    background: var(--rr-color-danger-bg);
+    border-color: var(--rr-color-danger);
+}
+
+.rr-card--danger .rr-card__title {
+    color: var(--rr-color-danger);
+}
+
+.rr-card--danger .rr-button--secondary {
+    border-color: var(--rr-color-danger);
+    color: var(--rr-color-danger);
+}
+
+.rr-card--danger .rr-button--secondary:hover:not(:disabled) {
+    background: var(--rr-color-danger);
+    border-color: var(--rr-color-danger);
+    color: var(--rr-color-bg);
+}
+
+.rr-card--warning {
+    background: var(--rr-color-accent-bg);
+    border-color: var(--rr-color-accent);
+}
+
+.rr-card--warning .rr-card__title {
+    color: var(--rr-color-accent-dark);
+}
+
+.rr-card--warning .rr-button--secondary {
+    border-color: var(--rr-color-accent);
+    color: var(--rr-color-accent-dark);
+}
+
+.rr-card--warning .rr-button--secondary:hover:not(:disabled) {
+    background: var(--rr-color-accent);
+    border-color: var(--rr-color-accent);
+    color: var(--rr-color-bg);
+}
+
 .rr-section-title {
     font-size: 1rem;
     font-weight: 700;

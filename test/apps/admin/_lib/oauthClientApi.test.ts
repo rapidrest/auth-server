@@ -22,7 +22,6 @@ const adminClient = {
     version: 0,
     dateCreated: "",
     dateModified: "",
-    clientId: "client-abc",
     clientType: "confidential" as const,
     clientName: "Test App",
     redirectUris: ["https://example.com/callback"],

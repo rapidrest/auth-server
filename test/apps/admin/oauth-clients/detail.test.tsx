@@ -33,7 +33,6 @@ const targetClient: AdminClient = {
     version: 4,
     dateCreated: "",
     dateModified: "",
-    clientId: "client-target-1",
     clientType: "confidential",
     clientName: "Target App",
     redirectUris: ["https://example.com/callback"],
@@ -58,7 +57,7 @@ describe("OAuthClientDetailPage", () => {
     it("loads and renders the target client's overview", async () => {
         mockedGetClient.mockResolvedValue(targetClient);
         render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
-        expect(await screen.findByText("client-target-1")).toBeInTheDocument();
+        expect(await screen.findByText("target-1")).toBeInTheDocument();
         expect(mockedGetClient).toHaveBeenCalledWith("target-1");
     });
 
@@ -80,7 +79,7 @@ describe("OAuthClientDetailPage", () => {
         const location = mockLocation();
         const user = userEvent.setup();
         render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
-        await screen.findByText("client-target-1");
+        await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete client" }));
         const dialog = await screen.findByRole("dialog");
@@ -96,7 +95,7 @@ describe("OAuthClientDetailPage", () => {
         const location = mockLocation();
         const user = userEvent.setup();
         render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
-        await screen.findByText("client-target-1");
+        await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete client" }));
         const dialog = await screen.findByRole("dialog");
@@ -112,7 +111,7 @@ describe("OAuthClientDetailPage", () => {
         const location = mockLocation();
         const user = userEvent.setup();
         render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
-        await screen.findByText("client-target-1");
+        await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete client" }));
         const dialog = await screen.findByRole("dialog");
@@ -126,7 +125,7 @@ describe("OAuthClientDetailPage", () => {
         mockedGetClient.mockResolvedValue(targetClient);
         const user = userEvent.setup();
         render(<OAuthClientDetailPage userUid="admin-1" params={{ uid: "target-1" }} />);
-        await screen.findByText("client-target-1");
+        await screen.findByText("target-1");
 
         await user.click(screen.getByRole("button", { name: "Delete client" }));
         const dialog = await screen.findByRole("dialog");

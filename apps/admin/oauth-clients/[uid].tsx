@@ -74,7 +74,7 @@ function OAuthClientDetailContent({ uid }: { uid: string }) {
                     <ClientOverviewCard client={client} onUpdated={setClient} />
                     <ClientSecretCard client={client} />
 
-                    <div className="rr-card">
+                    <div className="rr-card rr-card--danger">
                         <div className="rr-card__title">Danger zone</div>
                         <p className="rr-card__subtitle">Deleting a client cannot be undone.</p>
                         <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={() => setDeleteOpen(true)}>

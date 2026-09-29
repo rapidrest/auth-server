@@ -34,7 +34,6 @@ function makeClient(uid: string): AdminClient {
         version: 0,
         dateCreated: "",
         dateModified: "",
-        clientId: `client-${uid}`,
         clientType: "confidential",
         clientName: `Client ${uid}`,
         redirectUris: [],

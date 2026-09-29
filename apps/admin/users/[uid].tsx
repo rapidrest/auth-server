@@ -96,7 +96,7 @@ function UserDetailContent({ uid }: { uid: string }) {
                     <UserSecretsCard uid={user.uid} onUserUpdated={setUser} />
                     <UserActivityCard uid={user.uid} />
 
-                    <div className="rr-card">
+                    <div className="rr-card rr-card--warning">
                         <div className="rr-card__title">Impersonate</div>
                         <p className="rr-card__subtitle">Sign in as this account to see exactly what it sees.</p>
                         {impersonateError && <Alert>{impersonateError}</Alert>}
@@ -112,7 +112,7 @@ function UserDetailContent({ uid }: { uid: string }) {
                         </Button>
                     </div>
 
-                    <div className="rr-card">
+                    <div className="rr-card rr-card--danger">
                         <div className="rr-card__title">Danger zone</div>
                         <p className="rr-card__subtitle">Deleting an account cannot be undone.</p>
                         <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={() => setDeleteOpen(true)}>

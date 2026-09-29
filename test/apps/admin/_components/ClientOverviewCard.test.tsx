@@ -23,7 +23,6 @@ const baseClient: AdminClient = {
     version: 1,
     dateCreated: "2024-01-15T00:00:00.000Z",
     dateModified: "2024-01-16T00:00:00.000Z",
-    clientId: "client-abc",
     clientType: "confidential",
     clientName: "Test App",
     redirectUris: ["https://example.com/callback"],
@@ -41,9 +40,18 @@ beforeEach(() => {
 });
 
 describe("ClientOverviewCard", () => {
+    it("copies the client ID to the clipboard, and says so", async () => {
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+        render(<ClientOverviewCard client={baseClient} onUpdated={vi.fn()} />);
+        await userEvent.click(screen.getByRole("button", { name: "Copy" }));
+        expect(writeText).toHaveBeenCalledWith("c1");
+        expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+    });
+
     it("renders the client's id, type, dates, name, and status", () => {
         render(<ClientOverviewCard client={baseClient} onUpdated={vi.fn()} />);
-        expect(screen.getByText("client-abc")).toBeInTheDocument();
+        expect(screen.getByText("c1")).toBeInTheDocument();
         expect(screen.getByText("Confidential")).toBeInTheDocument();
         expect(screen.getByLabelText("Client name")).toHaveValue("Test App");
         expect(screen.getByLabelText("First-party (skip the consent screen)")).not.toBeChecked();

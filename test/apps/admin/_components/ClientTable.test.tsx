@@ -14,7 +14,6 @@ const baseClient: AdminClient = {
     version: 0,
     dateCreated: "2024-01-15T00:00:00.000Z",
     dateModified: "2024-01-15T00:00:00.000Z",
-    clientId: "client-abc",
     clientType: "confidential",
     clientName: "Test App",
     redirectUris: ["https://example.com/callback"],
@@ -35,7 +34,7 @@ describe("ClientTable", () => {
     it("renders a row per client with name, id, type, scope, status, and a formatted date", () => {
         render(<ClientTable clients={[baseClient]} onDelete={vi.fn()} />);
         expect(screen.getByText("Test App")).toBeInTheDocument();
-        expect(screen.getByText("client-abc")).toBeInTheDocument();
+        expect(screen.getByText("c1")).toBeInTheDocument();
         expect(screen.getByText("Confidential")).toBeInTheDocument();
         expect(screen.getByText("openid")).toBeInTheDocument();
         expect(screen.getByText("profile")).toBeInTheDocument();

@@ -264,7 +264,6 @@ export interface AdminClient {
     version: number;
     dateCreated: string;
     dateModified: string;
-    clientId: string;
     clientType: "confidential" | "public";
     clientName: string;
     redirectUris: string[];
@@ -292,7 +291,7 @@ export function listClients(params: ListClientsParams = {}): Promise<AdminClient
     return apiFetch(`/oauth/clients?limit=${limit}&page=${params.page ?? 0}`);
 }
 
-/** Fetches a single OAuth client by its record `uid` (not its `clientId`). */
+/** Fetches a single OAuth client by its record `uid`, which is also its OAuth client ID. */
 export function getClient(uid: string): Promise<AdminClient> {
     return apiFetch(`/oauth/clients/${encodeURIComponent(uid)}`);
 }

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 ///////////////////////////////////////////////////////////////////////////////
 import React, { useState } from "react";
+import { FiCheck, FiCopy } from "react-icons/fi";
 import { isPasswordValid, PasswordCriteriaList, type PasswordCriterion } from "../../lib/passwordCriteria.js";
 import Button from "../buttons/Button.js";
 
@@ -99,8 +100,8 @@ export default function PasswordFieldset({
                             {revealed ? "Hide" : "Show"}
                         </Button>
                         {value.length > 0 && (
-                            <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={handleCopy}>
-                                {copied ? "Copied" : "Copy"}
+                            <Button variant="secondary" type="button" style={{ width: "auto" }} onClick={handleCopy} aria-label={copied ? "Copied" : "Copy"} title={copied ? "Copied" : "Copy"}>
+                                {copied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
                             </Button>
                         )}
                     </div>
