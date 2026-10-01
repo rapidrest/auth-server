@@ -5,9 +5,16 @@
 import React, { KeyboardEvent, useEffect, useRef, useState } from "react";
 import { HiOutlineArrowDownTray, HiOutlineArrowPath } from "react-icons/hi2";
 import Button from "../../buttons/Button.js";
-import { DiagnosticsMetrics, getDiagnosticsMetrics, getDiagnosticsRuntime, getDiagnosticsVersions } from "./diagnosticsApi.js";
+import {
+    DiagnosticsMetrics,
+    getDiagnosticsInformation,
+    getDiagnosticsMetrics,
+    getDiagnosticsRuntime,
+    getDiagnosticsVersions,
+} from "./diagnosticsApi.js";
 import { saveTextFile, SaveFile, timestampedFilename } from "./download.js";
 import { describeError } from "./format.js";
+import InformationPanel from "./InformationPanel.js";
 import type { LogSocketFactory } from "./logClient.js";
 import LogsPanel from "./LogsPanel.js";
 import RuntimePanel from "./RuntimePanel.js";
@@ -15,12 +22,11 @@ import SystemPanel from "./SystemPanel.js";
 import { useDiagnosticsResource } from "./useDiagnosticsResource.js";
 import { useLogStream } from "./useLogStream.js";
 import { useMetricsPolling } from "./useMetricsPolling.js";
-import VersionsPanel from "./VersionsPanel.js";
 
-export type DiagnosticsTab = "versions" | "runtime" | "system" | "logs";
+export type DiagnosticsTab = "information" | "runtime" | "system" | "logs";
 
 const TABS: { id: DiagnosticsTab; label: string }[] = [
-    { id: "versions", label: "Versions" },
+    { id: "information", label: "Information" },
     { id: "runtime", label: "Runtime" },
     { id: "system", label: "System" },
     { id: "logs", label: "Logs" },
@@ -37,16 +43,17 @@ export interface DiagnosticsManagerProps {
 }
 
 /**
- * The Diagnostics page: what is installed (Versions), what it runs on (Runtime), how it is doing right now (System, live) and what
- * the server is logging (Logs, live, with captures). Versions and Runtime are read when the page opens and again on Refresh, and
+ * The Diagnostics page: what is installed and how it is set up (Information), what it runs on (Runtime), how it is doing right now (System, live) and what
+ * the server is logging (Logs, live, with captures). Information and Runtime are read when the page opens and again on Refresh, and
  * are not polled. The live tabs only work while they are open: System polls only on its tab, and the log stream is opened the
  * first time the Logs tab is (and closes with the page, or on Stop).
  */
 export default function DiagnosticsManager({ createLogSocket, saveFile = saveTextFile }: DiagnosticsManagerProps) {
-    const [tab, setTab] = useState<DiagnosticsTab>("versions");
+    const [tab, setTab] = useState<DiagnosticsTab>("information");
     const [reloadKey, setReloadKey] = useState(0);
     const [preparingReport, setPreparingReport] = useState(false);
     const versions = useDiagnosticsResource(getDiagnosticsVersions, reloadKey, "Could not read the server's versions.");
+    const information = useDiagnosticsResource(getDiagnosticsInformation, reloadKey, "Could not read the server's environment and configuration.");
     const runtime = useDiagnosticsResource(getDiagnosticsRuntime, reloadKey, "Could not read the runtime.");
     const polling = useMetricsPolling(tab === "system");
     const logStream = useLogStream({ createSocket: createLogSocket });
@@ -60,7 +67,7 @@ export default function DiagnosticsManager({ createLogSocket, saveFile = saveTex
         }
     }, [tab]);
 
-    const refreshing = versions.loading || runtime.loading;
+    const refreshing = versions.loading || information.loading || runtime.loading;
 
     function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
         const index = TABS.findIndex((item) => item.id === tab);
@@ -81,7 +88,10 @@ export default function DiagnosticsManager({ createLogSocket, saveFile = saveTex
         document.getElementById(tabId(TABS[next].id))?.focus();
     }
 
-    /** Saves the versions, the runtime and the latest metrics sample (asking for one if the System tab has not sampled): no logs. */
+    /**
+     * Saves the versions, the environment and configuration (the server has already withheld every secret), the runtime and the
+     * latest metrics sample (asking for one if the System tab has not sampled): no logs.
+     */
     async function downloadReport() {
         setPreparingReport(true);
         const generatedAt = new Date();
@@ -97,10 +107,12 @@ export default function DiagnosticsManager({ createLogSocket, saveFile = saveTex
         const report = {
             generatedAt: generatedAt.toISOString(),
             versions: versions.data ?? null,
+            information: information.data ?? null,
             runtime: runtime.data ?? null,
             metrics: metrics ?? null,
             errors: {
                 versions: versions.error ?? null,
+                information: information.error ?? null,
                 runtime: runtime.error ?? null,
                 metrics: metricsError ?? null,
             },
@@ -145,7 +157,7 @@ export default function DiagnosticsManager({ createLogSocket, saveFile = saveTex
             </div>
 
             <div role="tabpanel" id={panelId(tab)} aria-labelledby={tabId(tab)}>
-                {tab === "versions" && <VersionsPanel versions={versions} />}
+                {tab === "information" && <InformationPanel versions={versions} information={information} />}
                 {tab === "runtime" && <RuntimePanel runtime={runtime} />}
                 {tab === "system" && <SystemPanel polling={polling} />}
                 {tab === "logs" && <LogsPanel stream={logStream} saveFile={saveFile} />}

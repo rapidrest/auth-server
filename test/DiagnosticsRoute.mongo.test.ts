@@ -4,7 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // End-to-end integration coverage for the local `DiagnosticsRoute` against a real (if lightweight) running server:
 // that it's discovered and mounted at `/api/admin/diagnostics` beside the framework's admin endpoints, that it's gated
-// behind the trusted role *and* a fresh elevation, and that its three endpoints (`/versions`, `/runtime`, `/metrics`)
+// behind the trusted role *and* a fresh elevation, and that its three endpoints (`/versions`, `/information`, `/runtime`, `/metrics`)
 // answer for a process that is not running in Kubernetes. The collectors' logic, against a stubbed Kubernetes API, is in
 // `test/diagnostics/`, and the route class's declarations in `test/diagnostics/DiagnosticsRoute.test.ts`.
 // This is `DiagnosticsRoute.sql.test.ts`'s Mongo twin, matching this app's convention of mirroring every feature across
@@ -23,7 +23,12 @@ import { AliasMongo, SecretMongo, UserMongo } from "@rapidrest/auth/mongo";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
 const PASSWORD = "S3cret!Pass123";
-const ENDPOINTS = ["/api/admin/diagnostics/versions", "/api/admin/diagnostics/runtime", "/api/admin/diagnostics/metrics"];
+const ENDPOINTS = [
+    "/api/admin/diagnostics/versions",
+    "/api/admin/diagnostics/information",
+    "/api/admin/diagnostics/runtime",
+    "/api/admin/diagnostics/metrics",
+];
 
 const mongod: MongoMemoryServer = new MongoMemoryServer({
     instance: {
@@ -110,6 +115,23 @@ describe("DiagnosticsRoute (mongo)", () => {
             expect(res.body.components.every((c: any) => c.status === "unknown")).toBe(true);
             expect(res.body.kubernetes.available).toBe(false);
             expect(res.body.kubernetes.reason).toMatch(/not running in Kubernetes/);
+        });
+
+        it("reports the environment and configuration with every secret withheld", async () => {
+            const admin = await elevatedAdmin("admin-information");
+            process.env.DIAG_TEST_API_TOKEN = "diag-secret-token-value";
+            try {
+                const res = await admin.get("/api/admin/diagnostics/information");
+
+                expect(res.status).toBe(200);
+                expect(res.body.environment).toContainEqual({ name: "DIAG_TEST_API_TOKEN", redacted: true });
+                expect(res.body.configuration.length).toBeGreaterThan(0);
+                // The test's own admin password is in the configuration or environment of this process only as a secret: never echoed.
+                expect(JSON.stringify(res.body)).not.toContain("diag-secret-token-value");
+                expect(JSON.stringify(res.body)).not.toContain(PASSWORD);
+            } finally {
+                delete process.env.DIAG_TEST_API_TOKEN;
+            }
         });
 
         it("reports that it isn't running in Kubernetes", async () => {

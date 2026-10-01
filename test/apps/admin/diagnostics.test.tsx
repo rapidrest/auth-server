@@ -7,7 +7,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { jsonResponse, mockFetch, mockLocation } from "../testUtils.js";
-import { runtimeFixture, versionsFixture } from "./_components/diagnostics/fixtures.js";
+import { informationFixture, runtimeFixture, versionsFixture } from "./_components/diagnostics/fixtures.js";
 
 vi.mock("../../../apps/shared/lib/adminApi.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../../apps/shared/lib/adminApi.js")>();
@@ -24,6 +24,8 @@ function mockApi() {
         switch (url) {
             case "/api/admin/diagnostics/versions":
                 return jsonResponse(200, versionsFixture());
+            case "/api/admin/diagnostics/information":
+                return jsonResponse(200, informationFixture());
             case "/api/admin/diagnostics/runtime":
                 return jsonResponse(200, runtimeFixture());
             default:
@@ -48,7 +50,7 @@ describe("DiagnosticsPage", () => {
         expect(await screen.findByRole("heading", { level: 1, name: "Diagnostics" })).toBeInTheDocument();
         expect(screen.getByRole("heading", { level: 2, name: "Diagnostics" })).toBeInTheDocument();
         expect(await screen.findByRole("region", { name: "Server" })).toBeInTheDocument();
-        expect(screen.getByRole("tab", { name: "Versions" })).toHaveAttribute("aria-selected", "true");
+        expect(screen.getByRole("tab", { name: "Information" })).toHaveAttribute("aria-selected", "true");
         expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Download diagnostics report" })).toBeInTheDocument();
     });

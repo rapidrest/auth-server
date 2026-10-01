@@ -5,7 +5,7 @@
 import { apiFetch } from "../../../lib/api.js";
 
 /**
- * The client of the server's `/admin/diagnostics/*` endpoints (`versions`, `runtime`, `metrics`). All three are GET,
+ * The client of the server's `/admin/diagnostics/*` endpoints (`versions`, `information`, `runtime`, `metrics`). All four are GET,
  * trusted-administrator only and `@RequiresElevation()`: an elevated token is required (403 `api-104`, which `apiFetch()`
  * answers by prompting for one and retrying), and any other 403 means the caller is not an administrator. The server may
  * leave any optional field out, so a caller reads them defensively.
@@ -65,6 +65,22 @@ export interface DiagnosticsVersions {
     /** Always all three, in the order of `DiagnosticsComponentName`. */
     components: DiagnosticsComponent[];
     kubernetes: { available: boolean; reason?: string };
+}
+
+/**
+ * One environment variable or configuration setting. A `redacted` one has no `value`: the server withholds every secret-like
+ * or unrecognized value and never sends it, so there is nothing for the client to hide.
+ */
+export interface DiagnosticsSetting {
+    name: string;
+    value?: string;
+    redacted: boolean;
+}
+
+/** The server's environment variables and effective configuration, each sorted by name. */
+export interface DiagnosticsInformation {
+    environment: DiagnosticsSetting[];
+    configuration: DiagnosticsSetting[];
 }
 
 /** A node that runs some of this deployment's pods, derived from the pods: nothing else about the node is readable. */
@@ -195,6 +211,14 @@ export interface DiagnosticsMetrics {
 /** What is installed and running: the server process, its packages, and the other containers of the deployment. */
 export function getDiagnosticsVersions(): Promise<DiagnosticsVersions> {
     return apiFetch<DiagnosticsVersions>("/admin/diagnostics/versions");
+}
+
+/**
+ * The server's environment variables and configuration, secrets withheld. A server that predates it answers 404, which the
+ * Information tab reports beside the rest of the tab, which still works.
+ */
+export function getDiagnosticsInformation(): Promise<DiagnosticsInformation> {
+    return apiFetch<DiagnosticsInformation>("/admin/diagnostics/information");
 }
 
 /** The Kubernetes version, and the nodes the deployment's pods run on. */
