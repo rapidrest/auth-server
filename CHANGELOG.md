@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.30] - 2026-10-01
+
+### Changed
+- Rename the Diagnostics Versions tab to Information and add the server's environment variables and configuration to it, as GET /api/admin/diagnostics/information, listing the name only of anything that looks like a secret
+
 ## [1.0.0-beta.29] - 2026-09-29
 
 ### Added
@@ -711,7 +716,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.29...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.30...HEAD
+[1.0.0-beta.30]: github/auth-server/compare/v1.0.0-beta.29...v1.0.0-beta.30
 [1.0.0-beta.29]: github/auth-server/compare/v1.0.0-beta.28...v1.0.0-beta.29
 [1.0.0-beta.28]: github/auth-server/compare/v1.0.0-beta.27...v1.0.0-beta.28
 [1.0.0-beta.27]: github/auth-server/compare/v1.0.0-beta.26...v1.0.0-beta.27
