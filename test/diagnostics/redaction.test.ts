@@ -1,11 +1,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Copyright (C) 2026 Jean-Philippe Steinmetz
 ///////////////////////////////////////////////////////////////////////////////
+import { CORE_HIDDEN_SETTINGS, isHiddenSetting } from "../../src/diagnostics/hiddenSettings.js";
 import { DiagnosticsCollector } from "../../src/diagnostics/DiagnosticsCollector.js";
 import {
     describeConfiguration,
     describeEnvironment,
-    isSecretName,
     MAX_VALUE_LENGTH,
     scrubValue,
 } from "../../src/diagnostics/redaction.js";
@@ -30,43 +30,51 @@ function expectNoSecrets(value: unknown) {
     }
 }
 
-describe("isSecretName", () => {
-    it.each([
-        "DB_PASSWORD",
-        "db_passwd",
-        "API_KEY",
-        "apiKey",
-        "GITHUB_TOKEN",
-        "mail__transport__ingest__secret",
-        "AWS_SECRET_ACCESS_KEY",
-        "auth__secret",
-        "cookie_secret",
-        "PRIVATE_KEY",
-        "SESSION_ID",
-        "PASSWORD_SALT",
-        "SENTRY_DSN",
-        "MONGO_CONNECTION_STRING",
-        "TLS_CERT",
-        "SLACK_WEBHOOK_URL",
-        "CREDENTIALS",
-    ])("treats %s as a secret", (name) => {
-        expect(isSecretName(name)).toBe(true);
-    });
-
-    it.each(["NODE_ENV", "TZ", "PORT", "HOSTNAME", "PWD", "LANG", "datastores:cache:type"])("does not treat %s as a secret", (name) => {
-        expect(isSecretName(name)).toBe(false);
-    });
-});
-
 describe("scrubValue", () => {
     it("strips the credentials of a URL", () => {
         expect(scrubValue("mongodb://admin:urlpass-secret@db:27017/mail")).toBe("mongodb://db:27017/mail");
         expect(scrubValue("https://token-only@example.com/x")).toBe("https://example.com/x");
-        expect(scrubValue("redis://user:pa/ss@cache:6379")).toBe("redis://cache:6379");
+        // A password holding `/` ends the authority early, so where the credential stops is unknowable: hidden whole.
+        expect(scrubValue("redis://user:pa/ss@cache:6379")).toBeUndefined();
     });
 
-    it("strips the value of a secret-named query parameter and keeps the others", () => {
-        expect(scrubValue("https://x.test/cb?mode=a&api_key=query-param-secret&b=2")).toBe("https://x.test/cb?mode=a&api_key=&b=2");
+    it("strips everything up to the last @ of the authority, so a password holding @ is not half-shown", () => {
+        expect(scrubValue("redis://:p@ss@host:6379/0")).toBe("redis://host:6379/0");
+        expect(scrubValue("redis://u:p@ss@@host:6379")).toBe("redis://host:6379");
+    });
+
+    it("hides the whole value when the userinfo holds whitespace", () => {
+        expect(scrubValue("postgres://u:pa ss@host/db")).toBeUndefined();
+        expect(scrubValue("postgres://u:pa ss/x@host/db")).toBeUndefined();
+        // Whitespace after the authority is not userinfo.
+        expect(scrubValue("https://example.com/a b")).toBe("https://example.com/a b");
+    });
+
+    it("scrubs every URL of a value and leaves a URL without credentials intact", () => {
+        expect(scrubValue("a=mongodb://u:p1@h1/x b=redis://:p@2@h2:6379 c=https://example.com:8080/path?x=1#f")).toBe(
+            "a=mongodb://h1/x b=redis://h2:6379 c=https://example.com:8080/path?x=1#f"
+        );
+        expect(scrubValue("https://example.com/path")).toBe("https://example.com/path");
+        expect(scrubValue("no url here, a@b.test")).toBe("no url here, a@b.test");
+    });
+
+    it("hides the whole value of a URL holding credentials and a secret query parameter", () => {
+        expect(scrubValue("redis://:p@ss@host/0?password=query-param-secret&db=1")).toBeUndefined();
+    });
+
+    it("hides a value too long to scrub safely, and does so in linear time", () => {
+        const started = Date.now();
+        expect(scrubValue("a".repeat(200_000))).toBeUndefined();
+        expect(scrubValue("?".repeat(200_000))).toBeUndefined();
+        expect(Date.now() - started).toBeLessThan(500);
+        // A long run of scheme characters just under the cap is scanned in linear time as well.
+        const near = Date.now();
+        expect(scrubValue("a".repeat(MAX_VALUE_LENGTH * 10))).toBe(`${"a".repeat(MAX_VALUE_LENGTH)}...`);
+        expect(Date.now() - near).toBeLessThan(500);
+    });
+
+    it("hides the whole value of a URL with a secret-named query parameter, not just that parameter", () => {
+        expect(scrubValue("https://x.test/cb?mode=a&api_key=query-param-secret&b=2")).toBeUndefined();
     });
 
     it("hides a private key block or a JWT entirely", () => {
@@ -82,6 +90,83 @@ describe("scrubValue", () => {
     });
 });
 
+describe("scrubValue: round-2 findings", () => {
+    it("never lets an @ in a URL's path or query cut the host (R2S-1)", () => {
+        for (const url of [
+            "https://registry.npmjs.org/@scope/pkg",
+            "https://medium.com/@user/post",
+            "https://h/?redirect=a@b.c",
+            "https://h:8080/x#a@b",
+            "http://[::1]:8080/@x",
+        ]) {
+            expect(scrubValue(url)).toBe(url);
+        }
+        expect(scrubValue("https://u:p@h/@scope/pkg")).toBe("https://h/@scope/pkg");
+    });
+
+    it("hides the whole value of a secret-named pair, wherever it stands (R2S-2)", () => {
+        for (const value of [
+            "Password=abc;Server=x",
+            "Server=x;Pwd=abc",
+            "Server=x;pw=abc",
+            "https://h/blob?sv=1&sig=abc%3D",
+            ";Password=my pass;",
+            "https://h/?x=1#password=abc",
+            "https://h/?password=ab&cd",
+            "x=1,secret=abc",
+            "api-key=abc",
+        ]) {
+            expect(scrubValue(value)).toBeUndefined();
+        }
+        // An empty value holds nothing to hide.
+        expect(scrubValue("https://h/?password=&db=1")).toBe("https://h/?password=&db=1");
+    });
+
+    it("hides the whole value when a credential's extent cannot be told (R2S-2)", () => {
+        for (const value of [
+            "postgres://user:pa://x@host/db",
+            "x://u:pa/ss word@h",
+            "redis://user:pa/ss@cache:6379",
+            "user:pass@host:5432/db",
+            "//user:pw@host/x",
+            "db=user:pass@host:5432/db",
+            "Bearer abc123",
+            "Basic dXNlcjpwdw==",
+            "Authorization: token",
+        ]) {
+            expect(scrubValue(value)).toBeUndefined();
+        }
+    });
+
+    it.each([
+        "db.example.com",
+        "https://example.com/path?x=1",
+        "1.2.3",
+        "true",
+        "a1b2",
+        "us-east-1",
+        "admin@example.com",
+        "mailto:admin@example.com",
+        "From: a@b.test",
+        "mongodb://db:27017/mail",
+        "sslmode=require",
+        "a,b,c",
+    ])("leaves %s visible", (value) => {
+        expect(scrubValue(value)).toBe(value);
+    });
+
+    it("scrubs in linear time (R2S-3)", () => {
+        for (const filler of ["?", "a", "&", "a b ", "=", ",", ":", "x://", "a:"]) {
+            const value = filler.repeat(Math.floor(9000 / filler.length));
+            const started = Date.now();
+            scrubValue(value);
+            expect(Date.now() - started).toBeLessThan(30);
+        }
+    });
+});
+
+const asEnvironment = (name: string) => name.replace(/:/g, "__");
+
 describe("describeEnvironment", () => {
     const env = {
         NODE_ENV: "production",
@@ -90,21 +175,21 @@ describe("describeEnvironment", () => {
         SMTP_HOST: "smtp.example.com",
         LC_ALL: "C.UTF-8",
         datastores__cache__type: "redis",
-        DB_PASSWORD: "hunter2-password-value",
-        GITHUB_TOKEN: "s3cr3t-token-value",
-        AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE",
-        SLACK_WEBHOOK_URL: "https://hooks.example.com/webhook-path-secret",
-        SESSION_STORE: "sessionid-secret-value",
-        // Not on the allowlist and not secret-named: hidden because it is unknown.
-        MY_APP_SETTING: "urlpass-secret",
-        // On the allowlist by name, but the value is a private key: hidden.
+        // On the list by name: hidden whatever the value looks like.
+        auth__secret: "hunter2-password-value",
+        cookie_secret: "s3cr3t-token-value",
+        auth__google__clientSecret: "AKIAIOSFODNN7EXAMPLE",
+        smtp_config__auth__pass: "webhook-path-secret",
+        session__secret: "sessionid-secret-value",
+        // Not on the list, but the value is shaped like a credential: hidden by value.
         SOME_HOST: "-----BEGIN PRIVATE KEY-----",
-        // On the allowlist by name, with credentials in the value: scrubbed.
+        SOME_JWT: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl",
+        // Not on the list, with credentials in the value: scrubbed.
         REPLICA_HOST: "mongodb://u:urlpass-secret@replica",
         UNSET: undefined,
     };
 
-    it("shows allowlisted names and withholds every other value", () => {
+    it("hides the names on the list and shows every other value", () => {
         const result = describeEnvironment(env);
         const byName = Object.fromEntries(result.map((s) => [s.name, s]));
         expect(byName.NODE_ENV).toEqual({ name: "NODE_ENV", value: "production", redacted: false });
@@ -114,8 +199,8 @@ describe("describeEnvironment", () => {
         expect(byName.LC_ALL.value).toBe("C.UTF-8");
         expect(byName.datastores__cache__type.value).toBe("redis");
         expect(byName.REPLICA_HOST.value).toBe("mongodb://replica");
-        for (const name of ["DB_PASSWORD", "GITHUB_TOKEN", "AWS_ACCESS_KEY_ID", "SLACK_WEBHOOK_URL", "SESSION_STORE", "MY_APP_SETTING", "SOME_HOST"]) {
-            expect(byName[name]).toEqual({ name, redacted: true });
+        for (const name of ["auth__secret", "cookie_secret", "auth__google__clientSecret", "smtp_config__auth__pass", "session__secret", "SOME_HOST", "SOME_JWT"]) {
+            expect(byName[name], name).toEqual({ name, redacted: true });
         }
         expect(byName.UNSET).toBeUndefined();
     });
@@ -126,18 +211,72 @@ describe("describeEnvironment", () => {
         expectNoSecrets(result);
     });
 
-    it("never shows a secret-named variable even when its name also matches the allowlist", () => {
-        const result = describeEnvironment({ AUTH_HOST: "auth-internal", TOKEN_PORT: "1234" });
-        expect(result).toEqual([
-            { name: "AUTH_HOST", redacted: true },
-            { name: "TOKEN_PORT", redacted: true },
-        ]);
+    it.each(CORE_HIDDEN_SETTINGS)("hides %s in its configuration, environment and any-case spelling, and everything below it", (name) => {
+        const spellings = [name, asEnvironment(name), name.toUpperCase(), asEnvironment(name).toUpperCase()];
+        const children = spellings.map((spelling) => `${spelling}${spelling.includes("__") ? "__" : ":"}child`);
+        for (const spelling of [...spellings, ...children]) {
+            expect(isHiddenSetting(spelling), spelling).toBe(true);
+            expect(describeEnvironment({ [spelling]: "plain-visible-value" }), spelling).toEqual([{ name: spelling, redacted: true }]);
+        }
+        // A name that only starts with a listed one is not beneath it.
+        expect(isHiddenSetting(`${name}x`)).toBe(false);
+        expect(isHiddenSetting(`x${name}`)).toBe(false);
     });
+
+    it("shows the harmless variables of a cluster: service discovery, addresses, switches, limits and the auth settings that are not secrets", () => {
+        const env = {
+            NODE_ENV: "production",
+            PATH: "/usr/local/bin:/usr/bin",
+            KUBERNETES_SERVICE_HOST: "10.43.0.1",
+            KUBERNETES_SERVICE_PORT: "443",
+            KUBERNETES_PORT: "tcp://10.43.0.1:443",
+            CLAMAV_PORT: "tcp://10.43.73.82:3310",
+            CLAMAV_PORT_3310_TCP_ADDR: "10.43.73.82",
+            CLAMAV_PORT_3310_TCP_PROTO: "tcp",
+            POSTFIX_BRIDGE_SERVICE_PORT_SMTP_DELIVERY: "2525",
+            auth__options__audience: "mail.example.com",
+            auth__options__expiresIn: "1h",
+            auth__basic__enabled: "true",
+            auth__basic__realm: "Mail",
+            auth__basic__failure_limit: "10",
+            auth__policy__allow_simple_password: "false",
+            auth__policy__min_password_length: "8",
+            auth__policy__password_enabled: "true",
+            app_url: "https://mail.example.com/book",
+            datastores__mongo__url: "mongodb://mongodb:27017/rrst",
+            cors__origins: "https://mail.example.com",
+        };
+        for (const setting of describeEnvironment(env)) {
+            expect(setting.redacted, setting.name).toBe(false);
+            expect(setting.value, setting.name).toBe((env as Record<string, string>)[setting.name]);
+        }
+    });
+
+    it("shows a name that merely looks secret-like, because the list is the contract, but still scrubs its value", () => {
+        const result = Object.fromEntries(
+            describeEnvironment({
+                MY_API_KEY: "plain-visible-value",
+                DB_PASSWORD: "plain-password-value",
+                DB_URL: "redis://:hunter2@cache:6379",
+                MY_TOKEN: "Bearer abc123",
+                MY_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----",
+                MY_JWT: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJl",
+                MY_DSN: "host=x;password=hunter2",
+            }).map((s) => [s.name, s]),
+        );
+        expect(result.MY_API_KEY).toEqual({ name: "MY_API_KEY", value: "plain-visible-value", redacted: false });
+        expect(result.DB_PASSWORD.value).toBe("plain-password-value");
+        expect(result.DB_URL.value).toBe("redis://cache:6379");
+        for (const name of ["MY_TOKEN", "MY_PRIVATE_KEY", "MY_JWT", "MY_DSN"]) {
+            expect(result[name], name).toEqual({ name, redacted: true });
+        }
+    });
+
 });
 
 describe("describeConfiguration", () => {
     const tree = {
-        service_name: "rapidmx",
+        service_name: "auth-server",
         cookie_secret: "hunter2-password-value",
         max_body_size: 100,
         enabled: true,
@@ -147,10 +286,10 @@ describe("describeConfiguration", () => {
         $0: "node",
         datastores: {
             cache: { type: "redis", url: "redis://default:urlpass-secret@cache:6379" },
-            mongo: { type: "mongodb", host: "db", password: "hunter2-password-value", options: { ssl_key: "-----BEGIN PRIVATE KEY-----" } },
+            mongo: { type: "mongodb", host: "db", password: "hunter2-password-value", username: "shown-because-unlisted", options: { ssl_key: "-----BEGIN PRIVATE KEY-----" } },
         },
         mail: {
-            transport: { ingest: { secret: "s3cr3t-token-value" }, host: "mx" },
+            transport: { host: "mx" },
             origins: ["https://a.example.com", "https://b.example.com?token=query-param-secret"],
             empty: [],
             none: {},
@@ -158,13 +297,15 @@ describe("describeConfiguration", () => {
             callback: () => "x",
             missing: undefined,
         },
+        smtp_config: { host: "smtp", auth: { user: "mailer", pass: "s3cr3t-token-value" } },
         auth: { secret: "hunter2-password-value", cookie: { domain: ".example.com" } },
+        default_accounts: { admin: { password: "hunter2-password-value" } },
     };
 
     it("flattens the tree with nconf-style names and withholds secrets", () => {
         const result = describeConfiguration(tree, { PATH: "/usr/bin" }, ["service_name", "datastores"]);
         const byName = Object.fromEntries(result.map((s) => [s.name, s]));
-        expect(byName.service_name.value).toBe("rapidmx");
+        expect(byName.service_name.value).toBe("auth-server");
         expect(byName.max_body_size.value).toBe("100");
         expect(byName.enabled.value).toBe("true");
         expect(byName.nothing.value).toBe("null");
@@ -172,18 +313,23 @@ describe("describeConfiguration", () => {
         expect(byName["datastores:cache:url"].value).toBe("redis://cache:6379");
         expect(byName["datastores:mongo:host"].value).toBe("db");
         expect(byName["mail:transport:host"].value).toBe("mx");
+        // A sibling of a hidden setting is shown.
+        expect(byName["smtp_config:auth:user"].value).toBe("mailer");
         expect(byName["mail:origins:0"].value).toBe("https://a.example.com");
-        expect(byName["mail:origins:1"].value).toBe("https://b.example.com?token=");
+        expect(byName["mail:origins:1"]).toEqual({ name: "mail:origins:1", redacted: true });
         expect(byName["mail:empty"].value).toBe("[]");
         expect(byName["mail:none"].value).toBe("{}");
         expect(byName["mail:callback"]).toEqual({ name: "mail:callback", redacted: true });
         expect(byName["mail:banner"]).toEqual({ name: "mail:banner", redacted: true });
         expect(byName["mail:missing"]).toBeUndefined();
-        for (const name of ["cookie_secret", "datastores:mongo:password", "datastores:mongo:options:ssl_key", "mail:transport:ingest:secret", "auth"]) {
-            expect(byName[name]).toEqual({ name, redacted: true });
+        for (const name of ["cookie_secret", "datastores:mongo:options:ssl_key", "datastores:mongo:password", "smtp_config:auth:pass", "auth:secret", "default_accounts"]) {
+            expect(byName[name], name).toEqual({ name, redacted: true });
         }
-        // The subtree of a secret-named key is one hidden entry: not even its shape is listed.
-        expect(Object.keys(byName).some((name) => name.startsWith("auth:"))).toBe(false);
+        // An unlisted name is shown; a sibling of a hidden one is shown too.
+        expect(byName["datastores:mongo:username"].value).toBe("shown-because-unlisted");
+        expect(byName["auth:cookie:domain"]).toEqual({ name: "auth:cookie:domain", value: ".example.com", redacted: false });
+        // The subtree of a listed key is one hidden entry: not even its shape is listed.
+        expect(Object.keys(byName).some((name) => name.startsWith("default_accounts:"))).toBe(false);
         // Command-line positionals and script are not settings.
         expect(byName._).toBeUndefined();
         expect(byName.$0).toBeUndefined();
@@ -197,10 +343,47 @@ describe("describeConfiguration", () => {
         expect(result.map((s) => s.name)).toEqual(["max_body_size", "nested:PATH"]);
     });
 
+    it("drops a top-level key that is an environment variable whatever its value parses to", () => {
+        const env = { DB_CONFIG: '{"u":"admin","p":"hunter2"}', FOO__BAR: "secretvalue", Mixed_Case: "x", datastores__cache__type: "redis" };
+        const result = describeConfiguration(
+            {
+                DB_CONFIG: { u: "admin", p: "hunter2" },
+                FOO: { BAR: "secretvalue" },
+                mixed_case: { a: "b" },
+                datastores: { cache: { type: "redis" } },
+                service_name: "auth-server",
+            },
+            env,
+            ["datastores", "service_name"]
+        );
+        expect(result.map((s) => s.name)).toEqual(["datastores:cache:type", "service_name"]);
+        expect(JSON.stringify(result)).not.toContain("hunter2");
+        expect(JSON.stringify(result)).not.toContain("secretvalue");
+    });
+
+    it("keeps a declared key that is also an environment variable name", () => {
+        const result = describeConfiguration({ service: { name: "a" } }, { SERVICE__NAME: "a" }, ["service"]);
+        expect(result.map((s) => s.name)).toEqual(["service:name"]);
+    });
+
     it("answers nothing for a configuration that is not an object", () => {
         expect(describeConfiguration(undefined, {})).toEqual([]);
         expect(describeConfiguration("text", {})).toEqual([]);
         expect(describeConfiguration(null, {})).toEqual([]);
+    });
+
+    it("reads no more of an array than it can list (R2S-3)", () => {
+        let reads = 0;
+        const items = new Proxy(Array.from({ length: 20_000 }, (_, i) => i), {
+            get(target, key, receiver) {
+                if (typeof key === "string" && /^\d+$/.test(key)) {
+                    reads++;
+                }
+                return Reflect.get(target, key, receiver);
+            },
+        });
+        expect(describeConfiguration({ items }, {})).toHaveLength(5000);
+        expect(reads).toBeLessThanOrEqual(5000);
     });
 
     it("guards against a cycle, a tree that is too deep and one that is too large", () => {
@@ -227,40 +410,41 @@ describe("describeConfiguration", () => {
 describe("DiagnosticsCollector.information", () => {
     it("combines the environment and configuration it is given, with no secret in the JSON", () => {
         const collector = new DiagnosticsCollector({
-            env: { NODE_ENV: "production", DB_PASSWORD: "hunter2-password-value", OTHER: "urlpass-secret" },
+            env: { NODE_ENV: "production", auth__secret: "hunter2-password-value", OTHER: "mongodb://u:urlpass-secret@db" },
             configuration: () => ({
-                tree: { cookie_secret: "s3cr3t-token-value", service_name: "rapidmx", DB_PASSWORD: "hunter2-password-value" },
-                declared: ["service_name"],
+                tree: { cookie_secret: "s3cr3t-token-value", service_name: "auth-server", auth: { secret: "hunter2-password-value" } },
+                declared: ["service_name", "auth"],
             }),
         });
         const information = collector.information();
         expect(information.environment).toEqual([
-            { name: "DB_PASSWORD", redacted: true },
+            { name: "auth__secret", redacted: true },
             { name: "NODE_ENV", value: "production", redacted: false },
-            { name: "OTHER", redacted: true },
+            { name: "OTHER", value: "mongodb://db", redacted: false },
         ]);
         expect(information.configuration).toEqual([
+            { name: "auth:secret", redacted: true },
             { name: "cookie_secret", redacted: true },
-            { name: "service_name", value: "rapidmx", redacted: false },
+            { name: "service_name", value: "auth-server", redacted: false },
         ]);
         expectNoSecrets(information);
     });
 
     it("reads process.env and the shared nconf by default", () => {
-        const previous = process.env.RAPIDMX_TEST_PASSWORD;
-        process.env.RAPIDMX_TEST_PASSWORD = "hunter2-password-value";
+        const previous = process.env.COOKIE_SECRET;
+        process.env.COOKIE_SECRET = "hunter2-password-value";
         try {
             const information = new DiagnosticsCollector().information();
-            expect(information.environment.find((s) => s.name === "RAPIDMX_TEST_PASSWORD")).toEqual({
-                name: "RAPIDMX_TEST_PASSWORD",
+            expect(information.environment.find((s) => s.name === "COOKIE_SECRET")).toEqual({
+                name: "COOKIE_SECRET",
                 redacted: true,
             });
             expectNoSecrets(information);
         } finally {
             if (previous === undefined) {
-                delete process.env.RAPIDMX_TEST_PASSWORD;
+                delete process.env.COOKIE_SECRET;
             } else {
-                process.env.RAPIDMX_TEST_PASSWORD = previous;
+                process.env.COOKIE_SECRET = previous;
             }
         }
     });

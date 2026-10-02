@@ -119,7 +119,7 @@ spec:
         {{- if $.Values.redis.create }}
         {{- $redisHost := (include "rrst.render" (dict "value" .Values.global.cache.url "context" $) | replace "redis://" "") }}
         - name: redis-probe
-          image: busybox
+          image: {{ $.Values.service.probeImage }}
           env:
             - name: REDIS_HOST
               value: {{ $redisHost }}
@@ -130,7 +130,7 @@ spec:
         {{- end }}
         {{- if $.Values.mongodb.create }}
         - name: mongo-probe
-          image: busybox
+          image: {{ $.Values.service.probeImage }}
           env:
             - name: MONGO_HOST
               value: {{ $.Values.mongodb.fullnameOverride }}
@@ -138,7 +138,7 @@ spec:
         {{- end }}
         {{- if $.Values.postgresql.create }}
         - name: postgres-probe
-          image: busybox
+          image: {{ $.Values.service.probeImage }}
           env:
             - name: POSTGRES_HOST
               value: {{ $.Values.postgresql.fullnameOverride }}

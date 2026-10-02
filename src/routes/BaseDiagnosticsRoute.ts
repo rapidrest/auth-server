@@ -55,7 +55,7 @@ export abstract class BaseDiagnosticsRoute {
 
     @Summary("Environment and configuration")
     @Description(
-        "Returns the server's environment variables and effective configuration. Secret-like and unrecognized environment variables are listed by name only, and secrets in the configuration (passwords, tokens, keys, URL credentials) are withheld: their values are never part of the response."
+        "Returns the server's environment variables and effective configuration. Settings on the server's hidden list (passwords, tokens, keys) are listed by name only, and the credentials in URLs are removed: their values are never part of the response."
     )
     @Auth(["jwt"])
     @Get("/information")

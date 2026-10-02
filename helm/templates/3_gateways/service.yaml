@@ -1,6 +1,13 @@
 {{- $ownsGateway := and (eq (printf "%s-gateway" (include "rrst.fullname" .)) (tpl $.Values.global.gateway.name $)) (eq $.Release.Namespace (tpl $.Values.global.gateway.namespace $)) }}
 {{- /* Matches tls-certs.yaml: a certificate is only issued for a host that can get one. */}}
-{{- $certificate := and $.Values.global.gateway.tls (ne (include "rrst.render" (dict "value" $.Values.host "context" $)) "localhost") (not (contains ".local" (include "rrst.render" (dict "value" $.Values.host "context" $)))) }}
+{{- $certificate := eq (include "rrst.certificate" $) "true" }}
+{{- /*
+Plain HTTP is redirected to HTTPS when this chart owns the Gateway and terminates TLS on it: the http and https listeners are
+named here, so the redirect can be attached to the http ones only (a Gateway it doesn't own names its own listeners, which
+this can't tell apart). cert-manager's HTTP-01 solver route matches its own /.well-known/acme-challenge/<token> path exactly,
+which wins over this route's `/` prefix, so certificates are still issued over HTTP.
+*/}}
+{{- $redirectHTTP := and $ownsGateway $certificate $.Values.global.gateway.httpRedirect }}
 {{- if $ownsGateway }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -62,9 +69,11 @@ metadata:
 spec:
   parentRefs:
   {{- if $ownsGateway }}
+  {{- if not $redirectHTTP }}
   - name: {{ tpl $.Values.global.gateway.name $ }}
     namespace: {{ tpl $.Values.global.gateway.namespace $ }}
     sectionName: http
+  {{- end }}
   {{- if $certificate }}
   - name: {{ tpl $.Values.global.gateway.name $ }}
     namespace: {{ $.Release.Namespace }}
@@ -95,3 +104,30 @@ spec:
         remove:
         - Strict-Transport-Security
     {{- end }}
+
+{{- if $redirectHTTP }}
+---
+# Sends everything arriving over plain HTTP to the same address over HTTPS. The app route above is attached to the https
+# listener only, so no request is served in the clear (global.gateway.httpRedirect: false serves both).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "rrst.fullname" . }}-httproute-redirect
+spec:
+  parentRefs:
+  - name: {{ tpl $.Values.global.gateway.name $ }}
+    namespace: {{ tpl $.Values.global.gateway.namespace $ }}
+    sectionName: http
+  hostnames:
+  - {{ (include "rrst.render" (dict "value" $.Values.host "context" $)) | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: https
+        statusCode: 301
+{{- end }}

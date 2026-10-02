@@ -24,6 +24,12 @@ global:
     className: envoy
     hsts: true
     tls: true
+    # With a Gateway this chart creates and a certificate for `host`, plain HTTP is redirected (301) to HTTPS rather than served:
+    # a request on port 80 would otherwise carry the session cookie and credentials in the clear. cert-manager's HTTP-01
+    # challenge is still answered over HTTP. false serves the app on both - and is required when something in front ends TLS and
+    # forwards plain HTTP to this Gateway's port 80 (Cloudflare "flexible" SSL, a load balancer's TLS listener), or every request
+    # is redirected back to itself in a loop.
+    httpRedirect: true
   jwt:
     audience: >-
       {{ include "rrst.render" (dict "value" .Values.global.domain "context" .)
@@ -129,6 +135,9 @@ service:
     repository: rapidrest/auth-server
     tag: 1.0.0-beta.30
   replicas: 1
+  # The image of the init containers that wait for the datastores (a TCP check with nc) and of `helm test`'s pod. Pinned, like the
+  # other images, so a pull can't bring a different one.
+  probeImage: busybox:1.37.0
   resources:
     requests:
       cpu: 100m

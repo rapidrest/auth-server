@@ -137,6 +137,17 @@ true
 {{-   end -}}
 {{- end -}}
 
+{{/*
+"true" when this chart's own `.Values.host` will actually get a TLS certificate: global.gateway.tls is on and the
+rendered host isn't localhost, *.localhost or *.local. Usage: include "rrst.certificate" $
+*/}}
+{{- define "rrst.certificate" -}}
+{{-   $host := include "rrst.render" (dict "value" .Values.host "context" .) -}}
+{{-   if and .Values.global.gateway.tls (include "rrst.publicHost" $host) -}}
+true
+{{-   end -}}
+{{- end -}}
+
 {{/******************************** SECRETS ********************************/}}
 
 {{/*

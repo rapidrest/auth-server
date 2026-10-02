@@ -119,18 +119,18 @@ describe("DiagnosticsRoute (mongo)", () => {
 
         it("reports the environment and configuration with every secret withheld", async () => {
             const admin = await elevatedAdmin("admin-information");
-            process.env.DIAG_TEST_API_TOKEN = "diag-secret-token-value";
+            process.env.smtp_config__auth__pass = "diag-secret-token-value";
             try {
                 const res = await admin.get("/api/admin/diagnostics/information");
 
                 expect(res.status).toBe(200);
-                expect(res.body.environment).toContainEqual({ name: "DIAG_TEST_API_TOKEN", redacted: true });
+                expect(res.body.environment).toContainEqual({ name: "smtp_config__auth__pass", redacted: true });
                 expect(res.body.configuration.length).toBeGreaterThan(0);
                 // The test's own admin password is in the configuration or environment of this process only as a secret: never echoed.
                 expect(JSON.stringify(res.body)).not.toContain("diag-secret-token-value");
                 expect(JSON.stringify(res.body)).not.toContain(PASSWORD);
             } finally {
-                delete process.env.DIAG_TEST_API_TOKEN;
+                delete process.env.smtp_config__auth__pass;
             }
         });
 
