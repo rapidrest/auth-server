@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.32] - 2026-10-02
+
+### Added
+- Added Strict-Transport-Security, a baseline Content-Security-Policy, X-Content-Type-Options and Referrer-Policy to the gateway's response headers
+
+### Changed
+- Hide the TOTP encryption key in the Diagnostics so it is no longer shown in cleartext
+- Detect production from NODE_ENV as well as the environment setting so the default-secret guard runs under the Helm chart
+- Set the environment variable alongside NODE_ENV in the chart so the production guard and OTP debug logging agree
+- Generate and persist the OAuth signing encryption key and the TOTP encryption key in the chart so a deployment is never left on the public default or storing TOTP secrets as plaintext
+
 ## [1.0.0-beta.31] - 2026-10-02
 
 ### Changed
@@ -729,7 +740,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.31...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.32...HEAD
+[1.0.0-beta.32]: github/auth-server/compare/v1.0.0-beta.31...v1.0.0-beta.32
 [1.0.0-beta.31]: github/auth-server/compare/v1.0.0-beta.30...v1.0.0-beta.31
 [1.0.0-beta.30]: github/auth-server/compare/v1.0.0-beta.29...v1.0.0-beta.30
 [1.0.0-beta.29]: github/auth-server/compare/v1.0.0-beta.28...v1.0.0-beta.29
