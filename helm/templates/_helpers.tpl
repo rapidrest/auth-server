@@ -203,6 +203,23 @@ Usage: include "rrst.persistedSecret" (dict "value" .Values.cookies.secret "stor
 {{- end -}}
 
 {{/*
+Like rrst.persistedSecret, but generates a 64-character hex string (32 bytes) when there is no explicit or stored
+value: the shape an AES-256 key must take (auth:oauth_server:keys:encryption_key, auth:totp:encryption_key), which the
+alphanumeric rrst.persistedSecret does not produce. sha256sum of a random string is a convenient 64-hex source in sprig.
+An explicit value, or one stored from a prior install, still wins, so the key stays stable across upgrades.
+*/}}
+{{- define "rrst.persistedHexSecret" -}}
+{{-   $explicit := tpl (.value | default "") .context -}}
+{{-   if $explicit -}}
+{{-     $explicit | b64enc -}}
+{{-   else if .stored -}}
+{{-     .stored -}}
+{{-   else -}}
+{{-     sha256sum (randAlphaNum 64) | b64enc -}}
+{{-   end -}}
+{{- end -}}
+
+{{/*
 A secret value that must be supplied: fails the render when it's empty or still one of the publicly-known development
 defaults. Usage: include "rrst.requiredSecret" (dict "value" $value "name" "auth.secret" "defaults" (list "..."))
 */}}

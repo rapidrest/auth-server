@@ -21,6 +21,8 @@ export const CORE_HIDDEN_SETTINGS: readonly string[] = [
     "default_accounts",
     // Encrypts the OAuth signing keys and the messaging secrets at rest.
     "auth:oauth_server:keys:encryption_key",
+    // Encrypts every user's TOTP/MFA shared secret at rest (AES-256-GCM); with the DB it clones every second factor.
+    "auth:totp:encryption_key",
     // The sign-in providers' application secrets and Apple's signing key.
     "auth:google:clientSecret",
     "auth:microsoft:clientSecret",

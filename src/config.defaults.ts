@@ -55,12 +55,17 @@ export interface SecretsConfig {
  * JWTs/sessions/cookies outright.
  *
  * @param config The loaded runtime configuration to check.
- * @param environment The deployment environment (typically `process.env.environment`). A no-op unless
- * this is exactly `"production"`.
+ * @param environment The deployment environment (typically `process.env.environment`).
  * @throws If any of the guarded secrets still hold its known default value in production.
+ *
+ * Production is detected from either `environment` (this project's own convention) OR `process.env.NODE_ENV`
+ * (the Node convention the Helm chart actually sets). Keying off only `environment` silently disarmed this guard
+ * under the chart — which injects `NODE_ENV`, not `environment` — so a production deploy could start with a
+ * checked-in default secret (e.g. the public `auth:oauth_server:keys:encryption_key`) still in effect.
  */
 export function assertProductionSecretsAreSet(config: SecretsConfig, environment: string | undefined): void {
-    if (environment !== "production") {
+    const isProduction: boolean = environment === "production" || process.env.NODE_ENV === "production";
+    if (!isProduction) {
         return;
     }
 

@@ -96,14 +96,34 @@ spec:
     backendRefs:
     - name: {{ include "rrst.fullname" . }}-services
       port: 80
-    {{- if not $.Values.global.gateway.hsts }}
-    # Standard Gateway API filter, so it works on any implementation (Envoy Gateway, nginx-gateway-fabric, ...).
+    # Baseline security response headers for every served response. A standard Gateway API filter, so it works on any
+    # implementation (Envoy Gateway, nginx-gateway-fabric, ...). Kept in step with the RapidMX server chart's own route.
     filters:
     - type: ResponseHeaderModifier
       responseHeaderModifier:
+        set:
+        # Stops a browser from MIME-sniffing a response into a type it wasn't sent as.
+        - name: X-Content-Type-Options
+          value: nosniff
+        - name: Referrer-Policy
+          value: strict-origin-when-cross-origin
+        {{- if $.Values.global.gateway.hsts }}
+        # HTTPS enforced for two years. `host` has no sub-names of its own, so includeSubDomains costs nothing here;
+        # `preload` is left to the operator since it is slow to undo.
+        - name: Strict-Transport-Security
+          value: max-age=63072000; includeSubDomains
+        {{- end }}
+        add:
+        # Added, not set, so it layers with - never replaces - any stricter per-response CSP the app sends; a browser
+        # enforces every CSP it receives. `frame-ancestors 'self'` blocks cross-origin framing (clickjacking) while still
+        # allowing same-origin framing; a blunt `X-Frame-Options: DENY` would break any same-origin iframe, so it is not
+        # used. A `script-src` policy needs per-response SSR nonces (a separate change) and so is deliberately omitted.
+        - name: Content-Security-Policy
+          value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'"
+        {{- if not $.Values.global.gateway.hsts }}
         remove:
         - Strict-Transport-Security
-    {{- end }}
+        {{- end }}
 
 {{- if $redirectHTTP }}
 ---

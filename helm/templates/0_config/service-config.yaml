@@ -32,6 +32,7 @@ data:
   */}}
   {{- $defaults := dict
         "NODE_ENV" $.Values.environment
+        "environment" $.Values.environment
         "cors__origins" ($origins | toJson)
         "trusted_proxies" ($.Values.global.trustedProxies | default list | toJson)
         "auth__passkey__rpID" $selfHost
