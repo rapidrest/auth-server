@@ -24,12 +24,29 @@ services:
         links:
             - redis
             - postgres
+        # Wait for the databases to accept connections: the server does not retry its first connection, so one that is
+        # still starting (Postgres runs its first-boot initdb, slower on a busy CI runner) made it exit before it was ready.
+        depends_on:
+            redis:
+                condition: service_healthy
+            postgres:
+                condition: service_healthy
     redis:
         image: redis
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 2s
+            timeout: 3s
+            retries: 30
     postgres:
         image: postgres
         environment:
             - POSTGRES_PASSWORD=postgres
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            interval: 2s
+            timeout: 3s
+            retries: 60
         volumes:
             # NOT /var/lib/postgresql/data - the postgres:18+ image refuses to start at all if anything is
             # externally mounted directly at that exact path ("these Docker images are configured to store

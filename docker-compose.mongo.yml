@@ -24,12 +24,28 @@ services:
         links:
             - redis
             - mongo
+        # Wait for the databases to accept connections (see docker-compose.sql.yml).
+        depends_on:
+            redis:
+                condition: service_healthy
+            mongo:
+                condition: service_healthy
     redis:
         image: redis
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 2s
+            timeout: 3s
+            retries: 30
     mongo:
         image: mongo
         volumes:
             - mongo_data:/data/db
+        healthcheck:
+            test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+            interval: 2s
+            timeout: 5s
+            retries: 60
 
 volumes:
     mongo_data:
