@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.33] - 2026-10-02
+
+### Changed
+- Map the OAuth and TOTP encryption keys from OpenBao in the ExternalSecret so a vault-managed deployment provisions them instead of falling back to the checked-in default
+
 ## [1.0.0-beta.32] - 2026-10-02
 
 ### Added
@@ -740,7 +745,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.32...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.33...HEAD
+[1.0.0-beta.33]: github/auth-server/compare/v1.0.0-beta.32...v1.0.0-beta.33
 [1.0.0-beta.32]: github/auth-server/compare/v1.0.0-beta.31...v1.0.0-beta.32
 [1.0.0-beta.31]: github/auth-server/compare/v1.0.0-beta.30...v1.0.0-beta.31
 [1.0.0-beta.30]: github/auth-server/compare/v1.0.0-beta.29...v1.0.0-beta.30
