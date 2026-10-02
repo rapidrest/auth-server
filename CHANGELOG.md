@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.31] - 2026-10-02
+
+### Changed
+- Hide in the Diagnostics only the settings named on a list, and show every other environment variable and setting, scrubbing the credentials from the value of each
+- Say in the Diagnostics that only the settings on the list of hidden settings are withheld
+- Keep the stored JWT secret when the chart is upgraded without one
+- Judge a local host name by its ending rather than by containing .local when deciding on a certificate
+- Pin the busybox image of the init containers and the test pod
+- Redirect http to https at the gateway when the chart ends TLS there
+- Point the test pod of the chart at the service that exists
+- Update axios to 1.20.0 and nodemailer to 10.0.13
+- Start the server of the docker compose files only once Redis and the database are healthy
+
 ## [1.0.0-beta.30] - 2026-10-01
 
 ### Changed
@@ -716,7 +729,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.30...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.31...HEAD
+[1.0.0-beta.31]: github/auth-server/compare/v1.0.0-beta.30...v1.0.0-beta.31
 [1.0.0-beta.30]: github/auth-server/compare/v1.0.0-beta.29...v1.0.0-beta.30
 [1.0.0-beta.29]: github/auth-server/compare/v1.0.0-beta.28...v1.0.0-beta.29
 [1.0.0-beta.28]: github/auth-server/compare/v1.0.0-beta.27...v1.0.0-beta.28
