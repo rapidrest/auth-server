@@ -2107,3 +2107,15 @@ Authorized pentest of `auth.powerlevel.gg` via parallel source-audit agents (fin
 ## 2026-10-26 - Release gate
 
 A release pushes `main` and its tag at the same commit, and each push runs CI. The tag run's publish jobs used to need only part of the test chain, so a failed job outside it (`validate`, `test-helm`, `test-run-sql`) or a failed `main` run of the same commit didn't stop the release (activesync v1.2.0 and web-client v0.37.0 published past failed Builds that way). `.github/workflows/ci.yml` now has a `release-gate` job (tag pushes only) that needs every other job, checks the tag points at a commit on the default branch, then polls this workflow's other runs of that commit (excluding its own) until all have finished, refusing if any did not succeed; both publish jobs need it (`validate` stays `continue-on-error`, so it still doesn't block). If it refuses: rerun the failed run green, then re-run the tag run's failed jobs. Not yet exercised by a real release.
+
+## Agent model assignments (JP, 2026-10-28)
+
+Standing rule for every AI agent working on this project (applies to all RapidMX and RapidREST repositories):
+
+| Kind of work | Model |
+|---|---|
+| Design (specs, plans, architecture proposals) | Opus 5.5 (`claude-opus-5-5`) |
+| Architectural review | Opus 5.5 (`claude-opus-5-5`) |
+| Code review (finding and verifying defects in diffs or code) | Sonnet 5.5 (`claude-sonnet-5-5`) |
+| Fixes (implementing review findings and other code changes) | Sonnet 5.5 (`claude-sonnet-5-5`) |
+| Simple operations (file operations, renames, project initialization and similar mechanical tasks) | Haiku 5.5 (`claude-haiku-5-5`) |
