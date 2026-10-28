@@ -47,6 +47,10 @@ global:
     address: http://openbao.openbao.svc:8200
     kvMount: secret
     secretsPath: ''
+    # The ConfigMap in this namespace holding, under ca.crt, the CA that signed OpenBao's listener certificate: the SecretStore
+    # verifies the vault with it (caProvider) instead of the system's trust store. The RapidMX server chart creates
+    # <fullname>-openbao-ca. Empty: the system's trust store.
+    caConfigMap: ''
     auth:
       method: token
       tokenSecret: ''

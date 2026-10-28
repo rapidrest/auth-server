@@ -278,6 +278,24 @@ tokenSecretRef:
 {{-   end }}
 {{- end -}}
 
+{{/* The ConfigMap holding the CA OpenBao's listener certificate was signed with (global.openbao.caConfigMap), or nothing. */}}
+{{- define "rrst.vaultCaConfigMap" -}}
+{{-   include "rrst.render" (dict "value" (dig "openbao" "caConfigMap" "" ($.Values.global | default dict)) "context" .) -}}
+{{- end -}}
+
+{{/*
+The SecretStore's caProvider, so the store verifies OpenBao's listener with the CA in global.openbao.caConfigMap (key ca.crt)
+instead of the system's trust store. Renders nothing when caConfigMap is empty. A parent chart can override this define.
+*/}}
+{{- define "rrst.vaultCaProvider" -}}
+{{-   with include "rrst.vaultCaConfigMap" . -}}
+caProvider:
+  type: ConfigMap
+  name: {{ . | quote }}
+  key: ca.crt
+{{-   end -}}
+{{- end -}}
+
 {{/****************************** AUTH SERVER ******************************/}}
 
 {{/*
