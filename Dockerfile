@@ -13,7 +13,7 @@ ENV MONGOMS_DISABLE_POSTINSTALL=1
 ENV REDISMS_DISABLE_POSTINSTALL=true
 # Install any needed packages specified in requirements.txt
 RUN apt update && apt upgrade -y
-RUN corepack enable
+RUN npm install --global corepack && corepack enable
 RUN yarn install --immutable
 RUN yarn build
 
@@ -29,7 +29,7 @@ RUN chmod +x /app/scripts/*
 # Add curl for health check
 RUN apt-get update && apt-get upgrade -f -y && apt-get install curl -y
 RUN npm install --global nodemon
-RUN corepack enable
+RUN npm install --global corepack && corepack enable
 
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
