@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.35] - 2026-10-29
+
+### Changed
+- Install corepack with npm before enabling it in both Dockerfile stages, since node:lts-trixie-slim is now Node 26, which no longer ships it
+
 ## [1.0.0-beta.34] - 2026-10-29
 
 ### Added
@@ -759,7 +764,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.34...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.35...HEAD
+[1.0.0-beta.35]: github/auth-server/compare/v1.0.0-beta.34...v1.0.0-beta.35
 [1.0.0-beta.34]: github/auth-server/compare/v1.0.0-beta.33...v1.0.0-beta.34
 [1.0.0-beta.33]: github/auth-server/compare/v1.0.0-beta.32...v1.0.0-beta.33
 [1.0.0-beta.32]: github/auth-server/compare/v1.0.0-beta.31...v1.0.0-beta.32
