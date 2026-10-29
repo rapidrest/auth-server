@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.34] - 2026-10-29
+
+### Added
+- Added the rule that the more specific agent model assignment wins where categories overlap
+- Added the overridable rrst.vaultCaProvider define rendering the SecretStore's caProvider from global.openbao.caConfigMap, nothing when it is unset
+- Added global.openbao.caConfigMap to values.yaml
+- Added the helm template test for the caProvider set and unset
+
+### Changed
+- Publish a release tag's image and chart only once every other job of its run and every other CI run of its commit has finished green
+- Record the standing agent model assignments in the project notes
+- Move the agent model assignments to the top of the project notes, keeping session history at the bottom
+- Update the agent model assignments to JP's revised criteria: Sonnet for general code and review, Opus for architecture, planning, investigation, security and performance, Haiku for simple operations
+
 ## [1.0.0-beta.33] - 2026-10-02
 
 ### Changed
@@ -745,7 +759,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.33...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0-beta.34...HEAD
+[1.0.0-beta.34]: github/auth-server/compare/v1.0.0-beta.33...v1.0.0-beta.34
 [1.0.0-beta.33]: github/auth-server/compare/v1.0.0-beta.32...v1.0.0-beta.33
 [1.0.0-beta.32]: github/auth-server/compare/v1.0.0-beta.31...v1.0.0-beta.32
 [1.0.0-beta.31]: github/auth-server/compare/v1.0.0-beta.30...v1.0.0-beta.31
