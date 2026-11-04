@@ -544,6 +544,8 @@ seed() {
 seed auth_secret `shQuote "$AUTH_SECRET"`
 seed cookie_secret `shQuote "$COOKIE_SECRET"`
 seed session__secret `shQuote "$SESSION_SECRET"`
+seed oauth_server_encryption_key `shQuote "$OAUTH_SERVER_ENCRYPTION_KEY"`
+seed totp_encryption_key `shQuote "$TOTP_ENCRYPTION_KEY"`
 
 printf 'path "$OPENBAO_KV_MOUNT/data/$OPENBAO_SECRETS_PATH" {\n  capabilities = ["read"]\n}\npath "$OPENBAO_KV_MOUNT/metadata/$OPENBAO_SECRETS_PATH" {\n  capabilities = ["read"]\n}\n' | bao policy write $FULLNAME-secrets-read - > /dev/null
 
@@ -1013,6 +1015,13 @@ if [[ "$OPENBAO" = "true" ]]; then
   COOKIE_SECRET=${COOKIE_SECRET:-`openssl rand -hex 32`}
   SESSION_SECRET=`existingSecret service-secrets session__secret`
   SESSION_SECRET=${SESSION_SECRET:-`openssl rand -hex 32`}
+  # The AES-256 keys (64 hex characters) the chart reads from the vault in place of generating them. Keeping the
+  # release's own matters even more here: a new key leaves every TOTP secret and OAuth signing key already stored
+  # unreadable.
+  OAUTH_SERVER_ENCRYPTION_KEY=`existingSecret service-secrets auth__oauth_server__keys__encryption_key`
+  OAUTH_SERVER_ENCRYPTION_KEY=${OAUTH_SERVER_ENCRYPTION_KEY:-`openssl rand -hex 32`}
+  TOTP_ENCRYPTION_KEY=`existingSecret service-secrets auth__totp__encryption_key`
+  TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:-`openssl rand -hex 32`}
 
   if [[ "$OPENBAO_INSTALL" = "true" ]]; then
     run_step "Installing OpenBao"
