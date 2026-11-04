@@ -37,7 +37,7 @@ describe.skipIf(!helmAvailable)("diagnostics-rbac.yaml (helm template)", () => {
             "--show-only",
             "templates/0_config/diagnostics-rbac.yaml",
             "--set",
-            "global.secrets.cookies=c,global.secrets.sessions=s,global.jwt.secret=j,global.domain=example.com",
+            "global.secrets.cookies=c,global.secrets.sessions=s,global.jwt.secret=j,service.config.auth__oauth_server__keys__encryption_key=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,service.config.auth__totp__encryption_key=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,global.domain=example.com",
             "--set",
             "mongodb.create=false,redis.create=false",
             ...sets.flatMap((set) => ["--set", set]),

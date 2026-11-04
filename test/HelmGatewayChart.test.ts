@@ -39,7 +39,7 @@ describe.skipIf(!helmAvailable)("chart gateway, secrets and images (helm templat
                 "--namespace",
                 "auth-ns",
                 "--set",
-                `global.secrets.cookies=c,global.secrets.sessions=s,global.jwt.secret=j,global.domain=${domain}`,
+                `global.secrets.cookies=c,global.secrets.sessions=s,global.jwt.secret=j,service.config.auth__oauth_server__keys__encryption_key=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,service.config.auth__totp__encryption_key=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,global.domain=${domain}`,
                 "--set",
                 "mongodb.create=false,redis.create=false,postgresql.create=false",
                 "--api-versions",
@@ -110,7 +110,7 @@ describe.skipIf(!helmAvailable)("chart gateway, secrets and images (helm templat
     it("pins the probe image and points helm test at the chart's Service", () => {
         const test = spawnSync(
             "helm",
-            ["template", "t", chart, "--set", "global.secrets.cookies=c,global.secrets.sessions=s,global.jwt.secret=j,global.domain=example.com,mongodb.create=false,redis.create=false", "--show-only", "templates/tests/test-connection.yaml"],
+            ["template", "t", chart, "--set", "global.secrets.cookies=c,global.secrets.sessions=s,global.jwt.secret=j,service.config.auth__oauth_server__keys__encryption_key=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,service.config.auth__totp__encryption_key=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,global.domain=example.com,mongodb.create=false,redis.create=false", "--show-only", "templates/tests/test-connection.yaml"],
             { encoding: "utf8" },
         );
         expect(test.status).toBe(0);
@@ -120,7 +120,7 @@ describe.skipIf(!helmAvailable)("chart gateway, secrets and images (helm templat
 
         const dep = spawnSync(
             "helm",
-            ["template", "t", chart, "--set", "global.secrets.cookies=c,global.secrets.sessions=s,global.jwt.secret=j,global.domain=example.com,mongodb.create=true,postgresql.create=true,redis.create=true", "--show-only", "templates/1_deployments/service.yaml"],
+            ["template", "t", chart, "--set", "global.secrets.cookies=c,global.secrets.sessions=s,global.jwt.secret=j,service.config.auth__oauth_server__keys__encryption_key=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,service.config.auth__totp__encryption_key=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,global.domain=example.com,mongodb.create=true,postgresql.create=true,redis.create=true", "--show-only", "templates/1_deployments/service.yaml"],
             { encoding: "utf8" },
         );
         expect(dep.stdout).not.toMatch(/image: busybox\s*$/m);
