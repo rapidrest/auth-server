@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-04
+
+### Changed
+- Upgraded all deps
+- Set the OAuth and TOTP encryption keys explicitly in the helm template tests so the stable-secrets guard no longer fails their render without cluster access
+- Updated lock file with latest deps within pinned range
+- Pin better-sqlite3 back to 12.x, since no 13.x release has a prebuilt binary for Node 26 on Linux and the slim Docker image can't compile it, which failed yarn install in test-docker-build; typeorm also only supports ^12.0.0
+- Seed the OAuth and TOTP encryption keys into OpenBao in k3s_install.sh, reusing the release's existing keys, since the chart's ExternalSecret reads them from the vault and nothing put them there
+- Replace the stale launch configurations: launch the server with yarn dev, attach to yarn debug, keep the Docker attach, and debug the current test file with Vitest instead of Jest
+- Update the README to the current state of the project: fix the badges, clone URL, compose and debugging instructions, add development setup, production secrets, the gateway, generated secrets, k3s_install.sh and OpenBao details, and the Diagnostics Information tab
+
 ## [1.0.0-beta.35] - 2026-10-29
 
 ### Changed
@@ -764,7 +775,8 @@ _No notable changes._
 - Removed confirmation prompt when click Impersonate
 - Removed test from .dockerignore, fixing yarn build's lint step failing outright when the build context is missing the test directory its tsconfig.eslint.json requires
 
-[Unreleased]: github/auth-server/compare/v1.0.0-beta.35...HEAD
+[Unreleased]: github/auth-server/compare/v1.0.0...HEAD
+[1.0.0]: github/auth-server/compare/v1.0.0-beta.35...v1.0.0
 [1.0.0-beta.35]: github/auth-server/compare/v1.0.0-beta.34...v1.0.0-beta.35
 [1.0.0-beta.34]: github/auth-server/compare/v1.0.0-beta.33...v1.0.0-beta.34
 [1.0.0-beta.33]: github/auth-server/compare/v1.0.0-beta.32...v1.0.0-beta.33
