@@ -5,6 +5,29 @@
     "version": "0.2.0",
     "configurations": [
         {
+            // `yarn dev` under the debugger: starts the in-memory databases src/config.ts needs, then the server from
+            // src/ with tsx (so breakpoints bind in the .ts sources) and the Vite watcher. The debugger follows the
+            // server's process on its own.
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Server",
+            "runtimeExecutable": "yarn",
+            "runtimeArgs": ["dev"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "skipFiles": ["<node_internals>/**"]
+        },
+        {
+            // Attach to a server already started with `yarn debug` (inspector on 9229).
+            "type": "node",
+            "request": "attach",
+            "name": "Attach to yarn debug",
+            "port": 9229,
+            "address": "localhost",
+            "skipFiles": ["<node_internals>/**"]
+        },
+        {
+            // Attach to the server in Docker Compose, run with docker-compose.debug.yml layered on top.
             "type": "node",
             "request": "attach",
             "name": "Docker: Attach to Node",
@@ -12,23 +35,21 @@
             "address": "localhost",
             "localRoot": "${workspaceFolder}",
             "remoteRoot": "/app",
-            "protocol": "inspector"
+            "skipFiles": ["<node_internals>/**"]
         },
         {
+            // Runs the test file open in the editor under the debugger. Coverage is off, since one file can't meet the
+            // project's coverage thresholds.
             "type": "node",
-            "name": "vscode-jest-tests",
             "request": "launch",
-            "program": "${workspaceFolder}/node_modules/jest/bin/jest",
-            "args": ["--runInBand"],
+            "name": "Debug Current Test File",
+            "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+            "args": ["run", "${relativeFile}", "--coverage.enabled=false"],
             "cwd": "${workspaceFolder}",
+            "autoAttachChildProcesses": true,
+            "smartStep": true,
             "console": "integratedTerminal",
-            "internalConsoleOptions": "neverOpen"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Program",
-            "program": "${workspaceFolder}/dist/server.js"
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
         }
     ]
 }
