@@ -1,8 +1,7 @@
 # RapidREST: Authentication Server
 
-[![CI](https://github.com/rapidrest/auth-server/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/rapidrest/auth-server/actions/workflows/build.yml)
+[![CI](https://github.com/rapidrest/auth-server/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rapidrest/auth-server/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/rapidrest/auth-server/badge.svg?branch=main)](https://coveralls.io/github/rapidrest/auth-server?branch=main)
-[![npm version](https://img.shields.io/npm/v/@rapidrest/auth-server)](https://www.npmjs.com/package/@rapidrest/auth-server)
 
 A reference implementation of a RapidREST authorization server built on [@rapidrest/auth](https://github.com/rapidrest/auth), [@rapidrest/service-core](https://github.com/rapidrest/service-core) and [@rapidrest/react](https://github.com/rapidrest/react), providing a complete, deployable authentication/account-management service plus a React front end and admin console.
 
@@ -40,14 +39,15 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 * E-mail, SMS and WhatsApp message templates — edit the wording of every one-time-code message with a live preview, stored in the database (no redeploy) and branded from the site branding by default — plus the SMTP server, the SMS provider (Twilio or Telnyx, one at a time), the WhatsApp credentials and the sender addresses they're sent with, seeded from config on first start and editable from then on
 * Admin impersonation of user accounts, with a persistent banner while impersonating
 * A durable, filterable **Audit Log** of security-relevant account activity — sign-ins (by method), registration, elevation, impersonation, account deletion, "log out everywhere", MFA changes, and app-password lifecycle — plus a **Recent activity** section on each account's own detail page; see [Audit logging](#audit-logging)
-* A **Diagnostics** page for troubleshooting a deployment — versions of the server, its packages, its datastore containers and the Kubernetes cluster, live CPU / memory / disk and volume-claim usage, a live, downloadable tail of the service log, and a downloadable report; see [Diagnostics](#diagnostics)
+* A **Diagnostics** page for troubleshooting a deployment — versions of the server, its packages, its datastore containers and the Kubernetes cluster, the server's environment variables and configuration (secrets withheld), live CPU / memory / disk and volume-claim usage, a live, downloadable tail of the service log, and a downloadable report; see [Diagnostics](#diagnostics)
 * Default account provisioning on startup via a configurable background job
 
 ### Data & Deployment
 
 * MongoDB and SQL (via TypeORM) backends
 * Docker and Docker Compose support (including dedicated Mongo/SQL/debug compose files)
-* Helm chart for Kubernetes support
+* Helm chart for Kubernetes, served through a Gateway API Gateway (Envoy Gateway by default) with HTTP→HTTPS redirect, HSTS and baseline security headers
+* Secrets generated once and kept across upgrades, either in Kubernetes Secrets or in OpenBao via External Secrets
 * Prometheus metrics, OpenAPI 3 spec generation
 * k6 load test suites
 
@@ -56,8 +56,32 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 To get started using this service first clone the source. It is highly recommended that you fork the project first.
 
 ```bash
-git clone github/auth-server
+git clone https://github.com/rapidrest/auth-server.git
+cd auth-server
 ```
+
+You need Node.js 24 or newer and Yarn 4, which [Corepack](https://github.com/nodejs/corepack) provides at the version
+pinned in `package.json`. Recent Node.js releases no longer ship Corepack, so install it first:
+
+```bash
+npm install -g corepack
+corepack enable
+yarn install
+```
+
+| Command | What it does |
+| --- | --- |
+| `yarn dev` | Starts in-memory databases, then runs the server from `src/` with live reload and rebuilds the React apps on change (`yarn debug` adds the Node inspector on port 9229). |
+| `yarn build` | Builds the server and the React apps into `dist/`. |
+| `yarn start` | Runs the built server. |
+| `yarn test` | Runs the test suite with coverage. The Helm chart tests need `helm` on the `PATH` and are skipped without it. |
+| `yarn lint` | Lints `apps/`, `src/` and `test/`. |
+
+`yarn dev` reads the datastores in `src/config.ts` and starts an in-memory MongoDB, Redis and/or PostgreSQL to match,
+so nothing has to be installed. To use your own databases instead, run `yarn dev -d` and point
+`datastores__<name>__url` at them. To develop against PostgreSQL, switch the export in `src/config.ts` to
+`config.sql.js`. The Docker image starts `dist/src/server.mongo.js`, and `docker-compose.sql.yml` overrides that
+with `dist/src/server.sql.js`.
 
 ## Configuration
 
@@ -76,6 +100,19 @@ console owns it (see each row).
 | `smtp_config` | The SMTP server for e-mail, as before. Seeds once. |
 | `auth:app_password:enabled` | Set to `false` to turn off app passwords deployment-wide: creating new ones is refused and existing ones stop authenticating (not deleted — re-enabling restores them). Defaults to `true`. |
 | `audit_log:retention_days` | How long an audit log entry is kept before the daily retention job purges it. Unset/`null` (the default) means **never purge** — an audit trail losing data unexpectedly would be a real regression, so there's no other way to enable purging. |
+| `auth:oauth_server:keys:encryption_key` | AES-256 key (64 hex characters) that encrypts the OAuth server's signing keys and the stored messaging credentials at rest. The checked-in default is public, so set your own. The Helm chart generates one and keeps it. |
+| `auth:totp:encryption_key` | AES-256 key (64 hex characters) that encrypts every user's TOTP/MFA shared secret at rest. Unset, TOTP secrets are stored in plaintext. The Helm chart generates one and keeps it. |
+
+#### Secrets in production
+
+`cookie_secret`, `auth:secret`, `session:secret` and `auth:oauth_server:keys:encryption_key` ship with development
+defaults that anyone reading this repository knows. **In production the server refuses to start while any of them
+still holds its default**, and it names the ones to set. Production means `environment` or `NODE_ENV` is
+`production`; the Helm chart sets both. The server also starts with a warning if a sign-in provider still has the
+placeholder credentials shipped in config.
+
+Once data has been encrypted, the two encryption keys can't change casually: anything encrypted with the old key
+becomes unreadable. Keep them stable across deployments, as the Helm chart does.
 
 > **Passkeys/FIDO2 on a real deployment:** the Helm chart now defaults `auth:passkey`/`auth:fido2`'s `rpID`/
 > `origin` to the server's own host (`service-config.yaml`), since `@rapidrest/auth`'s built-in default (rpID
@@ -99,8 +136,7 @@ when the account has `requireMFA` set — that bypass is the entire point: a leg
 MFA challenge gets its own high-entropy, individually revocable credential instead of the account's MFA being
 disabled to accommodate it. A real password is never exempt from `requireMFA` there. The plaintext is shown
 exactly once, at creation; only its hash is ever stored, and there's no way to rotate one in place — remove it
-and create a new one. This needs a release of `@rapidrest/auth` that includes app passwords; see
-`auth:app_password:enabled` above to turn the feature off.
+and create a new one. See `auth:app_password:enabled` above to turn the feature off.
 
 Every secret — this one included — also tracks when it was last used to sign in, shown on the account
 page (and to an admin viewing an account's Sign-in methods) as "Never used" until then; an admin can now
@@ -119,16 +155,21 @@ telemetry (with no `telemetry_services:url` configured — this app's default �
 end to end, and nothing here registers a listener either) and was never meant to be relied on for a real audit
 trail. Writing an entry never blocks the action that triggered it — a failure is logged loudly instead of
 silently dropped — and nothing is ever purged unless `audit_log:retention_days` is explicitly set (see the
-config table above). This needs a release of `@rapidrest/auth` that includes it.
+config table above).
 
 ### Diagnostics
 
 The admin console's **Diagnostics** page (`/admin/diagnostics`, backed by `/api/admin/diagnostics/*`) has four tabs, and
 the same page and engine as the RapidMX server's:
 
-* **Versions** — the deployed package, Node.js and V8, the host and how long the server has been up; the other
+* **Information** — the deployed package, Node.js and V8, the host and how long the server has been up; the other
   containers of the deployment (MongoDB, PostgreSQL, Redis) with their status, image tag, digest, restarts and node,
-  expandable to their pods; and every installed package, filterable, with the direct dependencies marked.
+  expandable to their pods; every installed package, filterable, with the direct dependencies marked; and the
+  server's environment variables and configuration (`/api/admin/diagnostics/information`). Settings named in
+  `src/diagnostics/hiddenSettings.ts` (the signing secrets, encryption keys, provider and messaging credentials,
+  datastore passwords) show their name only. Every other value is shown, with credentials scrubbed out of it: a URL's
+  `user:password@`, private keys, JWTs, `Bearer` tokens and `password=` pairs. A new secret setting has to be added to
+  that list.
 * **Runtime** — the Kubernetes version and distribution (k3s, RKE2, EKS, GKE, AKS), the namespace, and the nodes the
   deployment's pods run on.
 * **System** — live, every 5 seconds while the tab is open (pausable), with the last five minutes as sparklines: the
@@ -137,7 +178,8 @@ the same page and engine as the RapidMX server's:
 * **Logs** — a live tail of `/api/admin/logs` from every replica, filterable by level and text, with captures
   downloadable as text (`.log`) or JSON Lines (`.ndjson`).
 
-**Download diagnostics report** saves the versions, the runtime and the latest usage sample as one JSON file (no logs).
+**Download diagnostics report** saves the versions, the environment and configuration (hidden and scrubbed as above),
+the runtime and the latest usage sample as one JSON file (no logs).
 The page needs the `admin` role and a fresh elevation, like the rest of the console.
 
 The Kubernetes parts use the pod's own ServiceAccount to read the API, read-only and only inside its own
@@ -154,7 +196,7 @@ needs, which the compose files and the chart both configure.
 
 With WhatsApp configured, a verified phone number can receive its sign-in, second-factor and elevation code over
 WhatsApp as well as SMS: it shows up as an extra "WhatsApp" choice beside the SMS one. (Verifying a contact and
-registering still use e-mail/SMS.) This needs a release of `@rapidrest/auth` that includes WhatsApp OTP.
+registering still use e-mail/SMS.)
 
 WhatsApp only delivers free-form text to someone who has messaged you in the last 24 hours, and a one-time code is
 almost never that, so for real users approve a message template in Meta's WhatsApp Manager and name it on the
@@ -175,17 +217,24 @@ Registry (ghcr.io).
 
 ### Docker Compose
 
-To run this project on docker you must use the included *docker-compose* scripts in the project source. Open up a new
-shell to the cloned folder and build the Docker image using `docker-compose`.
+There is no default `docker-compose.yml`: pick the file for the datastore you want and pass it with `-f`, before
+the subcommand.
+
+| File | Runs |
+| --- | --- |
+| `docker-compose.mongo.yml` | The server with MongoDB and Redis. |
+| `docker-compose.sql.yml` | The server with PostgreSQL and Redis. |
+| `docker-compose.debug.yml` | Layered on top of either: runs `yarn debug` with `apps/` and `src/` mounted, for live reload and the debugger. |
 
 ```bash
-docker-compose build
+docker compose -f docker-compose.mongo.yml up --build
 ```
 
-You can now run the server with the following command.
+The server listens on port 3000 (the Node inspector on 9229) and starts only once Redis and the database report
+healthy. To debug, add the debug file:
 
 ```bash
-docker-compose up
+docker compose -f docker-compose.mongo.yml -f docker-compose.debug.yml up --build
 ```
 
 ### Kubernetes
@@ -207,19 +256,48 @@ helm dep up ./helm
 helm install --create-namespace --namespace auth-server auth-server ./helm
 ```
 
+#### Gateway and TLS
+
+The chart exposes the server through a [Gateway API](https://gateway-api.sigs.k8s.io) Gateway that it creates itself
+(`global.gateway`, class `envoy` by default), at `host` (`auth.<global.domain>` by default). With `global.gateway.tls`
+on and a public host (not `localhost`, `*.localhost` or `*.local`), cert-manager issues its certificate, and:
+
+* plain HTTP is redirected (301) to HTTPS. Set `global.gateway.httpRedirect: false` when something in front of the
+  Gateway already ends TLS and forwards plain HTTP to it (Cloudflare "flexible" SSL, a load balancer's TLS listener),
+  or every request redirects to itself in a loop;
+* every response carries `Strict-Transport-Security` (turn it off with `global.gateway.hsts: false`), a baseline
+  `Content-Security-Policy`, `X-Content-Type-Options` and `Referrer-Policy`.
+
+#### Generated secrets
+
+Any of the cookie, session and JWT secrets and the two [encryption keys](#secrets-in-production) left empty is
+generated on install and kept in the release's Secrets, so upgrades read it back instead of logging everyone out or
+making encrypted data unreadable. Set them explicitly with `global.secrets.cookies`, `global.secrets.sessions`,
+`global.jwt.secret`, and `service.config.auth__oauth_server__keys__encryption_key` /
+`service.config.auth__totp__encryption_key`. Alternatively, point `global.secrets.existingSecret` at a Secret you
+manage.
+
+Keeping a generated secret depends on reading the existing one back from the cluster. **When the chart is rendered
+without cluster access** (`helm template`, a GitOps controller such as Argo CD, `--dry-run`), it can't do that, so
+the render fails and names the values to set. Set them, or use `existingSecret` or [OpenBao](#secrets-and-openbao).
+
 #### Single Node Cluster
 
 If you would like to run the project in a single-node Kubernetes cluster (k3s), the `k3s_install.sh` script is a
-great way to get started. This script will automatically set up everything needed to run *auth-server* in a Kubernetes
-environment, including ingress with TLS support. Simply run the script from any linux compatible machine.
+great way to get started. It installs k3s, Envoy Gateway, cert-manager (for TLS), External Secrets and OpenBao, then
+the chart. Run it from any Linux machine:
 
 ```bash
-./scripts/k3s_install.sh
+./scripts/k3s_install.sh --domain example.com
 ```
+
+Its options include `--domain`, `--auth-host`, `--version` (the chart version), `--tls`, `--email` (for the ACME
+account), `--openbao true|false`, `--skip-k3s` (use the cluster already there) and `--uninstall`; `--help` lists
+them all.
 
 ### Secrets and OpenBao
 
-With `global.openbao.enabled` this deployment keeps its JWT, cookie and session secrets in
+With `global.openbao.enabled` this deployment keeps its JWT, cookie and session secrets and its two encryption keys in
 [OpenBao](https://openbao.org), and [External Secrets](https://external-secrets.io) copies them into the Kubernetes
 Secrets the pod loads. Each value is written once and never rewritten, so an upgrade no longer invalidates issued tokens,
 cookies or sessions.
@@ -236,12 +314,18 @@ that release (`global.openbao`), so both ends read the same JWT secret and neith
 
 Point `global.openbao.address` at an OpenBao you already run to use that one instead
 (`global.openbao.auth.method: kubernetes` authenticates with the pod's ServiceAccount and stores no token). It has to
-hold `auth_secret`, `cookie_secret` and `session__secret` under `global.openbao.kvMount` at `global.openbao.secretsPath`
-(`<release>/secrets` by default), with `global.openbao.auth.tokenSecret` naming a Secret whose `token` may read them.
+hold `auth_secret`, `cookie_secret`, `session__secret`, `oauth_server_encryption_key` and `totp_encryption_key` (the
+last two as 64-hex strings) under `global.openbao.kvMount` at `global.openbao.secretsPath` (`<release>/secrets` by
+default), with `global.openbao.auth.tokenSecret` naming a Secret whose `token` may read them. If the vault's listener
+certificate is signed by a private CA, set `global.openbao.caConfigMap` to a ConfigMap in the release namespace that
+holds it under `ca.crt`. The RapidMX server chart creates `<fullname>-openbao-ca` for this.
 Left off (the chart's default), the secrets stay in Kubernetes Secrets as before.
 
 ## Debugging
 
 [Visual Studio Code](https://code.visualstudio.com/) is the recommended IDE to develop with. The project includes workspace and launch configuration files out of the box.
 
-To debug while running via Docker Compose select the `Docker: Attach Debugger` configuration and hit the `F5` key. If you want to run the server directly and debug choose the `Launch Server` configuration.
+To debug while running via Docker Compose (with `docker-compose.debug.yml`, see [Docker Compose](#docker-compose)),
+select the `Docker: Attach to Node` configuration and hit the `F5` key. To debug the server directly, choose
+`Launch Server`, which runs `yarn dev` under the debugger, or start `yarn debug` yourself and choose
+`Attach to yarn debug`. `Debug Current Test File` runs the test file open in the editor under the debugger.
