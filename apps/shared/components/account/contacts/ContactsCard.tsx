@@ -6,6 +6,7 @@ import React, { Dispatch, FormEvent, SetStateAction, useState } from "react";
 import {
     Alias,
     ApiRequestError,
+    codeErrorMessage,
     Contact,
     createAlias,
     deleteAlias,
@@ -178,9 +179,7 @@ export default function ContactsCard({
                 }
             }
         } catch (err) {
-            setVerifyError(
-                err instanceof ApiRequestError ? "Invalid or expired code." : "Something went wrong. Please try again.",
-            );
+            setVerifyError(codeErrorMessage(err));
         } finally {
             setVerifySaving(false);
         }

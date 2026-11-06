@@ -2,8 +2,10 @@
 // Copyright (C) 2020-2026 Jean-Philippe Steinmetz. All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
 // A minimal in-memory fake of the `redis` (node-redis v4+) client, covering exactly the subset of the API
-// this codebase actually uses: get/set/setEx/ttl/exists/del/unlink/scanIterator/multi(...).execAsPipeline[Typed](),
-// publish/subscribe/unsubscribe, and connect/disconnect/duplicate/isOpen. Used in place of the no-longer
+// this codebase actually uses: get/set (with NX/EX)/setEx/incr/expire (with NX)/ttl/exists/del/unlink/scanIterator,
+// multi(...).execAsPipeline[Typed]() and multi().incr().expire().exec() (what @rapidrest/auth 3's `OTPCounters` probes for
+// at startup and counts with), publish/subscribe/unsubscribe, and connect/disconnect/duplicate/isOpen. Deliberately no
+// `INCREX`, like a Redis older than 8.8, so service-core's `RateLimiter` takes its fallback path. Used in place of the no-longer
 // relevant `ioredis-mock` package now that the codebase talks to `redis` instead of `ioredis`.
 
 type PubSubListener = (message: string, channel: string) => void;
@@ -39,8 +41,39 @@ export class FakeRedisServer {
         return entry.value;
     }
 
-    public set(key: string, value: string): void {
-        this.store.set(key, { value });
+    /** `SET key value [NX] [EX seconds]`: `null` when `NX` is given and the key already exists, `"OK"` otherwise. */
+    public set(key: string, value: string, opts?: SetOptions): "OK" | null {
+        const { nx, ex } = parseSetOptions(opts);
+        if (nx && this.exists(key)) {
+            return null;
+        }
+        this.store.set(key, { value, expiresAt: ex !== undefined ? Date.now() + ex * 1000 : undefined });
+        return "OK";
+    }
+
+    /** `INCR key`, keeping the key's expiry as Redis does. Throws, like an error reply, on a value that isn't an integer. */
+    public incr(key: string): number {
+        const current: string | null = this.get(key);
+        const next: number = (current === null ? 0 : Number(current)) + 1;
+        if (!Number.isInteger(next)) {
+            throw new Error("ERR value is not an integer or out of range");
+        }
+        const expiresAt: number | undefined = this.store.get(key)?.expiresAt;
+        this.store.set(key, { value: String(next), expiresAt });
+        return next;
+    }
+
+    /** `EXPIRE key seconds [NX]`: 1 when the expiry was set, 0 when the key is missing or `NX` found one already set. */
+    public expire(key: string, seconds: number, mode?: string): number {
+        const entry: Entry | undefined = this.store.get(key);
+        if (!entry || this.isExpired(entry)) {
+            return 0;
+        }
+        if (mode === "NX" && entry.expiresAt !== undefined) {
+            return 0;
+        }
+        entry.expiresAt = Date.now() + seconds * 1000;
+        return 1;
     }
 
     public setEx(key: string, seconds: number, value: string): void {
@@ -127,6 +160,23 @@ export class FakeRedisServer {
     }
 }
 
+/** The `SET` options node-redis accepts: v5's `{ expiration: { type: "EX", value }, condition: "NX" }` or the older `{ NX, EX }`. */
+type SetOptions = {
+    expiration?: { type: string; value: number };
+    condition?: string;
+    NX?: boolean;
+    EX?: number;
+};
+
+function parseSetOptions(opts?: SetOptions): { nx: boolean; ex?: number } {
+    if (!opts) {
+        return { nx: false };
+    }
+    const nx: boolean = opts.condition === "NX" || opts.NX === true;
+    const ex: number | undefined = opts.expiration?.type === "EX" ? opts.expiration.value : opts.EX;
+    return { nx, ex };
+}
+
 class FakeMulti {
     private ops: Array<() => any> = [];
 
@@ -145,6 +195,25 @@ class FakeMulti {
     public setEx(key: string, seconds: number, value: string): this {
         this.ops.push(() => this.client.setEx(key, seconds, value));
         return this;
+    }
+
+    public incr(key: string): this {
+        this.ops.push(() => this.client.incr(key));
+        return this;
+    }
+
+    public expire(key: string, seconds: number, mode?: string): this {
+        this.ops.push(() => this.client.expire(key, seconds, mode));
+        return this;
+    }
+
+    /**
+     * `EXEC`: the queued commands run back to back with nothing interleaved, as a transaction does. Every op is started
+     * in the same synchronous pass (each client method does its store work before its first `await`), so no other
+     * request can run between them.
+     */
+    public async exec(): Promise<any[]> {
+        return Promise.all(this.ops.map((op) => op()));
     }
 
     public async execAsPipeline(): Promise<any[]> {
@@ -193,9 +262,16 @@ export class FakeRedisClient {
         return this.server.get(key);
     }
 
-    public async set(key: string, value: string): Promise<string> {
-        this.server.set(key, value);
-        return "OK";
+    public async set(key: string, value: string, opts?: SetOptions): Promise<string | null> {
+        return this.server.set(key, value, opts);
+    }
+
+    public async incr(key: string): Promise<number> {
+        return this.server.incr(key);
+    }
+
+    public async expire(key: string, seconds: number, mode?: string): Promise<number> {
+        return this.server.expire(key, seconds, mode);
     }
 
     public async setEx(key: string, seconds: number, value: string): Promise<string> {

@@ -23,10 +23,10 @@ export default function CodeStep({ identifierType, identifier, code, setCode, lo
         <form onSubmit={onSubmit}>
             <div className="rr-card__title">Check your {identifierType === "email" ? "inbox" : "messages"}</div>
             <p className="rr-card__subtitle">
-                We sent a 6-digit verification code to <strong>{identifier}</strong>.
+                We sent a verification code to <strong>{identifier}</strong>.
             </p>
             <FormField label="Verification code" htmlFor="code">
-                <CodeInput id="code" value={code} onChange={setCode} />
+                <CodeInput id="code" value={code} onChange={setCode} sent />
             </FormField>
             <Button type="submit" loading={loading} disabled={loading}>
                 Verify

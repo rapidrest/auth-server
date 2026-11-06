@@ -67,7 +67,7 @@ export default function OtpChallenge({
                         {whatsapp ? `We sent a code to ${otpContact} on WhatsApp.` : `We sent a code to ${otpContact}.`}
                     </p>
                     <FormField label="One-time code" htmlFor="otpCode">
-                        <CodeInput id="otpCode" value={otpCode} onChange={setOtpCode} />
+                        <CodeInput id="otpCode" value={otpCode} onChange={setOtpCode} sent />
                     </FormField>
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                         <Button type="submit" loading={loading} disabled={loading}>

@@ -144,7 +144,7 @@ export default function CreateClientForm({ onCreated }: CreateClientFormProps) {
                         checked={firstParty}
                         onChange={(e) => setFirstParty(e.target.checked)}
                     />
-                    First-party (skip the consent screen)
+                    First-party (skip the consent screen and allow /oauth/session-token)
                 </label>
             </div>
 

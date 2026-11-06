@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Upgraded @rapidrest/auth to 3.0.0, which fixes several MFA, OAuth and rate limiting security problems (see the release notes)
+- Sent one-time code inputs (sign-in, MFA, elevation, registration, contact verification) accept letters, shown upper case with spaces and hyphens dropped, since @rapidrest/auth 3 sends alphanumeric codes; authenticator-app inputs stay digits only
+- Show the server's "Too many attempts" message when a code submission is throttled instead of "Invalid or expired code."
+- Dropped "6-digit" from the sign-up code step
+- The authorize page tells an impersonating admin that applications can't be authorized while impersonating, instead of sending them to sign in, since @rapidrest/auth 3 refuses it
+- Documented the auth:otp config block, the Redis 7 requirement for the cache datastore, and the first-party requirement of POST /oauth/session-token in the README
+
 ## [1.0.0] - 2026-11-04
 
 ### Changed

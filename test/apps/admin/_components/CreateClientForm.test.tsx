@@ -118,7 +118,7 @@ describe("CreateClientForm", () => {
 
         render(<CreateClientForm onCreated={vi.fn()} />);
         await fillRequiredFields(user);
-        await user.click(screen.getByLabelText("First-party (skip the consent screen)"));
+        await user.click(screen.getByLabelText("First-party (skip the consent screen and allow /oauth/session-token)"));
         await user.click(screen.getByRole("button", { name: "Register client" }));
 
         expect(mockedCreateClient).toHaveBeenCalledWith(expect.objectContaining({ firstParty: true }));

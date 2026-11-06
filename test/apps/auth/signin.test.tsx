@@ -984,13 +984,14 @@ describe("SignInPage — otp method", () => {
         await screen.findByText("We sent a code to a@example.com.");
 
         mockedSignInWithOtp.mockResolvedValueOnce(AUTH_RESULT);
-        await user.type(screen.getByLabelText("One-time code"), "1a2b3c");
-        expect(screen.getByLabelText("One-time code")).toHaveValue("123");
-        await user.type(screen.getByLabelText("One-time code"), "456");
+        // Sent codes are letters and digits since @rapidrest/auth 3: kept, upper-cased, spaces and hyphens dropped.
+        await user.type(screen.getByLabelText("One-time code"), "7kq-4");
+        expect(screen.getByLabelText("One-time code")).toHaveValue("7KQ4");
+        await user.type(screen.getByLabelText("One-time code"), " mz");
         await user.click(screen.getByRole("button", { name: "Sign in" }));
 
         await waitFor(() => expect(location.href).toBe("/account"));
-        expect(mockedSignInWithOtp).toHaveBeenCalledWith("a@example.com", "123456");
+        expect(mockedSignInWithOtp).toHaveBeenCalledWith("a@example.com", "7KQ4MZ");
     });
 
     it("sends a plain phone (SMS) challenge without a channel", async () => {

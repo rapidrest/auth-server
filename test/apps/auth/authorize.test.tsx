@@ -107,6 +107,21 @@ describe("AuthorizePage — with a session", () => {
         );
     });
 
+    it("explains instead of redirecting to sign-in on {loginRequired} while impersonating", async () => {
+        // @rapidrest/auth 3 refuses every authorize request carrying the impersonation cookie, so sending the admin
+        // to sign in would just bring them back here.
+        const location = stubLocation("/auth/authorize", "?client_id=abc");
+        localStorage.setItem("rr_impersonating", "1");
+        try {
+            mockedRequestAuthorization.mockResolvedValue({ loginRequired: true });
+            render(<AuthorizePage userUid="u1" client_id="abc" />);
+            expect(await screen.findByText(/can't authorize an application while impersonating/)).toBeInTheDocument();
+            expect(location.replace).not.toHaveBeenCalled();
+        } finally {
+            localStorage.removeItem("rr_impersonating");
+        }
+    });
+
     it("shows the ApiRequestError message when the authorization request fails", async () => {
         stubLocation("/auth/authorize", "?client_id=abc");
         mockedRequestAuthorization.mockRejectedValue(new ApiRequestError("Unknown or disabled client_id.", 400));

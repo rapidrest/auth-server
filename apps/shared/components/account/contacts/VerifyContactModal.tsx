@@ -45,7 +45,7 @@ export default function VerifyContactModal({
             {error && <Alert>{error}</Alert>}
             <form onSubmit={onSubmit}>
                 <FormField label="Verification code" htmlFor="verifyCode">
-                    <CodeInput id="verifyCode" value={code} onChange={setCode} />
+                    <CodeInput id="verifyCode" value={code} onChange={setCode} sent />
                 </FormField>
                 <Button type="submit" loading={saving} disabled={saving} style={{ width: "auto" }}>
                     Verify

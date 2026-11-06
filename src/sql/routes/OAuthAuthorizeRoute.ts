@@ -8,8 +8,11 @@ const { Route } = RouteDecorators;
 
 @Route("/oauth/authorize")
 export class OAuthAuthorizeRoute extends BaseOAuthAuthorizeRouteSQL {
-    // "jwt" alone is enough: any successful sign-in this app supports (password, MFA, passkey, or a
-    // federated Google/Microsoft/Apple/Facebook login via AuthGoogleRoute/etc.) already populates the
-    // session `resolveUserUid()`'s fast path reads first, so federation needs no extra wiring here.
+    // "jwt" alone is enough: every completed sign-in this app supports (password, MFA, passkey, or a
+    // federated Google/Microsoft/Apple/Facebook login via AuthGoogleRoute/etc.) goes through
+    // `TokenUtils.createAuthResult()`, which records `session.signedInUid`/`signedInAt`. Since
+    // @rapidrest/auth 3, `resolveUserUid()` requires those (a bare access token, a password-only MFA
+    // step or an impersonation session is refused), and refuses a sign-in older than the user's
+    // "sign out everywhere", so federation needs no extra wiring here.
     protected resourceOwnerStrategies: string[] = ["jwt"];
 }

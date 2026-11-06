@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",
-    "@rapidrest/auth": "^2.0.0",
+    "@rapidrest/auth": "^3.0.0",
     "@rapidrest/core": "^6.1.0",
     "@rapidrest/react": "^2.3.0",
     "@rapidrest/service-core": "^2.5.1",

@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from "react";
 import {
     ApiRequestError,
+    isImpersonating,
     AuthorizeOutcome,
     AuthorizeQueryParams,
     requestAuthorization,
@@ -85,8 +86,15 @@ export default function AuthorizePage({ userUid, siteSettings, ...params }: Auth
                 if ("redirectTo" in result) {
                     window.location.href = result.redirectTo;
                 } else if ("loginRequired" in result) {
-                    // Defensive: the session that produced `userUid` above may have expired between the
-                    // page load and this call.
+                    if (isImpersonating()) {
+                        // @rapidrest/auth 3 never authorizes an application for an impersonated session, so
+                        // signing in again would only bring the admin straight back here.
+                        setError("You can't authorize an application while impersonating someone. Stop impersonating and try again.");
+                        return;
+                    }
+                    // A `userUid` alone isn't enough: since @rapidrest/auth 3 the session must have completed a
+                    // sign-in (a session from before that upgrade hasn't, as far as it knows), after the user's last
+                    // "sign out everywhere". It may also simply have expired since the page loaded.
                     window.location.replace(`/auth/signin?returnTo=${encodeURIComponent(currentUrl())}`);
                 } else {
                     setOutcome(result);

@@ -11,6 +11,7 @@ import {
     beginMfaChallenge,
     beginRegistration,
     clearImpersonatingMarker,
+    codeErrorMessage,
     completeElevationChallenge,
     completeElevationFido2,
     completeOAuthSignIn,
@@ -28,6 +29,7 @@ import {
     elevateWithPassword,
     getAccount,
     getCurrentUser,
+    isTooManyAttempts,
     getFido2Challenge,
     getFido2RegistrationOptions,
     getOAuthAuthorizeURL,
@@ -88,6 +90,32 @@ describe("ApiRequestError", () => {
     it("code is optional", () => {
         const err = new ApiRequestError("nope", 500);
         expect(err.code).toBeUndefined();
+    });
+});
+
+describe("codeErrorMessage / isTooManyAttempts", () => {
+    it("passes the throttle message through for a strategy route's 401", () => {
+        // service-core reports a throttled auth strategy (/auth/otp, /auth/mfa) as a 401 carrying the message.
+        const err = new ApiRequestError("Too many attempts. Please try again later.", 401);
+        expect(isTooManyAttempts(err)).toBe(true);
+        expect(codeErrorMessage(err)).toBe("Too many attempts. Please try again later.");
+    });
+
+    it("passes the message through for a 429", () => {
+        const err = new ApiRequestError("Slow down.", 429);
+        expect(isTooManyAttempts(err)).toBe(true);
+        expect(codeErrorMessage(err)).toBe("Slow down.");
+    });
+
+    it("hides why any other API failure happened", () => {
+        const err = new ApiRequestError("Invalid challenge for purpose.", 401);
+        expect(isTooManyAttempts(err)).toBe(false);
+        expect(codeErrorMessage(err)).toBe("Invalid or expired code.");
+    });
+
+    it("gives the generic message for a non-API failure", () => {
+        expect(isTooManyAttempts(new Error("network"))).toBe(false);
+        expect(codeErrorMessage(new Error("network"))).toBe("Something went wrong. Please try again.");
     });
 });
 

@@ -129,11 +129,12 @@ describe("SignUpPage — code step", () => {
         await screen.findByText("Check your inbox");
     }
 
-    it("strips non-digit characters from the code input", async () => {
+    it("accepts letters in the code input, upper-cased, dropping spaces and hyphens", async () => {
+        // @rapidrest/auth 3 sends alphanumeric codes such as "7KQ4MZ".
         const user = userEvent.setup();
         await advanceToCodeStep(user);
-        await user.type(screen.getByLabelText("Verification code"), "12a3b456");
-        expect(screen.getByLabelText("Verification code")).toHaveValue("123456");
+        await user.type(screen.getByLabelText("Verification code"), "7kq-4 mz");
+        expect(screen.getByLabelText("Verification code")).toHaveValue("7KQ4MZ");
     });
 
     it("resends the code without changing steps", async () => {

@@ -17,7 +17,7 @@ import { Logger } from "@rapidrest/core";
 import { ObjectFactory, RepoUtils, Server } from "@rapidrest/service-core";
 import { agent, request } from "@rapidrest/service-core/test";
 import { importArgon2, normalizePasswordSubmission, PasswordConfig } from "@rapidrest/auth";
-import { AliasMongo, SecretMongo, UserMongo } from "@rapidrest/auth/mongo";
+import { AliasMongo, ClientMongo, SecretMongo, UserMongo } from "@rapidrest/auth/mongo";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
 const PASSWORD = "S3cret!Pass123";
@@ -250,7 +250,35 @@ describe("OAuth 2.0 / OIDC end-to-end integration (mongo)", () => {
                 .set("Authorization", `Bearer ${accessToken}`);
             expect(apiWithOAuthTokenRes.status).toBe(401);
 
-            // --- /oauth/session-token trades that same OAuth access token for an ordinary session JWT ---
+            // --- /oauth/session-token refuses a token issued to a third-party client: since @rapidrest/auth 3 it
+            // would otherwise turn any application's access token into the user's own full session ---
+            const thirdPartyExchangeRes = await request(server)
+                .post("/oauth/session-token")
+                .set("Authorization", `Bearer ${accessToken}`);
+            expect(thirdPartyExchangeRes.status).toBe(403);
+
+            // --- the client's owner can't make it First-party: only a trusted role may, so the request is
+            // accepted but the flag is ignored ---
+            const currentClientRes = await ownerAgent.get(`/api/oauth/clients/${clientId}`);
+            expect(currentClientRes.status).toBe(200);
+            const ownerFirstPartyRes = await ownerAgent
+                .put(`/api/oauth/clients/${clientId}`)
+                .send({ uid: clientId, version: currentClientRes.body.version, firstParty: true });
+            expect(ownerFirstPartyRes.status).toBe(200);
+            expect(ownerFirstPartyRes.body.firstParty).toBe(false);
+            const stillThirdPartyRes = await request(server)
+                .post("/oauth/session-token")
+                .set("Authorization", `Bearer ${accessToken}`);
+            expect(stillThirdPartyRes.status).toBe(403);
+
+            // --- an administrator marks it First-party (as a native app's client would be; done through the
+            // repository here, as accounts are above). The exchange checks the registered client on every request ---
+            const clientRepo = await objectFactory.newInstance(RepoUtils, { name: "ClientMongo", args: [ClientMongo] });
+            const storedClient = await clientRepo.findOne(clientId, { ignoreACL: true });
+            expect(storedClient).toBeTruthy();
+            await clientRepo.update({ uid: clientId, version: storedClient!.version, firstParty: true } as any, storedClient, { ignoreACL: true });
+
+            // --- /oauth/session-token now trades that same OAuth access token for an ordinary session JWT ---
             const sessionTokenRes = await request(server)
                 .post("/oauth/session-token")
                 .set("Authorization", `Bearer ${accessToken}`);
