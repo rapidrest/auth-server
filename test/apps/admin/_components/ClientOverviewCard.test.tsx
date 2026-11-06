@@ -54,7 +54,7 @@ describe("ClientOverviewCard", () => {
         expect(screen.getByText("c1")).toBeInTheDocument();
         expect(screen.getByText("Confidential")).toBeInTheDocument();
         expect(screen.getByLabelText("Client name")).toHaveValue("Test App");
-        expect(screen.getByLabelText("First-party (skip the consent screen)")).not.toBeChecked();
+        expect(screen.getByLabelText("First-party (skip the consent screen and allow /oauth/session-token)")).not.toBeChecked();
         expect(screen.getByLabelText("Disabled (rejects every authorization/token request for this client)")).not.toBeChecked();
     });
 
@@ -67,7 +67,7 @@ describe("ClientOverviewCard", () => {
         render(<ClientOverviewCard client={baseClient} onUpdated={onUpdated} />);
         await user.clear(screen.getByLabelText("Client name"));
         await user.type(screen.getByLabelText("Client name"), "Renamed App");
-        await user.click(screen.getByLabelText("First-party (skip the consent screen)"));
+        await user.click(screen.getByLabelText("First-party (skip the consent screen and allow /oauth/session-token)"));
         await user.click(screen.getByRole("button", { name: "Save" }));
 
         expect(mockedUpdateClient).toHaveBeenCalledWith({
@@ -102,7 +102,7 @@ describe("ClientOverviewCard", () => {
         render(<ClientOverviewCard client={baseClient} onUpdated={vi.fn()} />);
         await user.click(screen.getByRole("button", { name: "Save" }));
         expect(await screen.findByText("Saved.")).toBeInTheDocument();
-        await user.click(screen.getByLabelText("First-party (skip the consent screen)"));
+        await user.click(screen.getByLabelText("First-party (skip the consent screen and allow /oauth/session-token)"));
         expect(screen.queryByText("Saved.")).not.toBeInTheDocument();
     });
 
@@ -158,6 +158,6 @@ describe("ClientOverviewCard", () => {
         const otherClient: AdminClient = { ...baseClient, uid: "c2", clientName: "Other App", firstParty: true };
         rerender(<ClientOverviewCard client={otherClient} onUpdated={vi.fn()} />);
         expect(screen.getByLabelText("Client name")).toHaveValue("Other App");
-        expect(screen.getByLabelText("First-party (skip the consent screen)")).toBeChecked();
+        expect(screen.getByLabelText("First-party (skip the consent screen and allow /oauth/session-token)")).toBeChecked();
     });
 });

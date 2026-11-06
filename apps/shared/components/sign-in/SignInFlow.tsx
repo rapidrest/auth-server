@@ -10,6 +10,7 @@ import {
 } from "@simplewebauthn/browser";
 import {
     ApiRequestError,
+    codeErrorMessage,
     AuthResult,
     beginMfaChallenge,
     completeOAuthSignIn,
@@ -330,7 +331,7 @@ export default function SignInFlow({ onSuccess, returnTo, oauthProviders }: Sign
             const result = await verifyMfaCode(uid, mfaCode.trim());
             onSuccess(result);
         } catch (err) {
-            setError(err instanceof ApiRequestError ? "Invalid or expired code." : "Something went wrong. Please try again.");
+            setError(codeErrorMessage(err));
             setLoading(false);
         }
     }
@@ -365,7 +366,7 @@ export default function SignInFlow({ onSuccess, returnTo, oauthProviders }: Sign
             const result = await signInWithTotp(identifier.trim(), totpCode.trim());
             onSuccess(result);
         } catch (err) {
-            setError(err instanceof ApiRequestError ? "Invalid or expired code." : "Something went wrong. Please try again.");
+            setError(codeErrorMessage(err));
             setLoading(false);
         }
     }
@@ -394,7 +395,7 @@ export default function SignInFlow({ onSuccess, returnTo, oauthProviders }: Sign
             const result = await signInWithOtp(otpContact.trim(), otpCode.trim());
             onSuccess(result);
         } catch (err) {
-            setError(err instanceof ApiRequestError ? "Invalid or expired code." : "Something went wrong. Please try again.");
+            setError(codeErrorMessage(err));
             setLoading(false);
         }
     }

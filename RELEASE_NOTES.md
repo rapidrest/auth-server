@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Security
+
+* **Upgraded `@rapidrest/auth` to 3.0.0**, which fixes, among others, a second factor that could be completed with a code sent to someone else's contact, a password alone being accepted as a signed-in session at `/oauth/authorize`, impersonation and stolen access tokens obtaining OAuth authorization codes, "sign out everywhere" not stopping `/oauth/authorize`, any OAuth access token being exchangeable for a full session at `POST /oauth/session-token`, and `auth:otp:maxAttempts` not holding across parallel requests. See its release notes for the details.
+
+### Breaking changes
+
+* **Codes sent by e-mail, SMS or WhatsApp are now six letters and digits** (such as `7KQ4MZ`), not six digits, and last ten minutes instead of until the end of a 30 second window. Every code input for them accepts letters now, shown upper case, with spaces and hyphens dropped. Authenticator-app (TOTP) codes are unchanged. A custom message template that says "6-digit code" should be reworded; the `{{totp}}` variable still holds the code. A wrong code no longer discards it: up to `auth:otp:maxAttempts` (5) tries are allowed.
+* **`datastores:cache` must be Redis 7.0 or newer and reachable at startup**, or the server refuses to start. The Helm chart's Redis and the Compose files' `redis` image already are. A Redis outage during a deployment can therefore make the server crash-loop until Redis is back.
+* **`POST /oauth/session-token` only accepts an access token issued to an enabled client marked First-party** in the admin console. Mark the client of a native app that uses it (e.g. `tauri-client`) First-party, or it gets a 403.
+* **Signed-in sessions from before the upgrade must sign in again (or refresh) before `/oauth/authorize` gives them a code**; until then it answers `loginRequired`, and the authorize page sends them to sign in. The same happens after "sign out everywhere". While impersonating, applications can't be authorized at all; the authorize page says so instead of sending the admin to sign in.
+* A throttled sign-in or second-factor code is refused with "Too many attempts. Please try again later." (a 401, not a 429), which the pages now show as is. After a throttled second-factor or elevation attempt, start the step again.
+* New optional configuration: `auth:otp` (see the README). Generic rate limit counters for client-supplied identifiers moved from `ratelimit:<id>` to `ratelimit:id:<id>`; the old ones expire on their own.
+
 ## v1.0.0
 
 ## v1.0.0-beta.35

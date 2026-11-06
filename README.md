@@ -20,7 +20,7 @@ A reference implementation of a RapidREST authorization server built on [@rapidr
 * OIDC discovery, JWKS and UserInfo endpoints
 * Hosted consent/authorize screen for third-party clients
 * Admin-managed client registration — confidential and public clients, with secret regeneration/reveal
-* `POST /oauth/session-token` — lets a native app that already holds an OAuth access token (from this server's own `/oauth/authorize` + `/oauth/token`, e.g. a `PUBLIC` client with no secret) trade it for an ordinary session JWT, so it can also call this app's own session-authenticated `/api/...` routes without those routes needing to understand OAuth bearer tokens
+* `POST /oauth/session-token` — lets a native app that already holds an OAuth access token (from this server's own `/oauth/authorize` + `/oauth/token`, e.g. a `PUBLIC` client with no secret) trade it for an ordinary session JWT — only for a token issued to an enabled client marked **First-party** in the admin console (anything else gets a 403) — so it can also call this app's own session-authenticated `/api/...` routes without those routes needing to understand OAuth bearer tokens
 
 ### Account Management
 
@@ -102,6 +102,8 @@ console owns it (see each row).
 | `audit_log:retention_days` | How long an audit log entry is kept before the daily retention job purges it. Unset/`null` (the default) means **never purge** — an audit trail losing data unexpectedly would be a real regression, so there's no other way to enable purging. |
 | `auth:oauth_server:keys:encryption_key` | AES-256 key (64 hex characters) that encrypts the OAuth server's signing keys and the stored messaging credentials at rest. The checked-in default is public, so set your own. The Helm chart generates one and keeps it. |
 | `auth:totp:encryption_key` | AES-256 key (64 hex characters) that encrypts every user's TOTP/MFA shared secret at rest. Unset, TOTP secrets are stored in plaintext. The Helm chart generates one and keeps it. |
+| `auth:otp` | The codes sent by e-mail, SMS and WhatsApp (sign-in, second factor, elevation, registration, contact verification): `length` (6), `alphabet` (`23456789ABCDEFGHJKMNPQRSTUVWXYZ`), `ttl` (600 s, or a duration such as `"10m"`, at most an hour), `maxAttempts` (5 wrong tries per code) and `limits` (`issue`, `issueTotal`, `verify`, `verifyTotal`, `user`, `userTotal`, each `{ maxAttempts, windowSeconds }`). Everything has a default, so leave it unset unless you need to change one. An unsafe value (fewer than 20 bits of entropy, a `ttl` over an hour, `maxAttempts` over 10) stops the server from starting. See `@rapidrest/auth`'s README for the limits' defaults. |
+| `datastores:cache` | The Redis the one-time-code counters (per-code guesses, single use, the `auth:otp:limits`) are kept in, shared by every instance. It must be **Redis 7.0 or newer** and reachable at startup: the server checks it and refuses to start otherwise. Without a `cache` datastore the counters are per process, which is only correct for a single instance. |
 
 #### Secrets in production
 
@@ -197,6 +199,10 @@ needs, which the compose files and the chart both configure.
 With WhatsApp configured, a verified phone number can receive its sign-in, second-factor and elevation code over
 WhatsApp as well as SMS: it shows up as an extra "WhatsApp" choice beside the SMS one. (Verifying a contact and
 registering still use e-mail/SMS.)
+
+Every sent code (e-mail, SMS or WhatsApp) is six letters and digits, such as `7KQ4MZ`, not six digits, and lasts ten
+minutes (`auth:otp`). Case, spaces and hyphens don't matter when it's typed. Authenticator-app codes are still six
+digits.
 
 WhatsApp only delivers free-form text to someone who has messaged you in the last 24 hours, and a one-time code is
 almost never that, so for real users approve a message template in Meta's WhatsApp Manager and name it on the

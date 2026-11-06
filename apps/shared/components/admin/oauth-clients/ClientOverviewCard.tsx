@@ -123,7 +123,7 @@ export default function ClientOverviewCard({ client, onUpdated }: ClientOverview
                             setSaved(false);
                         }}
                     />
-                    First-party (skip the consent screen)
+                    First-party (skip the consent screen and allow /oauth/session-token)
                 </label>
             </div>
 

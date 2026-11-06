@@ -94,7 +94,7 @@ export default function MfaStep({
             {selectedMethod && (selectedMethod.type === "otp" || selectedMethod.type === "totp") && (
                 <form onSubmit={onCodeSubmit}>
                     <FormField label={selectedMethod.type === "totp" ? "Authenticator code" : "One-time code"} htmlFor="mfaCode">
-                        <CodeInput id="mfaCode" value={code} onChange={setCode} />
+                        <CodeInput id="mfaCode" value={code} onChange={setCode} sent={selectedMethod.type === "otp"} />
                     </FormField>
                     <Button type="submit" loading={loading} disabled={loading}>
                         Verify

@@ -2130,3 +2130,12 @@ A release pushes `main` and its tag at the same commit, and each push runs CI. T
 ## 2026-10-27 - SecretStore caProvider
 
 `helm/templates/4_vault/external-secrets.yaml` renders `caProvider` (ConfigMap `global.openbao.caConfigMap`, key `ca.crt`, no namespace) on the SecretStore via the overridable define `rrst.vaultCaProvider` (helpers `rrst.vaultCaConfigMap`), the same shape as the RapidMX server chart's store. Unset renders byte-identical output. Test: `test/HelmVaultCaProvider.test.ts`. Not released. Note: the other `test/Helm*.test.ts` files already fail on `main` (the chart now refuses to render generated secrets without cluster access), unrelated to this change.
+
+## 2026-11-05 - Upgrade to @rapidrest/auth 3.0.0
+
+- Route wrappers needed no code change: the Mongo/SQL bases supply the new abstract `userClass` (authorize) and `clientClass` (session-token).
+- `test/helpers/FakeRedis.ts` gained `incr`, `expire` (with `NX`), `set` with `NX`/`EX` (both node-redis option shapes) and `multi().incr().expire().exec()`. Without them `OTPCounters.checkDeployment()` refuses every server boot in the integration tests ("`cache` connection is unreachable"). `exec()` starts every op in one synchronous pass so it stays atomic. Still no `INCREX` on purpose.
+- `CodeInput` has `sent` for e-mail/SMS/WhatsApp codes (letters, upper-cased, spaces/hyphens dropped, `maxLength` 64 because `auth:otp:length` is configurable); TOTP stays digits. MfaStep/ElevationHost pass `sent={selectedMethod.type === "otp"}`.
+- `codeErrorMessage()`/`isTooManyAttempts()` in `api.ts`: throttled strategy routes answer **401** "Too many attempts...", so match on the message as well as 429.
+- `/oauth/session-token` needs a First-party client, and only a trusted role can set `firstParty` (the owner's PUT silently drops it). `OAuthIntegration.*.test.ts` sets it through the repo.
+- `/oauth/authorize` refuses impersonation sessions; `authorize.tsx` shows an error then (using the `isImpersonating()` hint) rather than redirecting to sign-in, which would loop.

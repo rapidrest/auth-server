@@ -53,6 +53,30 @@ export class ApiRequestError extends Error {
 }
 
 /**
+ * The message `@rapidrest/auth` gives when a code flow is throttled. Its strategy routes (`/auth/otp`, `/auth/mfa`,
+ * `/auth/totp`) answer it as a 401, since service-core turns any error an auth strategy throws into a 401 carrying the
+ * message, so the status alone can't tell "throttled" from "wrong code"; the non-strategy routes (registration, contact
+ * verification, elevation) answer a 429.
+ */
+const TOO_MANY_ATTEMPTS_PREFIX = "Too many attempts";
+
+/** Whether `err` is the server refusing a request because too many attempts were made (see `TOO_MANY_ATTEMPTS_PREFIX`). */
+export function isTooManyAttempts(err: unknown): boolean {
+    return err instanceof ApiRequestError && (err.status === 429 || err.message.startsWith(TOO_MANY_ATTEMPTS_PREFIX));
+}
+
+/**
+ * What to show when submitting a one-time or authenticator code failed: the server's own message when it was throttled
+ * (retrying immediately would only fail again), otherwise a generic "Invalid or expired code." that doesn't say which.
+ */
+export function codeErrorMessage(err: unknown): string {
+    if (isTooManyAttempts(err)) {
+        return (err as ApiRequestError).message || "Too many attempts. Please try again later.";
+    }
+    return err instanceof ApiRequestError ? "Invalid or expired code." : "Something went wrong. Please try again.";
+}
+
+/**
  * Mirrors `@rapidrest/service-core`'s `ApiErrors.AUTH_REQUIRES_ELEVATION` — kept as a local literal rather
  * than an import since this file is deliberately dependency-free (see the module doc comment above).
  */

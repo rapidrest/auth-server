@@ -7,6 +7,7 @@ import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from 
 import { FiHardDrive, FiMail, FiMessageCircle, FiShield } from "react-icons/fi";
 import {
     ApiRequestError,
+    codeErrorMessage,
     beginElevationChallenge,
     completeElevationChallenge,
     completeElevationFido2,
@@ -138,7 +139,7 @@ export default function ElevationHost() {
             await completeElevationChallenge(code.trim());
             resolveElevation(true);
         } catch (err) {
-            setError(err instanceof ApiRequestError ? "Invalid or expired code." : "Something went wrong. Please try again.");
+            setError(codeErrorMessage(err));
             setLoading(false);
         }
     }
@@ -211,7 +212,7 @@ export default function ElevationHost() {
             {step === "code" && selectedMethod && (
                 <form onSubmit={handleCodeSubmit}>
                     <FormField label={selectedMethod.type === "totp" ? "Authenticator code" : "One-time code"} htmlFor="elevationCode">
-                        <CodeInput id="elevationCode" value={code} onChange={setCode} />
+                        <CodeInput id="elevationCode" value={code} onChange={setCode} sent={selectedMethod.type === "otp"} />
                     </FormField>
                     <Button type="submit" loading={loading} disabled={loading}>
                         Confirm
